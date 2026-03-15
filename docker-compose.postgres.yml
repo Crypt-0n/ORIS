@@ -1,0 +1,53 @@
+# PostgreSQL stack for ORIS
+# Usage: docker compose -f docker-compose.postgres.yml up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: oris
+      POSTGRES_USER: oris
+      POSTGRES_PASSWORD: oris_secret
+    volumes:
+      - oris_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U oris -d oris" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    #    ports:
+    #      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DATABASE_URL=postgres://oris:oris_secret@db:5432/oris
+    volumes:
+      - oris_uploads:/app/uploads
+      - oris_backups:/app/data/backups
+      - oris_avatars:/app/avatars
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3457:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  oris_pgdata:
+  oris_uploads:
+  oris_backups:
+  oris_avatars:

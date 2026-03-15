@@ -1,0 +1,25 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_PATH=/app/data/database.sqlite
+    volumes:
+      - /data/oris/data:/app/data
+      - /data/oris/uploads:/app/uploads
+      - /data/oris/avatars:/app/avatars
+    restart: unless-stopped

@@ -1,0 +1,54 @@
+# MariaDB stack for ORIS
+# Usage: docker compose -f docker-compose.mysql.yml up -d
+
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: oris
+      MARIADB_USER: oris
+      MARIADB_PASSWORD: oris_secret
+      MARIADB_ROOT_PASSWORD: root_secret
+    volumes:
+      - oris_mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "oris", "--password=oris_secret" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    #    ports:
+    #      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DATABASE_URL=mysql://oris:oris_secret@db:3306/oris
+    volumes:
+      - oris_uploads:/app/uploads
+      - oris_backups:/app/data/backups
+      - oris_avatars:/app/avatars
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3458:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  oris_mariadb_data:
+  oris_uploads:
+  oris_backups:
+  oris_avatars:
