@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Book, Lock, Globe, Code, ChevronRight, Tags, Database, Activity } from 'lucide-react';
+import { Book, Lock, Globe, Code, ChevronRight, Tags, Database, Activity, Brain, Share2 } from 'lucide-react';
 
 interface EndpointProps {
     method: string;
@@ -121,10 +121,38 @@ export function ApiDocs() {
 }`}
                     />
                     <Endpoint
+                        method="POST"
+                        path="/auth/register"
+                        description="Créer un compte administrateur initial (setup uniquement)"
+                        params={["fullName: Nom complet (Body)", "email: Email (Body)", "password: Mot de passe (Body)"]}
+                    />
+                    <Endpoint
+                        method="POST"
+                        path="/auth/refresh"
+                        description="Rafraîchir le jeton JWT"
+                        response={`{ "session": { "access_token": "new_jwt" } }`}
+                    />
+                    <Endpoint
                         method="PUT"
                         path="/auth/password"
                         description="Changer de mot de passe"
                         params={["currentPassword: Mot de passe actuel", "newPassword: Nouveau mot de passe"]}
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/auth/login-history"
+                        description="Historique de connexion de l'utilisateur"
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/auth/login-history/all"
+                        description="Historique de connexion de tous les utilisateurs (Admin)"
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/auth/config/allow-api-tokens"
+                        description="Vérifier si les jetons API sont activés"
+                        response={`{ "allowed": true }`}
                     />
                     <Endpoint
                         method="GET"
@@ -166,6 +194,23 @@ export function ApiDocs() {
     "severity": { "label": "High", "color": "#ef4444" }
   }
 ]`}
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/cases/my-beneficiaries"
+                        description="Lister les bénéficiaires accessibles à l'utilisateur"
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/cases/beneficiary-members/:beneficiary_id"
+                        description="Lister les membres d'un bénéficiaire"
+                        params={["beneficiary_id: UUID du bénéficiaire (Path)"]}
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/cases/:id/beneficiary-members"
+                        description="Membres du bénéficiaire lié au dossier"
+                        params={["id: UUID du dossier (Path)"]}
                     />
                     <Endpoint
                         method="GET"
@@ -331,6 +376,12 @@ export function ApiDocs() {
                         description="Supprimer une entité d'investigation"
                         params={["type: Type d'entité (Path)", "id: UUID de l'entité (Path)"]}
                     />
+                    <Endpoint
+                        method="DELETE"
+                        path="/investigation/account_systems/by-account/:accountId"
+                        description="Supprimer les liens système d'un compte compromis"
+                        params={["accountId: UUID du compte (Path)"]}
+                    />
                 </section>
 
                 {/* Tasks & Collaboration */}
@@ -434,6 +485,12 @@ export function ApiDocs() {
                         params={["taskId: UUID de la tâche (Path)"]}
                     />
                     <Endpoint
+                        method="GET"
+                        path="/files/download"
+                        description="Télécharger un fichier"
+                        params={["path: Chemin du fichier (Query)"]}
+                    />
+                    <Endpoint
                         method="DELETE"
                         path="/files/:id"
                         description="Supprimer une pièce jointe"
@@ -513,6 +570,12 @@ export function ApiDocs() {
                     />
                     <Endpoint
                         method="DELETE"
+                        path="/notifications/:id"
+                        description="Supprimer une notification"
+                        params={["id: UUID de la notification (Path)"]}
+                    />
+                    <Endpoint
+                        method="DELETE"
                         path="/notifications/all"
                         description="Supprimer toutes les notifications"
                     />
@@ -520,18 +583,31 @@ export function ApiDocs() {
                         method="POST"
                         path="/notifications/subscribe"
                         description="Souscrire aux notifications Web Push"
-                        params={["subscription: Objet PushSubscription complet (Body)"]}
+                        params={["endpoint: URL du push endpoint (Body)", "keys: { p256dh, auth } (Body)"]}
+                    />
+                    <Endpoint
+                        method="POST"
+                        path="/notifications/unsubscribe"
+                        description="Se désinscrire des notifications Push"
+                        params={["endpoint: URL du push endpoint (Body)"]}
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/notifications/vapid-public-key"
+                        description="Récupérer la clé publique VAPID pour Push"
+                        response={`{ "publicKey": "BMOnGY0Czp..." }`}
                     />
                     <Endpoint
                         method="GET"
                         path="/notifications/preferences"
                         description="Récupérer les préférences de notification"
+                        response={`{ "mention": true, "assignment": true, "task_status": true, "task_comment": true, "case_status": true }`}
                     />
                     <Endpoint
                         method="PUT"
                         path="/notifications/preferences"
                         description="Modifier les préférences de notification"
-                        params={["preferences: Objet de préférences (Body)"]}
+                        params={["mention: boolean (Body, Opt)", "assignment: boolean (Body, Opt)", "task_status: boolean (Body, Opt)", "task_comment: boolean (Body, Opt)", "case_status: boolean (Body, Opt)"]}
                     />
                 </section>
 
@@ -575,6 +651,11 @@ export function ApiDocs() {
                     </div>
                     <Endpoint
                         method="GET"
+                        path="/backup/can-restore"
+                        description="Vérifier si une restauration est possible"
+                    />
+                    <Endpoint
+                        method="GET"
                         path="/backup"
                         description="Lister les sauvegardes existantes"
                     />
@@ -587,6 +668,11 @@ export function ApiDocs() {
                         method="POST"
                         path="/backup/full"
                         description="Créer une sauvegarde complète (BDD + fichiers + avatars)"
+                    />
+                    <Endpoint
+                        method="POST"
+                        path="/backup/restore"
+                        description="Restaurer la base depuis un dump ArangoDB"
                     />
                     <Endpoint
                         method="GET"
@@ -773,6 +859,30 @@ export function ApiDocs() {
                         params={["id: UUID bénéficiaire (Path)", "user_id: UUID utilisateur (Body)"]}
                     />
                     <Endpoint
+                        method="PUT"
+                        path="/admin/beneficiaries/:id"
+                        description="Modifier un bénéficiaire (Admin)"
+                        params={["id: UUID bénéficiaire (Path)", "name: Nom (Body, Opt)", "description: Description (Body, Opt)"]}
+                    />
+                    <Endpoint
+                        method="PUT"
+                        path="/admin/beneficiaries/members/:id/team-lead"
+                        description="Définir/retirer un membre comme team lead"
+                        params={["id: UUID du membership (Path)", "is_team_lead: boolean (Body)"]}
+                    />
+                    <Endpoint
+                        method="PUT"
+                        path="/admin/beneficiaries/members/:id/role"
+                        description="Changer le rôle d'un membre au sein d'un bénéficiaire"
+                        params={["id: UUID du membership (Path)", "role: Rôle type-specific (Body)"]}
+                    />
+                    <Endpoint
+                        method="DELETE"
+                        path="/admin/beneficiaries/members/:id"
+                        description="Retirer un membre d'un bénéficiaire"
+                        params={["id: UUID du membership (Path)"]}
+                    />
+                    <Endpoint
                         method="DELETE"
                         path="/admin/users/:id"
                         description="Supprimer un utilisateur (Admin)"
@@ -831,6 +941,163 @@ export function ApiDocs() {
                         path="/presence/case/:caseId"
                         description="Voir les utilisateurs actuellement sur un dossier"
                         params={["caseId: UUID du dossier (Path)"]}
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/presence/task/:taskId"
+                        description="Voir les utilisateurs actuellement sur une tâche"
+                        params={["taskId: UUID de la tâche (Path)"]}
+                    />
+                </section>
+
+                {/* STIX 2.1 */}
+                <section>
+                    <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
+                        <Share2 className="w-5 h-5 text-gray-400" />
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">STIX 2.1 — Graphe d'investigation</h3>
+                    </div>
+                    <Endpoint
+                        method="GET"
+                        path="/stix/objects/by-case/:caseId"
+                        description="Lister tous les objets STIX d'un dossier"
+                        params={["caseId: UUID du dossier (Path)"]}
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/stix/objects/:id"
+                        description="Détails d'un objet STIX"
+                        params={["id: ID STIX (ex: malware--uuid) (Path)"]}
+                    />
+                    <Endpoint
+                        method="POST"
+                        path="/stix/objects"
+                        description="Créer un objet STIX (SDO ou SCO)"
+                        params={[
+                            "case_id: UUID du dossier (Body)",
+                            "id: ID STIX (Body)",
+                            "type: Type STIX (ex: malware, indicator, infrastructure) (Body)",
+                            "name: Nom (Body)",
+                            "...: Attributs STIX 2.1 selon le type (Body)"
+                        ]}
+                    />
+                    <Endpoint
+                        method="PUT"
+                        path="/stix/objects/:id"
+                        description="Modifier un objet STIX"
+                        params={["id: ID STIX (Path)"]}
+                    />
+                    <Endpoint
+                        method="DELETE"
+                        path="/stix/objects/:id"
+                        description="Supprimer un objet STIX et ses relations"
+                        params={["id: ID STIX (Path)"]}
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/stix/relationships/by-case/:caseId"
+                        description="Lister les relations STIX d'un dossier"
+                        params={["caseId: UUID du dossier (Path)"]}
+                    />
+                    <Endpoint
+                        method="POST"
+                        path="/stix/relationships"
+                        description="Créer une relation STIX (SRO)"
+                        params={[
+                            "case_id: UUID du dossier (Body)",
+                            "id: ID STIX (Body)",
+                            "relationship_type: Type de relation (ex: uses, targets) (Body)",
+                            "source_ref: ID STIX source (Body)",
+                            "target_ref: ID STIX cible (Body)"
+                        ]}
+                    />
+                    <Endpoint
+                        method="DELETE"
+                        path="/stix/relationships/:id"
+                        description="Supprimer une relation STIX"
+                        params={["id: ID STIX de la relation (Path)"]}
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/stix/bundle/:caseId"
+                        description="Générer le bundle STIX 2.1 complet d'un dossier"
+                        params={["caseId: UUID du dossier (Path)"]}
+                        response={`{ "type": "bundle", "id": "bundle--uuid", "objects": [...] }`}
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/stix/diamond/:caseId"
+                        description="Données Diamond Model : adversaire, infrastructure, capacité, victime"
+                        params={["caseId: UUID du dossier (Path)"]}
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/stix/lateral/:caseId"
+                        description="Chemins de mouvement latéral entre infrastructures"
+                        params={["caseId: UUID du dossier (Path)"]}
+                    />
+                    <Endpoint
+                        method="POST"
+                        path="/stix/sync/:caseId"
+                        description="Synchroniser les tables d'investigation vers le graphe STIX"
+                        params={["caseId: UUID du dossier (Path)"]}
+                        response={`{ "vertices": 42, "edges": 35 }`}
+                    />
+                </section>
+
+                {/* AI */}
+                <section>
+                    <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
+                        <Brain className="w-5 h-5 text-gray-400" />
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Assistant IA</h3>
+                    </div>
+                    <Endpoint
+                        method="GET"
+                        path="/ai/status"
+                        description="Vérifier si l'IA est configurée et disponible"
+                        response={`{ "configured": true, "provider": "openai" }`}
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/ai/providers"
+                        description="Lister les fournisseurs d'IA supportés"
+                    />
+                    <Endpoint
+                        method="GET"
+                        path="/ai/config"
+                        description="Récupérer la configuration IA (Admin)"
+                    />
+                    <Endpoint
+                        method="PUT"
+                        path="/ai/config"
+                        description="Modifier la configuration IA (Admin)"
+                        params={[
+                            "provider: Fournisseur (openai, ollama, mistral, etc.) (Body)",
+                            "api_key: Clé API (Body, Opt)",
+                            "model: Modèle à utiliser (Body, Opt)",
+                            "base_url: URL custom (Body, Opt)"
+                        ]}
+                    />
+                    <Endpoint
+                        method="POST"
+                        path="/ai/test"
+                        description="Tester la connexion au fournisseur IA (Admin)"
+                    />
+                    <Endpoint
+                        method="POST"
+                        path="/ai/chat"
+                        description="Envoyer un message à l'assistant IA avec contexte du dossier"
+                        params={[
+                            "message: Message utilisateur (Body)",
+                            "case_id: UUID du dossier pour le contexte (Body, Opt)",
+                            "conversation: Historique des messages (Body, Opt)"
+                        ]}
+                        response={`{ "response": "Analyse de l'assistant..." }`}
+                    />
+                    <Endpoint
+                        method="POST"
+                        path="/ai/suggest-killchain"
+                        description="Suggestion automatique de la phase Kill Chain pour un événement"
+                        params={["description: Description de l'événement (Body)", "case_id: UUID du dossier (Body)"]}
                     />
                 </section>
             </div>
