@@ -253,6 +253,21 @@ router.post('/:id/close', async (req, res) => {
         }
 
         logAudit(task.case_id, req.user.id, 'task_closed', 'task', req.params.id, { title: task.title || '' });
+
+        // Notify the assignee that their task was closed (if closed by someone else)
+        if (task.assigned_to && task.assigned_to !== req.user.id) {
+            try {
+                const { createNotification } = require('./notifications');
+                const userRepo = new BaseRepository(getDb(), 'user_profiles');
+                const actor = await userRepo.findById(req.user.id);
+                const actorName = actor?.full_name || 'Quelqu\'un';
+                createNotification(task.assigned_to, 'task_status',
+                    `Tâche fermée par ${actorName}`,
+                    `Tâche : "${task.title}"`,
+                    `/cases/${task.case_id}?task=${req.params.id}`);
+            } catch (notifErr) { console.error('Notification error:', notifErr); }
+        }
+
         res.json({ success: true });
     } catch (err) {
         console.error(err);
