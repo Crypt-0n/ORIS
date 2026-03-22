@@ -137,16 +137,26 @@ function useInactivityLock() {
   const [lockEnabled, setLockEnabled] = useState(false);
   const timeoutRef = useRef(5);
 
-  // Fetch config on mount
-  useEffect(() => {
+  // Fetch config on mount and periodically to pick up admin changes
+  const fetchLockConfig = useCallback(() => {
     if (!user) return;
     api.get('/config').then((data: Record<string, string>) => {
       const enabled = data?.session_lock_enabled === 'true';
       const timeout = parseInt(data?.session_lock_timeout || '5', 10);
       timeoutRef.current = timeout > 0 ? timeout : 5;
       setLockEnabled(enabled);
+      // If admin disabled session lock, unlock immediately
+      if (!enabled && isLocked) {
+        setLocked(false);
+      }
     }).catch(() => {});
-  }, [user]);
+  }, [user, isLocked, setLocked]);
+
+  useEffect(() => {
+    fetchLockConfig();
+    const interval = setInterval(fetchLockConfig, 30000);
+    return () => clearInterval(interval);
+  }, [fetchLockConfig]);
 
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
