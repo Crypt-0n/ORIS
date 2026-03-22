@@ -82,7 +82,7 @@ router.get('/', async (req, res) => {
             RETURN { id: i._key, case_id: i.case_id, ip: i.ip, domain_name: i.domain_name, url: i.url, port: i.port, case_number: c.case_number, case_title: c.title }
         `, bindVars);
         const indicators = (await iocCursor.all()).map(i => ({
-            id: i.id, case_id: i.case_id, value: i.ip || i.domain_name || i.url || `port:\${i.port}`,
+            id: i.id, case_id: i.case_id, value: i.ip || i.domain_name || i.url || `port:${i.port}`,
             iocType: i.ip ? 'IP' : i.domain_name ? 'Domain' : i.url ? 'URL' : 'Port',
             case_number: i.case_number, case_title: i.case_title
         }));
@@ -108,7 +108,7 @@ router.get('/', async (req, res) => {
             RETURN { id: a._key, case_id: a.case_id, account_name: a.account_name, domain: a.domain, privileges: a.privileges, case_number: c.case_number, case_title: c.title }
         `, bindVars);
         const accounts = (await accCursor.all()).map(a => ({
-            id: a.id, case_id: a.case_id, label: a.domain ? `\${a.domain}\\\\\${a.account_name}` : a.account_name,
+            id: a.id, case_id: a.case_id, label: a.domain ? `${a.domain}\\\\${a.account_name}` : a.account_name,
             privileges: a.privileges, case_number: a.case_number, case_title: a.case_title
         }));
 
@@ -123,7 +123,7 @@ router.get('/', async (req, res) => {
         `, bindVars);
         const exfiltrations = (await exfilCursor.all()).map(e => ({
             id: e.id, case_id: e.case_id, file_name: e.file_name,
-            file_size: e.file_size ? `\${e.file_size} \${e.file_size_unit || ''}`.trim() : null,
+            file_size: e.file_size ? `${e.file_size} ${e.file_size_unit || ''}`.trim() : null,
             case_number: e.case_number, case_title: e.case_title
         }));
 

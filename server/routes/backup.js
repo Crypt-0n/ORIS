@@ -41,7 +41,7 @@ router.post('/restore', async (req, res) => {
         res.json({ success: true, message: 'Backup restored successfully' });
     } catch (err) {
         console.error('[Restore] Error:', err);
-        res.status(500).json({ error: `Restore failed: \${err.message}` });
+        res.status(500).json({ error: `Restore failed: ${err.message}` });
     }
 });
 
@@ -89,7 +89,7 @@ router.post('/restore-admin', async (req, res) => {
         res.json({ success: true, message: 'Backup restored successfully' });
     } catch (err) {
         console.error('[Restore-Admin] Error:', err);
-        res.status(500).json({ error: `Restore failed: \${err.message}` });
+        res.status(500).json({ error: `Restore failed: ${err.message}` });
     }
 });
 

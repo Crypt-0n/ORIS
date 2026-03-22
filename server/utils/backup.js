@@ -15,7 +15,6 @@ function ensureBackupDir() {
  */
 async function arangoDump() {
     const db = getDb();
-    const collectionsStr = Object.keys(require('../init_db').schema);
     const collections = ['cases', 'tasks', 'task_files', 'task_results', 'case_events', 'case_systems', 'case_malware_tools', 'case_network_indicators', 'case_compromised_accounts', 'case_compromised_account_systems', 'case_exfiltrations', 'case_diamond_overrides', 'case_diamond_node_order', 'case_graph_layouts', 'case_attacker_infra', 'case_assignments', 'case_audit_log', 'user_profiles', 'beneficiaries', 'beneficiary_members', 'severities', 'notifications', 'comments', 'comment_attachments', 'api_tokens', 'login_history', 'kill_chain_ttps', 'webhooks', 'push_subscriptions', 'system_config', 'stix_objects', 'stix_relationships'];
 
     const dumpData = {};
@@ -33,12 +32,12 @@ async function arangoDump() {
 async function createBackup() {
     ensureBackupDir();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupName = `oris_backup_\${timestamp}.json`;
+    const backupName = `oris_backup_${timestamp}.json`;
     const backupPath = path.join(BACKUP_DIR, backupName);
     try {
         const jsonStr = await arangoDump();
         fs.writeFileSync(backupPath, jsonStr, 'utf-8');
-        console.log(`[Backup] Created ArangoDB dump: \${backupName}`);
+        console.log(`[Backup] Created ArangoDB dump: ${backupName}`);
         await cleanOldBackups();
         return backupName;
     } catch (err) {
@@ -58,9 +57,9 @@ async function cleanOldBackups() {
         for (const f of files.slice(maxBackups)) {
             try {
                 fs.unlinkSync(path.join(BACKUP_DIR, f));
-                console.log(`[Backup] Cleaned old: \${f}`);
+                console.log(`[Backup] Cleaned old: ${f}`);
             } catch (e) {
-                console.error(`[Backup] Failed to delete \${f}:`, e);
+                console.error(`[Backup] Failed to delete ${f}:`, e);
             }
         }
     }
@@ -116,7 +115,7 @@ async function startScheduler() {
     const hours = await getBackupInterval();
     if (hours <= 0) return;
     const ms = hours * 3600 * 1000;
-    console.log(`[Backup] Scheduled every \${hours}h`);
+    console.log(`[Backup] Scheduled every ${hours}h`);
     backupTimer = setInterval(() => createFullBackup(), ms);
     setTimeout(() => createFullBackup(), 60000);
 }
@@ -174,7 +173,7 @@ async function createFullBackup() {
     ensureBackupDir();
     const archiver = require('archiver');
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupName = `oris_full_backup_\${timestamp}.zip`;
+    const backupName = `oris_full_backup_${timestamp}.zip`;
     const backupPath = path.join(BACKUP_DIR, backupName);
 
     try {
@@ -204,7 +203,7 @@ async function createFullBackup() {
         await archive.finalize();
         await done;
 
-        console.log(`[Backup] Full backup created: \${backupName} (\${fs.statSync(backupPath).size} bytes)`);
+        console.log(`[Backup] Full backup created: ${backupName} (${fs.statSync(backupPath).size} bytes)`);
         await cleanOldBackups();
         return backupName;
     } catch (err) {
@@ -242,7 +241,7 @@ async function restoreFromBackup(zipPath) {
                 }
             }
         } catch (err) {
-            console.error(`[Restore] Failed to restore collection \${collName}:`, err.message);
+            console.error(`[Restore] Failed to restore collection ${collName}:`, err.message);
         }
     }
 
@@ -258,7 +257,7 @@ async function restoreFromBackup(zipPath) {
             if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
             fs.writeFileSync(destPath, entry.getData());
         }
-        console.log(`[Restore] Restored \${uploadEntries.length} uploaded files`);
+        console.log(`[Restore] Restored ${uploadEntries.length} uploaded files`);
     }
 
     const avatarsDir = getAvatarsDir();
@@ -270,7 +269,7 @@ async function restoreFromBackup(zipPath) {
             const destPath = path.join(avatarsDir, relativePath);
             fs.writeFileSync(destPath, entry.getData());
         }
-        console.log(`[Restore] Restored \${avatarEntries.length} avatar files`);
+        console.log(`[Restore] Restored ${avatarEntries.length} avatar files`);
     }
 }
 
