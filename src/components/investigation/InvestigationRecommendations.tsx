@@ -196,6 +196,11 @@ export function InvestigationRecommendations({ caseId, onNavigateToSystems, onNa
   const totalCount = recommendations.length + malwareRecommendations.length;
   if (loading || totalCount === 0) return null;
 
+  const subtitleParts: string[] = [];
+  if (recommendations.length > 0) subtitleParts.push(t('auto.recommendations_systems_count', { count: recommendations.length }));
+  if (malwareRecommendations.length > 0) subtitleParts.push(t('auto.recommendations_malware_count', { count: malwareRecommendations.length }));
+  const subtitle = subtitleParts.join(` ${t('auto.et')} `);
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border border-transparent dark:border-slate-800 overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center gap-3">
@@ -205,7 +210,7 @@ export function InvestigationRecommendations({ caseId, onNavigateToSystems, onNa
         <div>
           <h3 className="text-base font-semibold text-gray-800 dark:text-white">{t('auto.axes_de_progression')}</h3>
           <p className="text-xs text-gray-500 dark:text-slate-400">
-            {t('auto.recommendations_subtitle', { count: totalCount })}</p>
+            {subtitle}</p>
         </div>
       </div>
 

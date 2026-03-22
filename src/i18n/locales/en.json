@@ -1226,6 +1226,8 @@
     "onglets_investigation": "Investigation tabs",
     "axes_de_progression": "Areas for progress",
     "recommendations_subtitle": "{{count}} system(s) require(s) an investigation",
+    "recommendations_systems_count": "{{count}} system(s) to investigate",
+    "recommendations_malware_count": "{{count}} malware / tool(s) to analyze",
     "recommendations_events": "{{count}} key event(s)",
     "recommendations_malware": "{{count}} malicious malware",
     "recommendations_accounts": "{{count}} compromised account(s)",

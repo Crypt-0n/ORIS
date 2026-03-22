@@ -1245,6 +1245,8 @@
         "onglets_investigation": "Onglets investigation",
         "axes_de_progression": "Axes de progression",
         "recommendations_subtitle": "{{count}} système(s) nécessite(nt) une investigation",
+        "recommendations_systems_count": "{{count}} système(s) à investiguer",
+        "recommendations_malware_count": "{{count}} malware(s) / outil(s) à analyser",
         "recommendations_events": "{{count}} fait(s) marquant(s)",
         "recommendations_malware": "{{count}} malware(s) malveillant(s)",
         "recommendations_accounts": "{{count}} compte(s) compromis",
