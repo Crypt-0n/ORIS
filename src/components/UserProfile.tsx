@@ -35,10 +35,10 @@ export function UserProfile() {
 
       {/* Login history */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5 overflow-hidden">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-white mb-3 flex items-center gap-2">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-white mb-3 flex items-center gap-2">
           <Shield className="w-4 h-4 text-blue-500" />
           Journal des connexions
-        </h3>
+        </h2>
         <LoginHistory />
       </div>
 
@@ -141,6 +141,7 @@ function ApiTokensCard() {
               }}
               className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
               title={t('auto.copier')}
+              aria-label={t('auto.copier')}
             >
               <Check className="w-4 h-4" />
             </button>
@@ -259,6 +260,7 @@ function ProfileInfoCard({
           <UserAvatar name={profile?.full_name} avatarUrl={profile?.avatar_url} size="lg" />
           <label
             className={`absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${uploading ? 'opacity-100' : ''}`}
+            aria-label={t('profile.avatar.upload', { defaultValue: 'Upload avatar' })}
           >
             <Camera className="w-5 h-5 text-white" />
             <input
@@ -273,8 +275,9 @@ function ProfileInfoCard({
             <button
               onClick={handleAvatarDelete}
               disabled={uploading}
-              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity shadow"
+              className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity shadow"
               title={t('profile.avatar.remove')}
+              aria-label={t('profile.avatar.remove')}
             >
               <X className="w-3 h-3" />
             </button>
@@ -507,7 +510,8 @@ function PinCodeCard() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 transition"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 transition p-1"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -727,7 +731,8 @@ function PasswordField({
         <button
           type="button"
           onClick={onToggle}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 transition"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 transition p-1"
+          aria-label={show ? 'Hide password' : 'Show password'}
         >
           {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
         </button>
