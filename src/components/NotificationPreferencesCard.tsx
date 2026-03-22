@@ -55,7 +55,7 @@ export function NotificationPreferencesCard() {
                 <Icon className={`w-4 h-4 ${item.color} flex-shrink-0`} />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-700 dark:text-slate-300">{item.label}</p>
-                  <p className="text-xs text-gray-400 dark:text-slate-500 truncate">{item.desc}</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400 truncate">{item.desc}</p>
                 </div>
               </div>
               <button
@@ -63,6 +63,9 @@ export function NotificationPreferencesCard() {
                 className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
                   prefs[item.key] ? 'bg-blue-600' : 'bg-gray-300 dark:bg-slate-600'
                 }`}
+                role="switch"
+                aria-checked={prefs[item.key]}
+                aria-label={item.label}
               >
                 <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
                   prefs[item.key] ? 'translate-x-5' : 'translate-x-0'

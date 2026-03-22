@@ -168,14 +168,14 @@ export function BackupPanel() {
         </div>
 
         {backups.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-slate-500 text-center py-8">Aucune sauvegarde</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400 text-center py-8">Aucune sauvegarde</p>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-slate-800">
             {backups.map(b => (
               <div key={b.name} className="px-5 py-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-800 dark:text-white font-mono text-xs">{b.name}</p>
-                  <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
                     {fmtDate(b.created_at)} — {fmtSize(b.size)}
                   </p>
                 </div>

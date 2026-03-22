@@ -29,8 +29,8 @@ function buildSwimlaneSystems(nodes: DiamondNode[]): { systems: SystemActivity[]
     if (!node.eventDatetime) continue;
 
     const victimSystems = node.axes.victim.filter((o) => o.type === 'system');
-    const infraSystems = node.axes.infrastructure.filter((o) => o.type === 'system');
-    const hasSources = node.axes.infrastructure.filter(o => o.type === 'system').length > 0;
+    const infraSystems = node.axes.infrastructure.filter((o) => o.type === 'system' || o.type === 'attacker_infra');
+    const hasSources = node.axes.infrastructure.filter(o => o.type === 'system' || o.type === 'attacker_infra').length > 0;
 
     const involvedSystems = [...new Map([...victimSystems, ...infraSystems].map(s => [s.id, s])).values()];
 

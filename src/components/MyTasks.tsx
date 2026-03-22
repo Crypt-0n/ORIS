@@ -5,6 +5,17 @@ import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from "react-i18next";
 
+/** Darken a hex color for WCAG-compliant text contrast on light backgrounds */
+function darkenColor(hex: string, factor = 0.65): string {
+  try {
+    const c = hex.replace('#', '');
+    const r = Math.round(parseInt(c.substring(0, 2), 16) * factor);
+    const g = Math.round(parseInt(c.substring(2, 4), 16) * factor);
+    const b = Math.round(parseInt(c.substring(4, 6), 16) * factor);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  } catch { return hex; }
+}
+
 interface TaskWithCase {
   id: string;
   title: string;
@@ -157,6 +168,7 @@ export function MyTasks() {
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              aria-label={t('common.previous')}
             >
               <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-slate-300" />
             </button>
@@ -164,7 +176,7 @@ export function MyTasks() {
               .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
               .map((p, idx, arr) => (
                 <span key={p}>
-                  {idx > 0 && arr[idx - 1] !== p - 1 && <span className="text-gray-400 dark:text-slate-500 px-1">…</span>}
+                  {idx > 0 && arr[idx - 1] !== p - 1 && <span className="text-gray-500 dark:text-slate-400 px-1">…</span>}
                   <button
                     onClick={() => setCurrentPage(p)}
                     className={`min-w-[2rem] h-8 rounded-lg text-sm font-medium transition ${
@@ -181,6 +193,7 @@ export function MyTasks() {
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              aria-label={t('common.next')}
             >
               <ChevronRight className="w-4 h-4 text-gray-600 dark:text-slate-300" />
             </button>
@@ -229,7 +242,7 @@ function TaskCard({
                 className="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0"
                 style={{
                   backgroundColor: `${task.result.color}20`,
-                  color: task.result.color,
+                  color: darkenColor(task.result.color),
                 }}
               >
                 {task.result.label}
@@ -249,7 +262,7 @@ function TaskCard({
                 className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase flex-shrink-0"
                 style={{
                   backgroundColor: `${task.case.severity.color}20`,
-                  color: task.case.severity.color,
+                  color: darkenColor(task.case.severity.color),
                 }}
               >
                 {task.case.severity.label}
@@ -272,7 +285,7 @@ function TaskCard({
             )}
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-slate-500">
+          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-slate-400">
             <span>{createdDate}</span>
             <span>{t('common.by')}{task.created_by_user.full_name}</span>
             {task.assigned_to_user && (
@@ -299,7 +312,7 @@ function EmptyState({ tab }: { tab: TabKey }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="p-3 rounded-full bg-gray-100 dark:bg-slate-800 mb-4">
-        <ClipboardList className="w-8 h-8 text-gray-400 dark:text-slate-500" />
+        <ClipboardList className="w-8 h-8 text-gray-500 dark:text-slate-400" />
       </div>
       <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-1">
         {tab === 'assigned' ? t('tasks.noAssigned') : t('tasks.noUnassigned')}

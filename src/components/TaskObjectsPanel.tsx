@@ -165,7 +165,7 @@ function SectionHeader({ icon: Icon, label, count }: { icon: typeof Server; labe
 function EmptySection({ label }: { label: string }) {
   const { t } = useTranslation();
   return (
-    <p className="text-xs text-gray-400 dark:text-slate-500 italic py-2">
+    <p className="text-xs text-gray-500 dark:text-slate-400 italic py-2">
       {t('auto.aucun')}{label} {t('auto.lie_a_cette_tache')}</p>
   );
 }
@@ -587,7 +587,7 @@ export function TaskObjectsPanel({ caseId: _caseId, taskId, isClosed, onTaskSele
 
   if (!hasAny) {
     return (
-      <div className="flex flex-col items-center justify-center py-10 text-gray-400 dark:text-slate-500">
+      <div className="flex flex-col items-center justify-center py-10 text-gray-500 dark:text-slate-400">
         <Server className="w-8 h-8 mb-2" />
         <p className="text-sm">{t('auto.aucun_objet_lie_a_cette_tache')}</p>
         <p className="text-xs mt-1">{t('auto.ajoutez_des_faits_marquants_po')}</p>
@@ -942,7 +942,7 @@ export function TaskObjectsPanel({ caseId: _caseId, taskId, isClosed, onTaskSele
                         </p>
                       )}
                       {acc.sid && (
-                        <p className="text-xs font-mono text-gray-400 dark:text-slate-500 mt-0.5">{acc.sid}</p>
+                        <p className="text-xs font-mono text-gray-500 dark:text-slate-400 mt-0.5">{acc.sid}</p>
                       )}
                     </div>
                   </div>

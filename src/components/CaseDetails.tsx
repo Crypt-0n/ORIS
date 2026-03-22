@@ -21,6 +21,7 @@ import {
   ArrowRightLeft,
   AlertTriangle,
   Bot,
+  Download,
 } from 'lucide-react';
 import { TasksList } from './TasksList';
 import { TaskDetails } from './TaskDetails';
@@ -39,6 +40,17 @@ import { CaseSidebar, CaseSectionSelect, type CaseSection } from './CaseSidebar'
 import { AiChatPanel } from './investigation/AiChatPanel';
 import { buildDiamondNodes } from '../lib/diamondModelUtils';
 import { useTranslation } from "react-i18next";
+
+/** Darken a hex color for WCAG-compliant text contrast on light backgrounds */
+function darkenColor(hex: string, factor = 0.65): string {
+  try {
+    const c = hex.replace('#', '');
+    const r = Math.round(parseInt(c.substring(0, 2), 16) * factor);
+    const g = Math.round(parseInt(c.substring(2, 4), 16) * factor);
+    const b = Math.round(parseInt(c.substring(4, 6), 16) * factor);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  } catch { return hex; }
+}
 
 interface CaseDetailsData {
   id: string;
@@ -185,6 +197,23 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
     });
   };
 
+  const handleExportStix = async () => {
+    try {
+      const bundle = await api.get(`/stix/bundle/${caseId}`);
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `stix-bundle-${caseData?.case_number || caseId}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('STIX export error:', err);
+    }
+  };
+
   const isAuthor = caseData?.author_id === user?.id;
   const isAdmin = hasRole('admin');
   const isClosed = caseData?.status === 'closed';
@@ -317,6 +346,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
             <button
               onClick={() => setShowAddMember(true)}
               className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+              aria-label={t('auto.ajouter_un_membre')}
             >
               <UserPlus className="w-5 h-5" />
             </button>
@@ -338,6 +368,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
                 onClick={() => setShowReassignLeader(true)}
                 className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                 title={t('auto.reassigner_le_team_leader')}
+                aria-label={t('auto.reassigner_le_team_leader')}
               >
                 <UserCog className="w-5 h-5" />
               </button>
@@ -357,6 +388,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
                 <button
                   onClick={() => handleRemoveMember(member.id)}
                   className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                  aria-label={`${t('auto.retirer')} ${member.user.full_name}`}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -393,7 +425,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
     if (!canViewDetails) {
       return (
         <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800">
-          <div className="flex items-center gap-3 mb-4 text-gray-400 dark:text-slate-500">
+          <div className="flex items-center gap-3 mb-4 text-gray-500 dark:text-slate-400">
             <Lock className="w-6 h-6" />
             <h3 className="text-lg font-semibold">{t('auto.acces_restreint')}</h3>
           </div>
@@ -432,6 +464,14 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
                     <Lock className="w-4 h-4" />
                     {t('auto.cloturer_le_case')}</button>
                 )}
+                <button
+                  onClick={handleExportStix}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2 w-full sm:w-auto"
+                  title="Exporter au format STIX 2.1 Bundle"
+                >
+                  <Download className="w-4 h-4" />
+                  Export STIX 2.1
+                </button>
                 {isAlert && !isClosed && canManageCase && (
                   <button
                     onClick={async () => {
@@ -616,6 +656,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
           <button
             onClick={onBack}
             className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition flex-shrink-0 text-gray-600 dark:text-slate-400"
+            aria-label={t('auto.retour')}
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -628,6 +669,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
                 onClick={handleShareCase}
                 className="text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition relative"
                 title={t('auto.partager_le_lien_du_case')}
+                aria-label={t('auto.partager_le_lien_du_case')}
               >
                 <Share2 className="w-4 h-4" />
                 {showCopiedMessage && (
@@ -639,14 +681,14 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
             {canViewDetails ? (
               <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white mb-1">{caseData.title}</h2>
             ) : (
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-400 dark:text-slate-500 mb-1">{isAdmin ? caseData.title : t('auto.acces_restreint_1')}</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-500 dark:text-slate-400 mb-1">{isAdmin ? caseData.title : t('auto.acces_restreint_1')}</h2>
             )}
             <div className="flex flex-wrap items-center gap-2">
               {canViewDetails && (
                 <>
                   <span
                     className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 flex-shrink-0"
-                    style={{ backgroundColor: `${caseData.severity.color}20`, color: caseData.severity.color }}
+                    style={{ backgroundColor: `${caseData.severity.color}20`, color: darkenColor(caseData.severity.color) }}
                   >
                     <AlertCircle className="w-3 h-3" />
                     {caseData.severity.label}
@@ -755,7 +797,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
           <div className="bg-white dark:bg-slate-900 rounded-lg max-w-md w-full p-4 sm:p-6 my-8 border border-transparent dark:border-slate-700">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-gray-800 dark:text-white">{t('auto.ajouter_un_membre')}</h3>
-              <button onClick={() => setShowAddMember(false)} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300">
+              <button onClick={() => setShowAddMember(false)} className="text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -851,7 +893,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
           <div className="bg-white dark:bg-slate-900 rounded-lg max-w-md w-full p-4 sm:p-6 my-8 border border-transparent dark:border-slate-700">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold text-gray-800 dark:text-white">{t('auto.reassigner_le_team_leader')}</h3>
-              <button onClick={() => setShowReassignLeader(false)} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300">
+              <button onClick={() => setShowReassignLeader(false)} className="text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300">
                 <X className="w-5 h-5" />
               </button>
             </div>

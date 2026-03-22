@@ -276,7 +276,7 @@ export function AiChatPanel({ context, onClose }: AiChatPanelProps) {
           <div className="flex flex-col items-center justify-center h-full text-center">
             <Sparkles className="w-10 h-10 text-purple-300 dark:text-purple-700 mb-3" />
             <p className="text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Assistant CTI</p>
-            <p className="text-xs text-gray-400 dark:text-slate-500 mb-4 max-w-[240px]">
+            <p className="text-xs text-gray-500 dark:text-slate-400 mb-4 max-w-[240px]">
               Le contexte du dossier (Diamant, timeline, IOCs) est automatiquement partagé avec l'IA.
             </p>
             <div className="flex flex-wrap gap-2 justify-center">

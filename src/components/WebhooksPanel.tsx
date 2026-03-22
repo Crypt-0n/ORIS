@@ -139,7 +139,7 @@ export function WebhooksPanel() {
       {webhooks.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 p-8 text-center">
           <Webhook className="w-8 h-8 text-gray-300 dark:text-slate-600 mx-auto mb-2" />
-          <p className="text-sm text-gray-400 dark:text-slate-500">Aucun webhook configuré</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">Aucun webhook configuré</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -155,7 +155,7 @@ export function WebhooksPanel() {
                       <span className="font-medium text-sm text-gray-800 dark:text-white">{wh.name}</span>
                       {wh.secret && <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded font-medium">HMAC</span>}
                     </div>
-                    <p className="text-xs text-gray-400 dark:text-slate-500 font-mono truncate">{wh.url}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 font-mono truncate">{wh.url}</p>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {events.map((ev: string) => (
                         <span key={ev} className="text-[10px] px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded">
@@ -164,7 +164,7 @@ export function WebhooksPanel() {
                       ))}
                     </div>
                     {wh.last_triggered_at && (
-                      <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">Dernier envoi : {fmtDate(wh.last_triggered_at)}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-1">Dernier envoi : {fmtDate(wh.last_triggered_at)}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">

@@ -1,5 +1,6 @@
 const express = require('express');
-const db = require('../db');
+const { getDb } = require('../db-arango');
+const BaseRepository = require('../repositories/BaseRepository');
 const authenticateToken = require('../middleware/auth');
 
 const router = express.Router();
@@ -13,11 +14,15 @@ router.get('/case/:caseId', async (req, res) => {
             return res.status(403).json({ error: 'Access denied' });
         }
 
-        const items = await db('case_audit_log').where({ case_id: req.params.caseId }).orderBy('created_at', 'desc');
+        const auditRepo = new BaseRepository(getDb(), 'case_audit_log');
+        const items = await auditRepo.findWhere(
+            { case_id: req.params.caseId },
+            { sort: '-created_at' }
+        );
 
         const parsed = items.map(item => ({
             ...item,
-            details: item.details ? JSON.parse(item.details) : {},
+            details: typeof item.details === 'string' ? JSON.parse(item.details) : (item.details || {}),
         }));
 
         res.json(parsed);

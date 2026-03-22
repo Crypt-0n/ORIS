@@ -527,7 +527,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                                 className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition text-xs ${isSelected ? `${cfg.bgClass} ${cfg.textClass}` : 'hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
                                   }`}
                               >
-                                <StatusIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isSelected ? cfg.textClass : 'text-gray-400 dark:text-slate-500'}`} />
+                                <StatusIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isSelected ? cfg.textClass : 'text-gray-500 dark:text-slate-400'}`} />
                                 {cfg.label}
                                 {isSelected && <span className="ml-auto text-[9px] opacity-60">{t('auto.cliquer_pour_effacer')}</span>}
                               </button>
@@ -535,7 +535,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                           })}
                           <button
                             onClick={() => setShowStatusPicker(false)}
-                            className="mt-1 w-full text-[10px] text-center text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 py-1"
+                            className="mt-1 w-full text-[10px] text-center text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 py-1"
                           >
                             {t('auto.annuler')}</button>
                         </div>
@@ -697,7 +697,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                 title={v.label}
                 className={`p-1.5 rounded-lg transition ${viewMode === v.key
                   ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                  : 'text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800'
+                  : 'text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <v.icon className="w-4 h-4" />
@@ -755,12 +755,12 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                                 </div>
                               )}
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 pt-1.5 border-t border-gray-100 dark:border-slate-700/50">
-                                {event.creator_name && <span className="text-[11px] text-gray-400 dark:text-slate-500 flex items-center gap-1"><User className="w-3 h-3" />{event.creator_name}</span>}
-                                <span className="text-[11px] text-gray-400 dark:text-slate-500">{new Date(event.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                {event.creator_name && <span className="text-[11px] text-gray-500 dark:text-slate-400 flex items-center gap-1"><User className="w-3 h-3" />{event.creator_name}</span>}
+                                <span className="text-[11px] text-gray-500 dark:text-slate-400">{new Date(event.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                               </div>
                               {canEdit && (
                                 <div className="flex items-center gap-2 mt-2">
-                                  <button onClick={() => { setEditingEvent({ id: event.id, event_datetime: event.event_datetime, kill_chain: event.kill_chain, malware_id: event.malware_id, compromised_account_id: event.compromised_account_id, exfiltration_id: event.exfiltration_id ?? null }); setShowTimelineForm(true); }} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"><Edit3 className="w-3 h-3" />{t('auto.modifier')}</button>
+                                  <button onClick={() => { setEditingEvent({ id: event.id, event_datetime: event.event_datetime, kill_chain: event.kill_chain, malware_id: event.malware_id, compromised_account_id: event.compromised_account_id, exfiltration_id: event.exfiltration_id ?? null, source_system_id: event.source_system?.id || null, target_system_id: event.target_system?.id || null }); setShowTimelineForm(true); }} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"><Edit3 className="w-3 h-3" />{t('auto.modifier')}</button>
                                   <button onClick={() => handleDeleteEvent(event.id)} disabled={deletingEventId === event.id} className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 dark:text-red-400 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition disabled:opacity-50"><Trash2 className="w-3 h-3" />{deletingEventId === event.id ? t('auto.suppression_en_cours') : t('auto.supprimer')}</button>
                                 </div>
                               )}
@@ -787,7 +787,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                       {participants.map(p => {
                         const cm: Record<string, { bg: string; avatar: string }> = { 'Créateur': { bg: 'bg-blue-50 dark:bg-blue-900/20', avatar: 'bg-blue-600' }, 'Assigné': { bg: 'bg-green-50 dark:bg-green-900/20', avatar: 'bg-green-600' }, 'Commentateur': { bg: 'bg-amber-50 dark:bg-amber-900/20', avatar: 'bg-amber-600' } };
                         const c = cm[p.role] || cm['Commentateur'];
-                        return (<div key={p.id} className={`flex items-center gap-2 px-2.5 py-1.5 ${c.bg} rounded-full`}><div className={`w-6 h-6 ${c.avatar} rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0`}>{getUserTrigram(p.full_name)}</div><span className="text-xs font-medium text-gray-700 dark:text-slate-300 truncate max-w-[120px]">{p.full_name}</span><span className="text-[10px] text-gray-400 dark:text-slate-500">{p.role}</span></div>);
+                        return (<div key={p.id} className={`flex items-center gap-2 px-2.5 py-1.5 ${c.bg} rounded-full`}><div className={`w-6 h-6 ${c.avatar} rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0`}>{getUserTrigram(p.full_name)}</div><span className="text-xs font-medium text-gray-700 dark:text-slate-300 truncate max-w-[120px]">{p.full_name}</span><span className="text-[10px] text-gray-500 dark:text-slate-400">{p.role}</span></div>);
                       })}
                     </div>
                   </div>
@@ -824,7 +824,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                       {participants.map(p => {
                         const cm: Record<string, { bg: string; avatar: string }> = { 'Créateur': { bg: 'bg-blue-50 dark:bg-blue-900/20', avatar: 'bg-blue-600' }, 'Assigné': { bg: 'bg-green-50 dark:bg-green-900/20', avatar: 'bg-green-600' }, 'Commentateur': { bg: 'bg-amber-50 dark:bg-amber-900/20', avatar: 'bg-amber-600' } };
                         const c = cm[p.role] || cm['Commentateur'];
-                        return (<div key={p.id} className={`flex items-center gap-2 px-2.5 py-1.5 ${c.bg} rounded-full`}><div className={`w-6 h-6 ${c.avatar} rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0`}>{getUserTrigram(p.full_name)}</div><span className="text-xs font-medium text-gray-700 dark:text-slate-300 truncate max-w-[120px]">{p.full_name}</span><span className="text-[10px] text-gray-400 dark:text-slate-500">{p.role}</span></div>);
+                        return (<div key={p.id} className={`flex items-center gap-2 px-2.5 py-1.5 ${c.bg} rounded-full`}><div className={`w-6 h-6 ${c.avatar} rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0`}>{getUserTrigram(p.full_name)}</div><span className="text-xs font-medium text-gray-700 dark:text-slate-300 truncate max-w-[120px]">{p.full_name}</span><span className="text-[10px] text-gray-500 dark:text-slate-400">{p.role}</span></div>);
                       })}
                     </div>
                   </div>
@@ -879,15 +879,15 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                                     </div>
                                   )}
                                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 pt-1.5 border-t border-gray-100 dark:border-slate-700/50">
-                                    {event.creator_name && <span className="text-[11px] text-gray-400 dark:text-slate-500 flex items-center gap-1"><User className="w-3 h-3" />{event.creator_name}</span>}
-                                    <span className="text-[11px] text-gray-400 dark:text-slate-500">{new Date(event.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                    {event.creator_name && <span className="text-[11px] text-gray-500 dark:text-slate-400 flex items-center gap-1"><User className="w-3 h-3" />{event.creator_name}</span>}
+                                    <span className="text-[11px] text-gray-500 dark:text-slate-400">{new Date(event.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                                     {event.updated_at && event.updated_at !== event.created_at && (
-                                      <span className="text-[11px] text-gray-400 dark:text-slate-500 italic">{t('auto.modifie_le_3')}{new Date(event.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })})</span>
+                                      <span className="text-[11px] text-gray-500 dark:text-slate-400 italic">{t('auto.modifie_le_3')}{new Date(event.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })})</span>
                                     )}
                                   </div>
                                   {canEdit && (
                                     <div className="flex items-center gap-2 mt-2">
-                                      <button onClick={() => { setEditingEvent({ id: event.id, event_datetime: event.event_datetime, kill_chain: event.kill_chain, malware_id: event.malware_id, compromised_account_id: event.compromised_account_id, exfiltration_id: event.exfiltration_id ?? null }); setShowTimelineForm(true); }} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"><Edit3 className="w-3 h-3" />{t('auto.modifier')}</button>
+                                      <button onClick={() => { setEditingEvent({ id: event.id, event_datetime: event.event_datetime, kill_chain: event.kill_chain, malware_id: event.malware_id, compromised_account_id: event.compromised_account_id, exfiltration_id: event.exfiltration_id ?? null, source_system_id: event.source_system?.id || null, target_system_id: event.target_system?.id || null }); setShowTimelineForm(true); }} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"><Edit3 className="w-3 h-3" />{t('auto.modifier')}</button>
                                       <button onClick={() => handleDeleteEvent(event.id)} disabled={deletingEventId === event.id} className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 dark:text-red-400 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition disabled:opacity-50"><Trash2 className="w-3 h-3" />{deletingEventId === event.id ? t('auto.suppression_en_cours') : t('auto.supprimer')}</button>
                                     </div>
                                   )}
@@ -935,7 +935,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                           {participants.map(p => {
                             const cm: Record<string, { bg: string; avatar: string }> = { 'Créateur': { bg: 'bg-blue-50 dark:bg-blue-900/20', avatar: 'bg-blue-600' }, 'Assigné': { bg: 'bg-green-50 dark:bg-green-900/20', avatar: 'bg-green-600' }, 'Commentateur': { bg: 'bg-amber-50 dark:bg-amber-900/20', avatar: 'bg-amber-600' } };
                             const c = cm[p.role] || cm['Commentateur'];
-                            return (<div key={p.id} className={`flex items-center gap-2 px-2.5 py-1.5 ${c.bg} rounded-full`}><div className={`w-6 h-6 ${c.avatar} rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0`}>{getUserTrigram(p.full_name)}</div><span className="text-xs font-medium text-gray-700 dark:text-slate-300 truncate max-w-[120px]">{p.full_name}</span><span className="text-[10px] text-gray-400 dark:text-slate-500">{p.role}</span></div>);
+                            return (<div key={p.id} className={`flex items-center gap-2 px-2.5 py-1.5 ${c.bg} rounded-full`}><div className={`w-6 h-6 ${c.avatar} rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0`}>{getUserTrigram(p.full_name)}</div><span className="text-xs font-medium text-gray-700 dark:text-slate-300 truncate max-w-[120px]">{p.full_name}</span><span className="text-[10px] text-gray-500 dark:text-slate-400">{p.role}</span></div>);
                           })}
                         </div>
                       </div>
@@ -994,15 +994,15 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                                     </div>
                                   )}
                                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 pt-1.5 border-t border-gray-100 dark:border-slate-700/50">
-                                    {event.creator_name && <span className="text-[11px] text-gray-400 dark:text-slate-500 flex items-center gap-1"><User className="w-3 h-3" />{event.creator_name}</span>}
-                                    <span className="text-[11px] text-gray-400 dark:text-slate-500">{new Date(event.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                    {event.creator_name && <span className="text-[11px] text-gray-500 dark:text-slate-400 flex items-center gap-1"><User className="w-3 h-3" />{event.creator_name}</span>}
+                                    <span className="text-[11px] text-gray-500 dark:text-slate-400">{new Date(event.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                                     {event.updated_at && event.updated_at !== event.created_at && (
-                                      <span className="text-[11px] text-gray-400 dark:text-slate-500 italic">{t('auto.modifie_le_3')}{new Date(event.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })})</span>
+                                      <span className="text-[11px] text-gray-500 dark:text-slate-400 italic">{t('auto.modifie_le_3')}{new Date(event.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })})</span>
                                     )}
                                   </div>
                                   {canEdit && (
                                     <div className="flex items-center gap-2 mt-2">
-                                      <button onClick={() => { setEditingEvent({ id: event.id, event_datetime: event.event_datetime, kill_chain: event.kill_chain, malware_id: event.malware_id, compromised_account_id: event.compromised_account_id, exfiltration_id: event.exfiltration_id ?? null }); setShowTimelineForm(true); }} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"><Edit3 className="w-3 h-3" />{t('auto.modifier')}</button>
+                                      <button onClick={() => { setEditingEvent({ id: event.id, event_datetime: event.event_datetime, kill_chain: event.kill_chain, malware_id: event.malware_id, compromised_account_id: event.compromised_account_id, exfiltration_id: event.exfiltration_id ?? null, source_system_id: event.source_system?.id || null, target_system_id: event.target_system?.id || null }); setShowTimelineForm(true); }} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"><Edit3 className="w-3 h-3" />{t('auto.modifier')}</button>
                                       <button onClick={() => handleDeleteEvent(event.id)} disabled={deletingEventId === event.id} className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 dark:text-red-400 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition disabled:opacity-50"><Trash2 className="w-3 h-3" />{deletingEventId === event.id ? t('auto.suppression_en_cours') : t('auto.supprimer')}</button>
                                     </div>
                                   )}

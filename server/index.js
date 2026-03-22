@@ -1,3 +1,6 @@
+// Enable TypeScript file imports (tsx register)
+require('tsx/cjs/api').register();
+
 const express = require('express');
 const cors = require('cors');
 const fileUpload = require('express-fileupload');
@@ -54,6 +57,7 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/backup', require('./routes/backup'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/stix', require('./routes/stix'));
 
 const PORT = process.env.PORT || 3001;
 

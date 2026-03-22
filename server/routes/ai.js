@@ -1,5 +1,6 @@
 const express = require('express');
-const db = require('../db');
+const { getDb } = require('../db-arango');
+const BaseRepository = require('../repositories/BaseRepository');
 const authenticateToken = require('../middleware/auth');
 const { requireAdmin } = require('../utils/access');
 
@@ -45,8 +46,9 @@ const PROVIDERS = {
 // ─── GET /status — check if AI is enabled (any authenticated user) ───
 router.get('/status', authenticateToken, async (req, res) => {
     try {
-        const row = await db('system_config').where({ key: 'ai_enabled' }).select('value').first();
-        res.json({ enabled: row?.value === 'true' });
+        const repo = new BaseRepository(getDb(), 'system_config');
+        const rows = await repo.findWhere({ key: 'ai_enabled' });
+        res.json({ enabled: rows.length > 0 && rows[0].value === 'true' });
     } catch { res.json({ enabled: false }); }
 });
 
@@ -61,11 +63,8 @@ router.get('/providers', authenticateToken, (req, res) => {
 // ─── GET /config — get AI config (admin only) ───
 router.get('/config', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const items = await db('system_config').whereIn('key', AI_CONFIG_KEYS).select('key', 'value');
-        const config = {};
-        for (const item of items) {
-            config[item.key] = item.key === 'ai_api_key' ? '••••••••' : item.value;
-        }
+        const config = await getAiConfig();
+        if (config.ai_api_key) config.ai_api_key = '••••••••';
         res.json(config);
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
@@ -74,11 +73,12 @@ router.get('/config', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/config', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const updates = req.body;
+        const db = getDb();
         for (const [key, value] of Object.entries(updates)) {
             if (!AI_CONFIG_KEYS.includes(key)) continue;
             // Don't overwrite key if masked
             if (key === 'ai_api_key' && value === '••••••••') continue;
-            await db('system_config').insert({ key, value: String(value) }).onConflict('key').merge({ value: String(value) });
+            await db.query(`UPSERT { key: @k } INSERT { key: @k, value: @v } UPDATE { value: @v } IN system_config`, { k: key, v: String(value) });
         }
         res.json({ success: true });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
@@ -122,10 +122,9 @@ router.post('/chat', authenticateToken, async (req, res) => {
             ...messages,
         ];
 
-        // Use non-streaming for reliability (Ollama CPU can be slow)
+        // Use non-streaming for reliability
         const result = await sendToProvider(config, fullMessages, false);
 
-        // Send as SSE format for frontend compatibility
         res.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
@@ -171,7 +170,7 @@ Réponds avec un JSON: {"phase": "code_phase", "confidence": 0.85, "reasoning": 
         ], false);
 
         try {
-            const jsonMatch = result.match(/\{[\s\S]*\}/);
+            const jsonMatch = result.match(/\\{[\\s\\S]*\\}/);
             if (jsonMatch) {
                 res.json(JSON.parse(jsonMatch[0]));
             } else {
@@ -188,7 +187,9 @@ Réponds avec un JSON: {"phase": "code_phase", "confidence": 0.85, "reasoning": 
 // ========== Provider Adapters ==========
 
 async function getAiConfig() {
-    const items = await db('system_config').whereIn('key', AI_CONFIG_KEYS).select('key', 'value');
+    const db = getDb();
+    const cursor = await db.query(`FOR c IN system_config FILTER c.key IN @keys RETURN { key: c.key, value: c.value }`, { keys: AI_CONFIG_KEYS });
+    const items = await cursor.all();
     const config = {};
     for (const item of items) config[item.key] = item.value;
     return config;
@@ -212,24 +213,6 @@ async function sendToProvider(config, messages, stream = false) {
     }
 }
 
-async function streamFromProvider(config, messages, res) {
-    const provider = PROVIDERS[config.ai_provider] || PROVIDERS.custom;
-    const format = provider.format;
-    const url = config.ai_api_url || provider.defaultUrl;
-    const model = config.ai_model || provider.defaultModel;
-    const apiKey = config.ai_api_key || '';
-    const temperature = parseFloat(config.ai_temperature || '0.3');
-    const maxTokens = parseInt(config.ai_max_tokens || '2048', 10);
-
-    if (format === 'gemini') {
-        await streamGemini(url, apiKey, model, messages, temperature, maxTokens, res);
-    } else if (format === 'anthropic') {
-        await streamAnthropic(url, apiKey, model, messages, temperature, maxTokens, res);
-    } else {
-        await streamOpenAI(url, apiKey, model, messages, temperature, maxTokens, res);
-    }
-}
-
 // ── OpenAI / Ollama / Mistral (OpenAI-compatible) ──
 
 async function sendOpenAI(baseUrl, apiKey, model, messages, temperature, maxTokens) {
@@ -248,43 +231,6 @@ async function sendOpenAI(baseUrl, apiKey, model, messages, temperature, maxToke
     }
     const data = await response.json();
     return data.choices?.[0]?.message?.content || '';
-}
-
-async function streamOpenAI(baseUrl, apiKey, model, messages, temperature, maxTokens, res) {
-    const endpoint = `${baseUrl}/chat/completions`;
-    const headers = { 'Content-Type': 'application/json' };
-    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-
-    const response = await fetch(endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens, stream: true }),
-    });
-    if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`OpenAI API error ${response.status}: ${err.slice(0, 200)}`);
-    }
-
-    const reader = response.body;
-    let buffer = '';
-    for await (const chunk of reader) {
-        buffer += chunk.toString();
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith('data: ')) continue;
-            const data = trimmed.slice(6);
-            if (data === '[DONE]') return;
-            try {
-                const parsed = JSON.parse(data);
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content) {
-                    res.write(`data: ${JSON.stringify({ content })}\n\n`);
-                }
-            } catch { /* skip invalid JSON chunks */ }
-        }
-    }
 }
 
 // ── Google Gemini ──
@@ -318,52 +264,6 @@ async function sendGemini(baseUrl, apiKey, model, messages, temperature, maxToke
     return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
-async function streamGemini(baseUrl, apiKey, model, messages, temperature, maxTokens, res) {
-    const endpoint = `${baseUrl}/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
-    const contents = messages.filter(m => m.role !== 'system').map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
-    }));
-    const systemInstruction = messages.find(m => m.role === 'system');
-
-    const body = {
-        contents,
-        generationConfig: { temperature, maxOutputTokens: maxTokens },
-    };
-    if (systemInstruction) {
-        body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
-    }
-
-    const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`Gemini API error ${response.status}: ${err.slice(0, 200)}`);
-    }
-
-    const reader = response.body;
-    let buffer = '';
-    for await (const chunk of reader) {
-        buffer += chunk.toString();
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith('data: ')) continue;
-            try {
-                const parsed = JSON.parse(trimmed.slice(6));
-                const content = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (content) {
-                    res.write(`data: ${JSON.stringify({ content })}\n\n`);
-                }
-            } catch { /* skip */ }
-        }
-    }
-}
-
 // ── Anthropic (Claude) ──
 
 async function sendAnthropic(baseUrl, apiKey, model, messages, temperature, maxTokens) {
@@ -391,49 +291,6 @@ async function sendAnthropic(baseUrl, apiKey, model, messages, temperature, maxT
     }
     const data = await response.json();
     return data.content?.[0]?.text || '';
-}
-
-async function streamAnthropic(baseUrl, apiKey, model, messages, temperature, maxTokens, res) {
-    const systemMsg = messages.find(m => m.role === 'system');
-    const chatMessages = messages.filter(m => m.role !== 'system').map(m => ({
-        role: m.role, content: m.content,
-    }));
-
-    const response = await fetch(`${baseUrl}/v1/messages`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-            model, max_tokens: maxTokens, temperature, stream: true,
-            system: systemMsg?.content || '',
-            messages: chatMessages,
-        }),
-    });
-    if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`Anthropic API error ${response.status}: ${err.slice(0, 200)}`);
-    }
-
-    const reader = response.body;
-    let buffer = '';
-    for await (const chunk of reader) {
-        buffer += chunk.toString();
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith('data: ')) continue;
-            try {
-                const parsed = JSON.parse(trimmed.slice(6));
-                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                    res.write(`data: ${JSON.stringify({ content: parsed.delta.text })}\n\n`);
-                }
-            } catch { /* skip */ }
-        }
-    }
 }
 
 module.exports = router;

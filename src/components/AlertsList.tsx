@@ -231,7 +231,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
                         ALERTE
                       </span>
                       {!hasAccess && (
-                        <span className="text-xs text-gray-400 dark:text-slate-500 italic">({t('cases.restrictedAccess')})</span>
+                        <span className="text-xs text-gray-500 dark:text-slate-400 italic">({t('cases.restrictedAccess')})</span>
                       )}
                     </div>
                     {hasAccess ? (
@@ -284,8 +284,8 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
                       </>
                     ) : (
                       <>
-                        <h3 className="text-base sm:text-lg font-semibold text-gray-400 dark:text-slate-500 mb-2">{t('cases.confidential')}</h3>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-gray-400 dark:text-slate-500">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-500 dark:text-slate-400 mb-2">{t('cases.confidential')}</h3>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-gray-500 dark:text-slate-400">
                           <span>{t('cases.author')}: {alertItem.author.full_name}</span>
                         </div>
                       </>
@@ -294,7 +294,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
                   {hasAccess && alertItem.status === 'open' && hasAnyRole(['admin', 'team_leader', 'case_manager']) && (
                     <button
                       onClick={(e) => handleConvertToCase(e, alertItem.id)}
-                      className="flex-shrink-0 ml-4 p-2 text-gray-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition"
+                      className="flex-shrink-0 ml-4 p-2 text-gray-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition"
                       title="Convertir en dossier"
                     >
                       <ArrowRightLeft className="w-4 h-4" />
@@ -324,7 +324,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
               .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
               .map((p, idx, arr) => (
                 <span key={p}>
-                  {idx > 0 && arr[idx - 1] !== p - 1 && <span className="text-gray-400 dark:text-slate-500 px-1">…</span>}
+                  {idx > 0 && arr[idx - 1] !== p - 1 && <span className="text-gray-500 dark:text-slate-400 px-1">…</span>}
                   <button
                     onClick={() => setCurrentPage(p)}
                     className={`min-w-[2rem] h-8 rounded-lg text-sm font-medium transition ${

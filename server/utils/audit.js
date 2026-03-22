@@ -1,18 +1,21 @@
-const db = require('../db');
+const { getDb } = require('../db-arango');
+const BaseRepository = require('../repositories/BaseRepository');
 const crypto = require('crypto');
 const { dispatchWebhooks } = require('./webhookDispatcher');
 
 /**
- * Logs an action to the case_audit_log table and dispatches webhooks.
+ * Logs an action to the case_audit_log collection and dispatches webhooks.
  * Now async — callers should await or fire-and-forget.
  */
 async function logAudit(caseId, userId, action, entityType, entityId, details = {}) {
     try {
         const id = crypto.randomUUID();
-        const user = await db('user_profiles').where({ id: userId }).select('full_name').first();
+        const userRepo = new BaseRepository(getDb(), 'user_profiles');
+        const user = await userRepo.findById(userId);
         const user_full_name = user ? user.full_name : 'System';
 
-        await db('case_audit_log').insert({
+        const auditRepo = new BaseRepository(getDb(), 'case_audit_log');
+        await auditRepo.create({
             id,
             case_id: caseId,
             user_id: userId,

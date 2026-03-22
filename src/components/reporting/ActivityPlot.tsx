@@ -9,6 +9,7 @@ interface Props {
   caseId: string;
   isReportView?: boolean;
   forceTheme?: 'light' | 'dark';
+  endDate?: string;
 }
 
 const DAY_LABELS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -27,7 +28,7 @@ function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function ActivityPlot({ caseId, isReportView, forceTheme }: Props) {
+export function ActivityPlot({ caseId, isReportView, forceTheme, endDate }: Props) {
   const { t } = useTranslation();
   const { theme: globalTheme } = useTheme();
   const theme = forceTheme || globalTheme;
@@ -48,7 +49,13 @@ export function ActivityPlot({ caseId, isReportView, forceTheme }: Props) {
         ]);
 
         if (eventsRes && eventsRes.length > 0) {
-          setRawDates(eventsRes.map((e: any) => new Date(e.event_datetime)));
+          const filtered = endDate
+            ? eventsRes.filter((e: any) => {
+                const createdAt = (e.created_at || '').replace(' ', 'T') + (e.created_at?.includes('Z') ? '' : 'Z');
+                return createdAt <= endDate;
+              })
+            : eventsRes;
+          setRawDates(filtered.map((e: any) => new Date(e.event_datetime)));
         }
 
         if (caseRes && caseRes.attacker_utc_offset !== null && caseRes.attacker_utc_offset !== undefined) {
@@ -305,7 +312,7 @@ function UtcOffsetSlider({
       <div className="flex items-center justify-between mt-4">
         <div>
           {value !== 0 && (
-            <p className="text-[11px] text-gray-400 dark:text-slate-500">
+            <p className="text-[11px] text-gray-500 dark:text-slate-400">
               {t('auto.les_heures_affichees_correspon')}{label} {t('auto.point_de_vue_attaquant')}</p>
           )}
         </div>

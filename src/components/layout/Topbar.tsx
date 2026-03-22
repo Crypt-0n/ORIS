@@ -115,7 +115,7 @@ export function Topbar() {
             <span className="text-sm font-medium text-gray-700 dark:text-slate-300 max-w-[120px] truncate">
               {profile?.full_name}
             </span>
-            <ChevronDown className={`w-3.5 h-3.5 text-gray-400 dark:text-slate-500 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3.5 h-3.5 text-gray-500 dark:text-slate-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {userMenuOpen && (
@@ -124,7 +124,7 @@ export function Topbar() {
                 onClick={() => { navigate('/profile'); setUserMenuOpen(false); }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition"
               >
-                <User className="w-4 h-4 text-gray-400 dark:text-slate-500" />
+                <User className="w-4 h-4 text-gray-500 dark:text-slate-400" />
                 Mon profil
               </button>
 
@@ -133,7 +133,7 @@ export function Topbar() {
                   onClick={() => { navigate('/admin'); setUserMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition"
                 >
-                  <Shield className="w-4 h-4 text-gray-400 dark:text-slate-500" />
+                  <Shield className="w-4 h-4 text-gray-500 dark:text-slate-400" />
                   Administration
                 </button>
               )}
@@ -146,7 +146,7 @@ export function Topbar() {
               >
                 {theme === 'light' ? (
                   <>
-                    <Moon className="w-4 h-4 text-gray-400 dark:text-slate-500" />
+                    <Moon className="w-4 h-4 text-gray-500 dark:text-slate-400" />
                     Thème sombre
                   </>
                 ) : (

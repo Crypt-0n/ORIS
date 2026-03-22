@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
-const db = require('../db');
 const crypto = require('crypto');
+const { getDb } = require('../db-arango');
+const BaseRepository = require('../repositories/BaseRepository');
 try { require('dotenv').config(); } catch (e) { }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_oris_key';
@@ -22,7 +23,8 @@ async function authenticateToken(req, res, next) {
 
     if (decoded) {
         try {
-            const dbUser = await db('user_profiles').where({ id: decoded.id }).select('is_active').first();
+            const userRepo = new BaseRepository(getDb(), 'user_profiles');
+            const dbUser = await userRepo.findById(decoded.id);
             if (!dbUser || !dbUser.is_active) return res.status(403).json({ error: 'Account disabled' });
             req.user = decoded;
             return next();
@@ -34,20 +36,26 @@ async function authenticateToken(req, res, next) {
 
     // JWT failed/expired — check API token
     try {
-        const config = await db('system_config').where({ key: 'allow_api_tokens' }).select('value').first();
+        const configRepo = new BaseRepository(getDb(), 'system_config');
+        const config = await configRepo.findById('allow_api_tokens');
         if (config && config.value === 'false') return res.status(401).json({ error: 'Invalid token or API tokens disabled' });
 
         const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-        const apiToken = await db('api_tokens as t')
-            .join('user_profiles as u', 't.user_id', 'u.id')
-            .where('t.token_hash', tokenHash)
-            .select('t.*', 'u.email', 'u.role', 'u.is_active')
-            .first();
+        
+        const tokenRepo = new BaseRepository(getDb(), 'api_tokens');
+        const aql = `
+            FOR t IN api_tokens
+                FILTER t.token_hash == @tokenHash
+                LET u = DOCUMENT('user_profiles', t.user_id)
+                RETURN MERGE(t, { email: u.email, role: u.role, is_active: u.is_active })
+        `;
+        const tokens = await tokenRepo.query(aql, { tokenHash });
+        const apiToken = tokens[0];
 
         if (!apiToken) return res.status(401).json({ error: 'Invalid token' });
         if (!apiToken.is_active) return res.status(403).json({ error: 'Account disabled' });
 
-        await db('api_tokens').where({ id: apiToken.id }).update({ last_used_at: new Date().toISOString() });
+        await tokenRepo.update(apiToken.id, { last_used_at: new Date().toISOString() });
 
         req.user = {
             id: apiToken.user_id,

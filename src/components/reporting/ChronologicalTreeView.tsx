@@ -139,7 +139,7 @@ function formatEdgeDate(datetime: string): string {
 
 // ─── Shared data fetching ────────────────────────────────────────────────────
 
-export async function fetchTreeData(caseId: string) {
+export async function fetchTreeData(caseId: string, endDate?: string) {
   const [allEvents, overridesRes, systemsRes] = await Promise.all([
     api.get(`/investigation/events/by-case/${caseId}`),
     api.get(`/investigation/diamond-overrides/by-case/${caseId}`),
@@ -149,7 +149,13 @@ export async function fetchTreeData(caseId: string) {
   const overridesMap = new Map<string, any>();
   (overridesRes || []).forEach((o: any) => overridesMap.set(o.event_id, o));
 
-  const mappedEvents = (allEvents || []).map((e: any) => {
+  const filteredAll = endDate
+    ? (allEvents || []).filter((e: any) => {
+        const createdAt = (e.created_at || '').replace(' ', 'T') + (e.created_at?.includes('Z') ? '' : 'Z');
+        return createdAt <= endDate;
+      })
+    : (allEvents || []);
+  const mappedEvents = filteredAll.map((e: any) => {
     let src = null, tgt = null;
     const ov = overridesMap.get(e.id);
     if (ov) {
@@ -160,6 +166,9 @@ export async function fetchTreeData(caseId: string) {
         if (vic[0]?.type === 'system') tgt = vic[0].id;
       } catch { /* ignore */ }
     }
+    // Fallback: use source_system_id / target_system_id from the event directly
+    if (!src && e.source_system_id) src = e.source_system_id;
+    if (!tgt && e.target_system_id) tgt = e.target_system_id;
     return { ...e, mapped_source: src, mapped_target: tgt };
   });
 
@@ -237,7 +246,7 @@ export async function fetchTreeData(caseId: string) {
 
 // ─── Static SVG Render (for PDF/report capture) ─────────────────────────────
 
-function StaticTreeView({ caseId }: { caseId: string }) {
+function StaticTreeView({ caseId, endDate }: { caseId: string; endDate?: string }) {
   const [nodes, setNodes] = useState<LayoutedNode[]>([]);
   const [edges, setEdges] = useState<LayoutedEdge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -247,7 +256,7 @@ function StaticTreeView({ caseId }: { caseId: string }) {
     let cancelled = false;
     async function load() {
       try {
-        const result = await fetchTreeData(caseId);
+        const result = await fetchTreeData(caseId, endDate);
         if (cancelled || !result) { setLoading(false); return; }
 
         const layouted = runDagreLayout(result.nodeData, result.edges);
@@ -503,11 +512,12 @@ function InnerFlow({ caseId }: { caseId: string }) {
 interface Props {
   caseId: string;
   staticRender?: boolean;
+  endDate?: string;
 }
 
-export function ChronologicalTreeView({ caseId, staticRender }: Props) {
+export function ChronologicalTreeView({ caseId, staticRender, endDate }: Props) {
   if (staticRender) {
-    return <StaticTreeView caseId={caseId} />;
+    return <StaticTreeView caseId={caseId} endDate={endDate} />;
   }
 
   return (

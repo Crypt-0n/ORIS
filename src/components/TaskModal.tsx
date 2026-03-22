@@ -303,7 +303,7 @@ export function TaskModal({ caseId, task, systemId, systemName, malwareId, malwa
                       : 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-700'
                     }`}
                 >
-                  <Search className={`w-4 h-4 flex-shrink-0 ${isInvestigation ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-slate-500'}`} />
+                  <Search className={`w-4 h-4 flex-shrink-0 ${isInvestigation ? 'text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-slate-400'}`} />
                   <div className="flex-1">
                     <p className={`text-sm font-medium ${isInvestigation ? 'text-teal-700 dark:text-teal-300' : 'text-gray-600 dark:text-slate-400'}`}>
                       {t('auto.tache_d_investigation_de_syste')}</p>
@@ -362,7 +362,7 @@ export function TaskModal({ caseId, task, systemId, systemName, malwareId, malwa
                       : 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700'
                     }`}
                 >
-                  <Bug className={`w-4 h-4 flex-shrink-0 ${isMalwareAnalysis ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-slate-500'}`} />
+                  <Bug className={`w-4 h-4 flex-shrink-0 ${isMalwareAnalysis ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-slate-400'}`} />
                   <div className="flex-1">
                     <p className={`text-sm font-medium ${isMalwareAnalysis ? 'text-red-700 dark:text-red-300' : 'text-gray-600 dark:text-slate-400'}`}>
                       {t('auto.analyse_de_malware_outil')}</p>
@@ -423,7 +423,7 @@ export function TaskModal({ caseId, task, systemId, systemName, malwareId, malwa
                       : 'bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-sky-300 dark:hover:border-sky-700'
                     }`}
                 >
-                  <Radar className={`w-4 h-4 flex-shrink-0 ${isOsint ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-slate-500'}`} />
+                  <Radar className={`w-4 h-4 flex-shrink-0 ${isOsint ? 'text-sky-600 dark:text-sky-400' : 'text-gray-500 dark:text-slate-400'}`} />
                   <div className="flex-1">
                     <p className={`text-sm font-medium ${isOsint ? 'text-sky-700 dark:text-sky-300' : 'text-gray-600 dark:text-slate-400'}`}>
                       {t('auto.tache_osint')}</p>
@@ -442,7 +442,7 @@ export function TaskModal({ caseId, task, systemId, systemName, malwareId, malwa
           {isSystemInvestigationTask && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
-                {t('auto.statut_initial_du_systeme')}<span className="ml-1 text-xs font-normal text-gray-400 dark:text-slate-500">{t('auto.optionnel_etat_connu_avant_inv')}</span>
+                {t('auto.statut_initial_du_systeme')}<span className="ml-1 text-xs font-normal text-gray-500 dark:text-slate-400">{t('auto.optionnel_etat_connu_avant_inv')}</span>
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {INITIAL_STATUSES.map((s) => {
@@ -456,10 +456,10 @@ export function TaskModal({ caseId, task, systemId, systemName, malwareId, malwa
                       className={`flex items-start gap-2 p-2.5 rounded-lg border-2 transition text-left ${selected ? `${s.border} ${s.bg}` : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
                         }`}
                     >
-                      <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${selected ? s.color : 'text-gray-400 dark:text-slate-500'}`} />
+                      <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${selected ? s.color : 'text-gray-500 dark:text-slate-400'}`} />
                       <div>
                         <p className={`text-xs font-semibold ${selected ? s.color : 'text-gray-700 dark:text-slate-300'}`}>{s.label}</p>
-                        <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5 leading-tight">{s.description}</p>
+                        <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-0.5 leading-tight">{s.description}</p>
                       </div>
                     </button>
                   );

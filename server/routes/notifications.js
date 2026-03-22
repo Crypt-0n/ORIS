@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
-const db = require('../db');
+const { getDb } = require('../db-arango');
+const BaseRepository = require('../repositories/BaseRepository');
 const authenticateToken = require('../middleware/auth');
 const { sendPushToUser } = require('../utils/push');
 
@@ -9,43 +10,70 @@ router.use(authenticateToken);
 
 router.get('/', async (req, res) => {
     try {
-        const notifications = await db('notifications').where({ user_id: req.user.id })
-            .orderBy('created_at', 'desc').limit(50);
+        const repo = new BaseRepository(getDb(), 'notifications');
+        const notifications = await repo.findWhere({ user_id: req.user.id }, { sort: '-created_at', limit: 50 });
         res.json(notifications);
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.get('/unread-count', async (req, res) => {
     try {
-        const result = await db('notifications').where({ user_id: req.user.id, is_read: 0 }).count('* as count').first();
-        res.json({ count: result.count });
+        const db = getDb();
+        const cursor = await db.query(`
+            FOR n IN notifications
+            FILTER n.user_id == @userId AND n.is_read == 0
+            COLLECT WITH COUNT INTO length
+            RETURN length
+        `, { userId: req.user.id });
+        const count = await cursor.next();
+        res.json({ count });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.put('/:id/read', async (req, res) => {
     try {
-        await db('notifications').where({ id: req.params.id, user_id: req.user.id }).update({ is_read: 1 });
+        const db = getDb();
+        await db.query(`
+            FOR n IN notifications
+            FILTER n._key == @id AND n.user_id == @userId
+            UPDATE n WITH { is_read: 1 } IN notifications
+        `, { id: req.params.id, userId: req.user.id });
         res.json({ success: true });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.put('/read-all', async (req, res) => {
     try {
-        await db('notifications').where({ user_id: req.user.id, is_read: 0 }).update({ is_read: 1 });
+        const db = getDb();
+        await db.query(`
+            FOR n IN notifications
+            FILTER n.user_id == @userId AND n.is_read == 0
+            UPDATE n WITH { is_read: 1 } IN notifications
+        `, { userId: req.user.id });
         res.json({ success: true });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.delete('/all', async (req, res) => {
     try {
-        await db('notifications').where({ user_id: req.user.id }).del();
+        const db = getDb();
+        await db.query(`
+            FOR n IN notifications
+            FILTER n.user_id == @userId
+            REMOVE n IN notifications
+        `, { userId: req.user.id });
         res.json({ success: true });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.delete('/:id', async (req, res) => {
     try {
-        await db('notifications').where({ id: req.params.id, user_id: req.user.id }).del();
+        const db = getDb();
+        await db.query(`
+            FOR n IN notifications
+            FILTER n._key == @id AND n.user_id == @userId
+            REMOVE n IN notifications
+        `, { id: req.params.id, userId: req.user.id });
         res.json({ success: true });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
@@ -54,9 +82,18 @@ router.post('/subscribe', async (req, res) => {
     try {
         const { endpoint, keys } = req.body;
         if (!endpoint || !keys || !keys.p256dh || !keys.auth) return res.status(400).json({ error: 'Invalid subscription' });
-        await db('push_subscriptions').where({ endpoint }).del();
+        
+        const db = getDb();
+        await db.query(`
+            FOR s IN push_subscriptions
+            FILTER s.endpoint == @endpoint
+            REMOVE s IN push_subscriptions
+        `, { endpoint });
+
         const id = crypto.randomUUID();
-        await db('push_subscriptions').insert({ id, user_id: req.user.id, endpoint, keys_p256dh: keys.p256dh, keys_auth: keys.auth });
+        const repo = new BaseRepository(db, 'push_subscriptions');
+        await repo.create({ id, user_id: req.user.id, endpoint, keys_p256dh: keys.p256dh, keys_auth: keys.auth });
+        
         res.json({ success: true });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
@@ -64,22 +101,31 @@ router.post('/subscribe', async (req, res) => {
 router.post('/unsubscribe', async (req, res) => {
     try {
         const { endpoint } = req.body;
-        if (endpoint) await db('push_subscriptions').where({ endpoint, user_id: req.user.id }).del();
+        if (endpoint) {
+            const db = getDb();
+            await db.query(`
+                FOR s IN push_subscriptions
+                FILTER s.endpoint == @endpoint AND s.user_id == @userId
+                REMOVE s IN push_subscriptions
+            `, { endpoint, userId: req.user.id });
+        }
         res.json({ success: true });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.get('/vapid-public-key', async (req, res) => {
     try {
-        const row = await db('system_config').where({ key: 'vapid_public_key' }).select('value').first();
-        if (!row) return res.status(404).json({ error: 'VAPID keys not configured' });
-        res.json({ publicKey: row.value });
+        const repo = new BaseRepository(getDb(), 'system_config');
+        const rows = await repo.findWhere({ key: 'vapid_public_key' });
+        if (rows.length === 0) return res.status(404).json({ error: 'VAPID keys not configured' });
+        res.json({ publicKey: rows[0].value });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.get('/preferences', async (req, res) => {
     try {
-        const user = await db('user_profiles').where({ id: req.user.id }).select('notification_preferences').first();
+        const repo = new BaseRepository(getDb(), 'user_profiles');
+        const user = await repo.findById(req.user.id);
         const prefs = JSON.parse(user?.notification_preferences || '{}');
         const defaults = { mention: true, assignment: true, task_status: true, task_comment: true, case_status: true };
         res.json({ ...defaults, ...prefs });
@@ -88,14 +134,16 @@ router.get('/preferences', async (req, res) => {
 
 router.put('/preferences', async (req, res) => {
     try {
-        await db('user_profiles').where({ id: req.user.id }).update({ notification_preferences: JSON.stringify(req.body) });
+        const repo = new BaseRepository(getDb(), 'user_profiles');
+        await repo.update(req.user.id, { notification_preferences: JSON.stringify(req.body) });
         res.json({ success: true });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 async function getUserNotificationPreferences(userId) {
     try {
-        const user = await db('user_profiles').where({ id: userId }).select('notification_preferences').first();
+        const repo = new BaseRepository(getDb(), 'user_profiles');
+        const user = await repo.findById(userId);
         const prefs = JSON.parse(user?.notification_preferences || '{}');
         const defaults = { mention: true, assignment: true, task_status: true, task_comment: true, case_status: true };
         return { ...defaults, ...prefs };
@@ -108,7 +156,8 @@ async function createNotification(userId, type, title, body, link) {
     const prefs = await getUserNotificationPreferences(userId);
     if (prefs[type] === false) return null;
     const id = crypto.randomUUID();
-    await db('notifications').insert({ id, user_id: userId, type, title, body, link });
+    const repo = new BaseRepository(getDb(), 'notifications');
+    await repo.create({ id, user_id: userId, type, title, body, link, is_read: 0, created_at: new Date().toISOString() });
     sendPushToUser(userId, { title, body, link }).catch(err => console.error('Push notification error:', err.message));
     return id;
 }

@@ -178,15 +178,15 @@ export function Dashboard() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Dossiers critiques */}
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-white mb-4 flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-white mb-4 flex items-center gap-2">
             <Shield className="w-4 h-4 text-red-500" />
             Dossiers critiques
-          </h3>
+          </h2>
 
           {data.criticalCases.length === 0 ? (
             <div className="text-center py-8">
               <AlertTriangle className="w-8 h-8 text-gray-300 dark:text-slate-600 mx-auto mb-2" />
-              <p className="text-sm text-gray-400 dark:text-slate-500">
+              <p className="text-sm text-gray-500 dark:text-slate-400">
                 Aucun dossier critique
               </p>
             </div>
@@ -226,13 +226,13 @@ export function Dashboard() {
 
         {/* Activité récente */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-white mb-4 flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-white mb-4 flex items-center gap-2">
             <Activity className="w-4 h-4 text-blue-500" />
             Activité récente
-          </h3>
+          </h2>
 
           {data.recentActivity.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-slate-500 text-center py-8">
+            <p className="text-sm text-gray-500 dark:text-slate-400 text-center py-8">
               Aucune activité récente
             </p>
           ) : (
@@ -259,11 +259,11 @@ export function Dashboard() {
                           {ACTION_LABELS[item.action] || item.action}
                         </span>
                       </p>
-                      <p className="text-xs text-gray-400 dark:text-slate-500 truncate mt-0.5">
+                      <p className="text-xs text-gray-500 dark:text-slate-400 truncate mt-0.5">
                         {item.case_number} — {details.title || details.task_title || item.case_title}
                       </p>
                     </div>
-                    <span className="text-xs text-gray-400 dark:text-slate-500 whitespace-nowrap flex-shrink-0 mt-1">
+                    <span className="text-xs text-gray-500 dark:text-slate-400 whitespace-nowrap flex-shrink-0 mt-1">
                       {formatDate(item.created_at)}
                     </span>
                   </button>
@@ -317,9 +317,9 @@ function StatCard({
         <Icon className={`w-5 h-5 ${iconColors[color]}`} />
       </div>
       <div className="text-2xl font-bold">
-        {value}<span className="text-sm font-normal ml-1 opacity-60">{sublabel}</span>
+        {value}<span className="text-sm font-normal ml-1 text-gray-500 dark:text-slate-400">{sublabel}</span>
       </div>
-      <div className="text-xs mt-1 opacity-70">{label}</div>
+      <div className="text-xs mt-1 text-gray-600 dark:text-slate-400">{label}</div>
     </Wrapper>
   );
 }

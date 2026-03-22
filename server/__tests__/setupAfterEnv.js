@@ -1,39 +1,32 @@
 /**
  * Jest setupAfterEnv — runs in the test context where beforeAll/afterAll are available.
- * Patches db.prepare() onto the Knex instance for backward compatibility with
- * tests written against the old better-sqlite3 driver.
+ * Handles dropping the ArangoDB isolated test database after tests finish.
  */
 
 beforeAll(async () => {
     await require('../init_db');
-    const db = require('../db');
-
-    if (typeof db.prepare === 'function') return; // already patched
-
-    db.prepare = function (sql) {
-        return {
-            run(...args) {
-                return db.raw(sql, args);
-            },
-            get(...args) {
-                return db.raw(sql, args).then(rows => {
-                    return Array.isArray(rows) ? rows[0] : (rows?.rows?.[0] ?? rows?.[0]);
-                });
-            },
-            all(...args) {
-                return db.raw(sql, args).then(rows => {
-                    return Array.isArray(rows) ? rows : (rows?.rows ?? []);
-                });
-            },
-        };
-    };
 });
 
 afterAll(async () => {
-    try {
-        const db = require('../db');
-        if (db && typeof db.destroy === 'function') await db.destroy();
-    } catch (e) { /* ignore */ }
+    // Truncate all collections in the worker's isolated ArangoDB instance
+    const dbName = global.__TEST_ARANGO_DB || process.env.ARANGO_DB;
+    if (dbName) {
+        try {
+            console.log(`[ArangoDB-Teardown] Truncating collections in test database: ${dbName}`);
+            const { getDb } = require('../db-arango');
+            const db = getDb();
+            const collections = await db.collections();
+            for (const col of collections) {
+                if (!col.name.startsWith('_')) {
+                    await db.collection(col.name).truncate();
+                }
+            }
+        } catch (e) {
+            console.error(`[ArangoDB] Failed to truncate collections in ${dbName}:`, e);
+        }
+    }
+
+    // Remove SQLite temp file (legacy, ignored)
     const fs = require('fs');
     const tmpDir = global.__TEST_TMP_DIR;
     if (tmpDir) {

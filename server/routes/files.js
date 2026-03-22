@@ -2,7 +2,8 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const db = require('../db');
+const { getDb } = require('../db-arango');
+const BaseRepository = require('../repositories/BaseRepository');
 const authenticateToken = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
@@ -33,13 +34,16 @@ router.post('/upload', authenticateToken, async (req, res) => {
         await uploadedFile.mv(finalPath);
         const fileId = crypto.randomUUID();
 
-        await db('task_files').insert({
+        const repo = new BaseRepository(getDb(), 'task_files');
+        await repo.create({
             id: fileId, task_id: taskId, case_id: caseId, file_name: uploadedFile.name,
             file_size: uploadedFile.size, content_type: uploadedFile.mimetype,
             storage_path: storagePath, uploaded_by: req.user.id,
+            created_at: new Date().toISOString()
         });
 
-        const task = await db('tasks').where({ id: taskId }).select('title').first();
+        const taskRepo = new BaseRepository(getDb(), 'tasks');
+        const task = await taskRepo.findById(taskId);
         logAudit(caseId, req.user.id, 'file_added', 'task', taskId, {
             task_title: task ? task.title : 'Unknown Task', file_name: uploadedFile.name,
         });
@@ -53,7 +57,9 @@ router.get('/download', authenticateToken, async (req, res) => {
         const { storagePath } = req.query;
         if (!storagePath) return res.status(400).json({ error: 'storagePath is required' });
 
-        const fileRecord = await db('task_files').where({ storage_path: storagePath }).select('case_id').first();
+        const repo = new BaseRepository(getDb(), 'task_files');
+        const files = await repo.findWhere({ storage_path: storagePath });
+        const fileRecord = files.length > 0 ? files[0] : null;
         if (fileRecord && !await canAccessCase(req.user.id, fileRecord.case_id)) return res.status(403).json({ error: 'Access denied' });
 
         const normalizedPath = path.normalize(storagePath).replace(/^(\.\.(\/|\\|$))+/, '');
@@ -65,37 +71,46 @@ router.get('/download', authenticateToken, async (req, res) => {
 
 router.get('/task/:taskId', authenticateToken, async (req, res) => {
     try {
-        const task = await db('tasks').where({ id: req.params.taskId }).select('case_id').first();
+        const taskRepo = new BaseRepository(getDb(), 'tasks');
+        const task = await taskRepo.findById(req.params.taskId);
         if (task && !await canAccessCase(req.user.id, task.case_id)) return res.status(403).json({ error: 'Access denied' });
 
-        const files = await db('task_files as tf')
-            .leftJoin('user_profiles as up', 'tf.uploaded_by', 'up.id')
-            .where('tf.task_id', req.params.taskId)
-            .select('tf.*', 'up.full_name as uploader_name')
-            .orderBy('tf.created_at', 'desc');
+        const db = getDb();
+        const cursor = await db.query(`
+            FOR tf IN task_files
+            FILTER tf.task_id == @taskId
+            LET up = (FOR u IN user_profiles FILTER u._key == tf.uploaded_by RETURN u)[0]
+            SORT tf.created_at DESC
+            RETURN MERGE(tf, { id: tf._key, uploader_name: up.full_name })
+        `, { taskId: req.params.taskId });
+        
+        const files = await cursor.all();
         res.json(files);
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.delete('/:id', authenticateToken, async (req, res) => {
     try {
-        const file = await db('task_files').where({ id: req.params.id }).first();
+        const repo = new BaseRepository(getDb(), 'task_files');
+        const file = await repo.findById(req.params.id);
         if (!file) return res.status(404).json({ error: 'File not found' });
 
         if (file.uploaded_by !== req.user.id) {
-            const currentUser = await db('user_profiles').where({ id: req.user.id }).select('role').first();
+            const userRepo = new BaseRepository(getDb(), 'user_profiles');
+            const currentUser = await userRepo.findById(req.user.id);
             if (!isAdmin(currentUser?.role)) return res.status(403).json({ error: 'Forbidden' });
         }
 
         const absolutePath = path.join(UPLOADS_DIR, file.storage_path);
         if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
 
-        const task = await db('tasks').where({ id: file.task_id }).select('title').first();
+        const taskRepo = new BaseRepository(getDb(), 'tasks');
+        const task = await taskRepo.findById(file.task_id);
         logAudit(file.case_id, req.user.id, 'file_removed', 'task', file.task_id, {
             task_title: task ? task.title : 'Unknown Task', file_name: file.file_name,
         });
 
-        await db('task_files').where({ id: req.params.id }).del();
+        await repo.delete(req.params.id);
         res.json({ success: true });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });

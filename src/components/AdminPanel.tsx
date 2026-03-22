@@ -339,12 +339,13 @@ export function AdminPanel() {
             value={activeTab}
             onChange={e => setActiveTab(e.target.value as typeof activeTab)}
             className="w-full appearance-none bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-3 pr-10 text-sm font-medium text-gray-800 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer"
+            aria-label={t('admin.navigation')}
           >
             {sidebarItems.map(item => (
               <option key={item.key} value={item.key}>{item.label}</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500 pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-slate-400 pointer-events-none" />
         </div>
       </div>
 
@@ -469,6 +470,7 @@ export function AdminPanel() {
                             setShowUserModal(true);
                           }}
                           className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400 transition"
+                          aria-label={`${t('admin.edit')} ${user.full_name}`}
                         >
                           <Edit className="w-4 h-4" />
                         </button>
@@ -476,6 +478,7 @@ export function AdminPanel() {
                           onClick={() => setDeletingUser(user)}
                           disabled={user.is_protected || user.id === currentUser?.id}
                           className="text-red-600 hover:text-red-900 dark:hover:text-red-400 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                          aria-label={`${t('admin.delete')} ${user.full_name}`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -569,6 +572,7 @@ export function AdminPanel() {
                 }}
                 className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                 title={t('admin.addBeneficiary') || "Add"}
+                aria-label={t('admin.addBeneficiary') || "Add"}
               >
                 <Building className="w-4 h-4" />
               </button>
@@ -764,6 +768,9 @@ export function AdminPanel() {
                 onClick={toggleAllowApiTokens}
                 className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${allowApiTokens ? 'bg-blue-600' : 'bg-gray-300 dark:bg-slate-600'
                   }`}
+                aria-label={t('admin.allowApiTokensTitle')}
+                role="switch"
+                aria-checked={allowApiTokens}
               >
                 <span
                   className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${allowApiTokens ? 'translate-x-5' : 'translate-x-0'
@@ -789,6 +796,9 @@ export function AdminPanel() {
                   onClick={toggleSessionLock}
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${sessionLockEnabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-slate-600'
                     }`}
+                  aria-label={t('admin.sessionLockTitle')}
+                  role="switch"
+                  aria-checked={sessionLockEnabled}
                 >
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${sessionLockEnabled ? 'translate-x-5' : 'translate-x-0'
@@ -799,7 +809,7 @@ export function AdminPanel() {
 
               {sessionLockEnabled && (
                 <div className="mt-4 ml-0 sm:ml-12 flex flex-wrap items-center gap-3">
-                  <Clock className="w-4 h-4 text-gray-400 dark:text-slate-500 flex-shrink-0" />
+                  <Clock className="w-4 h-4 text-gray-500 dark:text-slate-400 flex-shrink-0" />
                   <label className="text-sm text-gray-600 dark:text-slate-400 whitespace-nowrap">{t('admin.sessionLockTimeout')}</label>
                   <select
                     value={sessionLockTimeout}
@@ -850,7 +860,7 @@ export function AdminPanel() {
                         )}
                       </div>
                       <p className="text-xs text-gray-500 dark:text-slate-400">{description}</p>
-                      <p className="text-xs font-medium text-gray-400 dark:text-slate-500 mt-1.5">{def.phases.length} {t('auto.phases')}</p>
+                      <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mt-1.5">{def.phases.length} {t('auto.phases')}</p>
                     </button>
                   );
                 })}
@@ -888,7 +898,7 @@ export function AdminPanel() {
               <h3 className="text-xl font-bold text-gray-800 dark:text-white">
                 {editingUserForModal ? t('admin.editUser') : t('admin.createUser')}
               </h3>
-              <button onClick={() => setShowUserModal(false)} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300">
+              <button onClick={() => setShowUserModal(false)} className="text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1063,7 +1073,7 @@ export function AdminPanel() {
               <h3 className="text-xl font-bold text-gray-800 dark:text-white">
                 {editingBeneficiary ? t('admin.editBeneficiary') : t('admin.addBeneficiary')}
               </h3>
-              <button onClick={() => setShowBeneficiaryModal(false)} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300">
+              <button onClick={() => setShowBeneficiaryModal(false)} className="text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1113,7 +1123,7 @@ export function AdminPanel() {
           <div className="bg-white dark:bg-slate-900 rounded-lg max-w-md w-full p-6 border border-transparent dark:border-slate-700">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-800 dark:text-white">{t('admin.addMember')}</h3>
-              <button onClick={() => setShowMemberModal(false)} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300">
+              <button onClick={() => setShowMemberModal(false)} className="text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300">
                 <X className="w-5 h-5" />
               </button>
             </div>

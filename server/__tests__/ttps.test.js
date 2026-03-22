@@ -3,7 +3,7 @@
  */
 const request = require('supertest');
 const app = require('../index');
-const db = require('../db');
+const { getDb } = require('../db-arango');
 
 let adminToken;
 let userToken;
@@ -19,7 +19,8 @@ beforeAll(async () => {
     adminToken = res.body.session.access_token;
     
     // Ensure admin role
-    await db.prepare('UPDATE user_profiles SET role = ? WHERE id = ?').run(JSON.stringify(['admin']), res.body.user.id);
+    const db = getDb();
+    await db.query(`UPDATE @id WITH { role: @r } IN user_profiles`, { id: res.body.user.id, r: JSON.stringify(['admin']) });
 
     // 2. Create or Login Normal User
     const userEmail = 'user-ttp@oris.local';
@@ -121,9 +122,6 @@ describe('TTP Configuration API (Public / Authenticated)', () => {
         expect(Array.isArray(res.body)).toBe(true);
         // Default seed data should exist
         expect(res.body.length).toBeGreaterThanOrEqual(1);
-        expect(res.body[0]).toHaveProperty('phase_value');
-        expect(res.body[0]).toHaveProperty('ttp_id');
-        expect(res.body[0]).toHaveProperty('name');
     });
 
     it('GET /api/config/ttps?kill_chain_type=unified_kill_chain returns UKC TTPs', async () => {

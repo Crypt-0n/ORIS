@@ -61,7 +61,7 @@ export function Login() {
 
   if (needs2FA) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-md w-full p-8">
           <div className="flex justify-center mb-6">
             <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30">
@@ -78,7 +78,9 @@ export function Login() {
 
           <form onSubmit={handleVerify2FA} className="space-y-4">
             <div>
+              <label htmlFor="totp-code" className="sr-only">Code TOTP</label>
               <input
+                id="totp-code"
                 ref={totpInputRef}
                 type="text"
                 inputMode="numeric"
@@ -88,6 +90,7 @@ export function Login() {
                 onChange={(e) => setTotpCode(e.target.value.replace(/[^0-9]/g, ''))}
                 className="w-full px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="000000"
+                aria-label="Code de vérification à 6 chiffres"
                 autoFocus
               />
             </div>
@@ -116,12 +119,12 @@ export function Login() {
             </button>
           </form>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-md w-full p-8">
         <div className="flex justify-center mb-6">
           <Logo size="lg" />
@@ -136,10 +139,11 @@ export function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
+            <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
               {t('login.email')}
             </label>
             <input
+              id="login-email"
               type="email"
               required
               value={formData.email}
@@ -150,10 +154,11 @@ export function Login() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
+            <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
               {t('login.password')}
             </label>
             <input
+              id="login-password"
               type="password"
               required
               value={formData.password}
@@ -180,6 +185,6 @@ export function Login() {
           </button>
         </form>
       </div>
-    </div>
+    </main>
   );
 }

@@ -81,14 +81,14 @@ interface Arrow {
 function getSystemsForNode(node: DiamondNode): string[] {
   const ids: string[] = [];
   node.axes.victim.forEach((v) => { if (v.type === 'system') ids.push(v.id); });
-  node.axes.infrastructure.forEach((i) => { if (i.type === 'system') ids.push(i.id); });
+  node.axes.infrastructure.forEach((i) => { if (i.type === 'system' || i.type === 'attacker_infra') ids.push(i.id); });
   return [...new Set(ids)];
 }
 
 function getPrimarySystem(node: DiamondNode): string | null {
   const victims = node.axes.victim.filter((v) => v.type === 'system');
   if (victims.length > 0) return victims[0].id;
-  const infra = node.axes.infrastructure.filter((i) => i.type === 'system');
+  const infra = node.axes.infrastructure.filter((i) => i.type === 'system' || i.type === 'attacker_infra');
   if (infra.length > 0) return infra[0].id;
   return null;
 }
@@ -106,7 +106,7 @@ export function DiamondKillChainMatrix({ nodes, killChainType, onSelectNode, sel
     const seen = new Map<string, { id: string; name: string }>();
     nodes.forEach((n) => {
       [...n.axes.victim, ...n.axes.infrastructure].forEach((obj) => {
-        if (obj.type === 'system' && !seen.has(obj.id)) {
+        if ((obj.type === 'system' || obj.type === 'attacker_infra') && !seen.has(obj.id)) {
           seen.set(obj.id, { id: obj.id, name: obj.label });
         }
       });
@@ -182,7 +182,7 @@ export function DiamondKillChainMatrix({ nodes, killChainType, onSelectNode, sel
 
     const lateralNodes = sortedNodes.filter((n) => deriveEventBehavior(n.killChainPhase, n.axes) === 'lateralisation');
     lateralNodes.forEach((n) => {
-      const infraSystems = n.axes.infrastructure.filter((i) => i.type === 'system');
+      const infraSystems = n.axes.infrastructure.filter((i) => i.type === 'system' || i.type === 'attacker_infra');
       const victimSystems = n.axes.victim.filter((v) => v.type === 'system');
       if (infraSystems.length === 0 || victimSystems.length === 0) return;
 

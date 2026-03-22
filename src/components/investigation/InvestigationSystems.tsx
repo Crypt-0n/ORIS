@@ -230,7 +230,7 @@ export function InvestigationSystems({ caseId, isClosed, onTaskSelect, filterIds
             let sids: string[] = [];
             try {
               const infra = JSON.parse(ov.infrastructure || '[]');
-              if (infra[0]?.type === 'system') sids.push(infra[0].id);
+              if (infra[0]?.type === 'system' || infra[0]?.type === 'attacker_infra') sids.push(infra[0].id);
               const vic = JSON.parse(ov.victim || '[]');
               if (vic[0]?.type === 'system') sids.push(vic[0].id);
             } catch (e) { }

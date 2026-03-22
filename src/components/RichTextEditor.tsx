@@ -232,7 +232,7 @@ export function RichTextEditor({ value, onChange, placeholder, disabled = false 
                   <>
                     <span className="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-xs">📢</span>
                     <span className="font-medium">@case</span>
-                    <span className="text-xs text-gray-400 dark:text-slate-500 ml-auto">Tout le dossier</span>
+                    <span className="text-xs text-gray-500 dark:text-slate-400 ml-auto">Tout le dossier</span>
                   </>
                 ) : (
                   <>

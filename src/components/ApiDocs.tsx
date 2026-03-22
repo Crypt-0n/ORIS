@@ -28,7 +28,7 @@ function Endpoint({ method, path, description, params, response }: EndpointProps
                 <div className="p-4 space-y-4">
                     {params && params.length > 0 && (
                         <div>
-                            <h4 className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-2">Parameters</h4>
+                            <h4 className="text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-2">Parameters</h4>
                             <ul className="space-y-1">
                                 {params.map((p, i) => (
                                     <li key={i} className="flex items-start gap-2 text-xs">
@@ -42,7 +42,7 @@ function Endpoint({ method, path, description, params, response }: EndpointProps
                     )}
                     {response && (
                         <div>
-                            <h4 className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-2">Response</h4>
+                            <h4 className="text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-2">Response</h4>
                             <pre className="bg-gray-900 text-gray-100 p-3 rounded-lg text-xs font-mono overflow-x-auto">
                                 {response}
                             </pre>

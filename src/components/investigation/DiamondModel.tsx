@@ -21,7 +21,7 @@ import {
   ExternalLink,
   Skull,
 } from 'lucide-react';
-import { buildDiamondNodes, getKillChainLabel } from '../../lib/diamondModelUtils';
+import { getKillChainLabel } from '../../lib/diamondModelUtils';
 import type { DiamondNode, DiamondAxes } from '../../lib/diamondModelUtils';
 import type { LinkedObject, LinkedObjectType } from './LinkedObjectTag';
 import { LinkedObjectTag } from './LinkedObjectTag';
@@ -339,83 +339,104 @@ export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: Dia
     setLoading(true);
 
     try {
-      const [eventsRes, systemsRes, malwareRes, indicatorsRes, accountsRes, exfilRes, attackerInfraRes, savedOverrides, orderArr] = await Promise.all([
-        api.get(`/investigation/events/by-case/${caseId}`),
-        api.get(`/investigation/systems/by-case/${caseId}`),
-        api.get(`/investigation/malware/by-case/${caseId}`),
-        api.get(`/investigation/indicators/by-case/${caseId}`),
-        api.get(`/investigation/accounts/by-case/${caseId}`),
-        api.get(`/investigation/exfiltrations/by-case/${caseId}`),
-        api.get(`/investigation/attacker-infra/by-case/${caseId}`),
+      const [diamondRes, bundleRes, savedOverrides, orderArr] = await Promise.all([
+        api.get(`/stix/diamond/${caseId}`),
+        api.get(`/stix/bundle/${caseId}`),
         loadOverridesFromDB(),
         loadNodeOrderFromDB(),
       ]);
 
-      const events = (eventsRes || []).sort((a: any, b: any) => new Date(a.event_datetime).getTime() - new Date(b.event_datetime).getTime());
-      const systems = systemsRes || [];
-      const malwares = malwareRes || [];
-      const indicators = indicatorsRes || [];
-      const accounts = accountsRes || [];
-      const exfils = exfilRes || [];
-      const attackerInfraData = attackerInfraRes || [];
+      const stixObjects = bundleRes?.objects || [];
+      const systems = stixObjects.filter((o: any) => o.type === 'infrastructure').map((o: any) => ({ id: o.id, name: o.name || 'Unknown Infrastructure' }));
+      const malwares = stixObjects.filter((o: any) => o.type === 'malware').map((o: any) => ({ id: o.id, file_name: o.name || 'Unknown Malware' }));
+      const accounts = stixObjects.filter((o: any) => o.type === 'user-account').map((o: any) => ({ id: o.id, account_name: o.user_id || o.display_name || 'Account', domain: '' }));
+      const networkIndicators = stixObjects.filter((o: any) => o.type === 'indicator').map((o: any) => ({ id: o.id, ip: o.name, domain_name: null, url: null }));
+      const exfiltrations: any[] = []; // Exfiltration is tricky in STIX, keep empty for now
+      const attackerInfra = stixObjects.filter((o: any) => o.type === 'infrastructure' && o.infrastructure_types?.includes('c2')).map((o: any) => ({ id: o.id, name: o.name, infra_type: 'c2' }));
 
       setCaseObjects({
         systems,
         malware: malwares,
         accounts,
-        networkIndicators: indicators,
-        exfiltrations: exfils,
-        attackerInfra: attackerInfraData,
+        networkIndicators,
+        exfiltrations,
+        attackerInfra,
       });
 
-      const systemMap = new Map(systems.map((s: any) => [s.id, s]));
-      const malwareMap = new Map(malwares.map((m: any) => [m.id, m]));
-      const accountMap = new Map(accounts.map((a: any) => [a.id, a]));
+      // Format Diamond Nodes from STIX Diamond endpoint
+      import('../../lib/killChainDefinitions').then(({ getKillChainPhase, getKillChainPhases }) => {
+        const phases = getKillChainPhases(killChainType);
+        const phaseOrder = Object.fromEntries(phases.map((p, i) => [p.value, i]));
 
-      const enrichedEvents = events.map((e: any) => ({
-        ...e,
-        source_system: systemMap.get(e.source_system_id),
-        target_system: e.target_system_id ? systemMap.get(e.target_system_id) : undefined,
-        malware: e.malware_id ? malwareMap.get(e.malware_id) : undefined,
-        compromised_account: e.compromised_account_id ? accountMap.get(e.compromised_account_id) : undefined,
-      }));
+        // Transform ArangoDB diamond data into DiamondNode format
+        const builtNodes: DiamondNode[] = (diamondRes || []).map((d: any, index: number) => {
+          const phase = d.kill_chain ? getKillChainPhase(killChainType, d.kill_chain) : undefined;
+          
+          // Map axes from { id, name, type } to { id, label, type }
+          const mapAxis = (items: any[], defaultType: LinkedObjectType): LinkedObject[] => 
+            (items || []).map(i => ({ 
+              id: i.id, 
+              label: i.name || 'Unknown', 
+              type: (i.type === 'infrastructure' || i.type === 'indicator') ? 'system' : 
+                    (i.type === 'user-account' || i.type === 'threat-actor') ? 'account' : 
+                    (i.type === 'malware' || i.type === 'tool') ? 'malware' : defaultType 
+            }));
 
-      const niForUtils = indicators.map((ni: any) => ({
-        id: ni.id,
-        indicator_type: null,
-        value: ni.ip || ni.domain_name || ni.url || '',
-      }));
-
-      const built = buildDiamondNodes(enrichedEvents, systems, malwares, niForUtils, accounts, exfils, killChainType);
-
-      const applyOverrides = (nodeList: DiamondNode[]) =>
-        nodeList.map((n) => {
-          const ov = savedOverrides[n.id];
-          if (!ov) return n;
           return {
-            ...n,
-            label: ov.label ?? n.label,
-            notes: ov.notes ?? n.notes,
-            axes: ov.axes ?? n.axes,
+            id: d.event_stix_id,
+            eventId: d.event_stix_id,
+            taskId: null,
+            label: d.event_name || d.event_description || `Event #${index + 1}`,
+            killChainPhase: d.kill_chain || null,
+            killChainPhaseLabel: phase?.label || 'Non specifie',
+            killChainHexColor: phase?.hexColor || '#64748b',
+            eventDatetime: d.event_datetime || null,
+            axes: {
+              adversary: mapAxis(d.axes.adversary, 'account'),
+              infrastructure: mapAxis(d.axes.infrastructure, 'system'),
+              capability: mapAxis(d.axes.capability, 'malware'),
+              victim: mapAxis(d.axes.victim, 'system'),
+            },
+            order: index,
+            notes: '',
           };
+        }).sort((a: DiamondNode, b: DiamondNode) => {
+          const phaseA = a.killChainPhase ? (phaseOrder[a.killChainPhase] ?? 999) : 999;
+          const phaseB = b.killChainPhase ? (phaseOrder[b.killChainPhase] ?? 999) : 999;
+          if (phaseA !== phaseB) return phaseA - phaseB;
+          return new Date(a.eventDatetime || 0).getTime() - new Date(b.eventDatetime || 0).getTime();
         });
 
-      let finalNodes = applyOverrides(built);
+        const applyOverrides = (nodeList: DiamondNode[]) =>
+          nodeList.map((n) => {
+            const ov = savedOverrides[n.id];
+            if (!ov) return n;
+            return {
+              ...n,
+              label: ov.label ?? n.label,
+              notes: ov.notes ?? n.notes,
+              axes: ov.axes ?? n.axes,
+            };
+          });
 
-      if (orderArr.length > 0) {
-        const indexed = new Map(finalNodes.map((n) => [n.id, n]));
-        const ordered = orderArr.map((id) => indexed.get(id)).filter(Boolean) as DiamondNode[];
-        const rest = finalNodes.filter((n) => !orderArr.includes(n.id));
-        finalNodes = [...ordered, ...rest].map((n, i) => ({ ...n, order: i }));
-      }
+        let finalNodes = applyOverrides(builtNodes);
 
-      setNodes(finalNodes);
-      setOverrides(savedOverrides);
-      setNodeOrder(orderArr);
+        if (orderArr.length > 0) {
+          const indexed = new Map(finalNodes.map((n) => [n.id, n]));
+          const ordered = orderArr.map((id) => indexed.get(id)).filter(Boolean) as DiamondNode[];
+          const rest = finalNodes.filter((n) => !orderArr.includes(n.id));
+          finalNodes = [...ordered, ...rest].map((n, i) => ({ ...n, order: i }));
+        }
+
+        setNodes(finalNodes);
+        setOverrides(savedOverrides);
+        setNodeOrder(orderArr);
+        setLoading(false);
+      });
     } catch (err) {
       console.error(err);
+      setLoading(false);
     }
-    setLoading(false);
   }, [caseId, killChainType, loadOverridesFromDB, loadNodeOrderFromDB]);
 
   useEffect(() => {

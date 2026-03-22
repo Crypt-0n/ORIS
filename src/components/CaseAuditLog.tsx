@@ -169,7 +169,7 @@ export function CaseAuditLog({ caseId }: CaseAuditLogProps) {
                       changes: details.changes ? details.changes.split(', ').map((c: string) => t(`audit.fields.${c.trim()}`)).join(', ') : ''
                     }))}
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{formatDateTime(entry.created_at, i18n.language)}</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{formatDateTime(entry.created_at, i18n.language)}</p>
                 </div>
                 {isClickable && (
                   <ExternalLink className="w-3.5 h-3.5 text-gray-300 dark:text-slate-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 flex-shrink-0 mt-1.5 transition-colors" />

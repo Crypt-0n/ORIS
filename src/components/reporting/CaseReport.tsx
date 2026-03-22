@@ -397,12 +397,21 @@ export function CaseReport({ caseId }: CaseReportProps) {
 
   const filteredExfiltrations = useMemo(() => {
     if (!dateRange) return exfiltrations;
-    const { start, end } = dateRange;
-    return exfiltrations.filter(e => {
-      const ref = e.exfiltration_date || e.created_at;
-      return ref >= start && ref <= end;
-    });
+    const { end } = dateRange;
+    return exfiltrations.filter(e => e.created_at <= end);
   }, [exfiltrations, dateRange]);
+
+  const filteredAttackerInfra = useMemo(() => {
+    if (!dateRange) return attackerInfraData;
+    const { end } = dateRange;
+    return attackerInfraData.filter((a: any) => (a.created_at || '') <= end);
+  }, [attackerInfraData, dateRange]);
+
+  const filteredAuditLogs = useMemo(() => {
+    if (!dateRange) return auditLogs;
+    const { end } = dateRange;
+    return auditLogs.filter(l => l.created_at <= end);
+  }, [auditLogs, dateRange]);
 
   const exportPdf = async () => {
     if (!caseData) return;
@@ -657,9 +666,9 @@ export function CaseReport({ caseId }: CaseReportProps) {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-xs font-medium text-gray-500 min-w-[120px]">{t('auto.fuseau_attaquant')}</span>
-              <span className={`text-sm font-medium flex items-center gap-1.5 ${caseData.attacker_utc_offset !== null ? 'text-gray-800' : 'text-gray-400 italic'}`}>
+              <span className={`text-sm font-medium flex items-center gap-1.5 ${caseData.attacker_utc_offset != null ? 'text-gray-800' : 'text-gray-400 italic'}`}>
                 <Globe className="w-3.5 h-3.5" />
-                {caseData.attacker_utc_offset !== null
+                {caseData.attacker_utc_offset != null
                   ? caseData.attacker_utc_offset >= 0 ? `UTC+${caseData.attacker_utc_offset}` : `UTC${caseData.attacker_utc_offset}`
                   : 'Inconnu'}
               </span>
@@ -748,13 +757,13 @@ export function CaseReport({ caseId }: CaseReportProps) {
           )}
         </div>
 
-        <AttackerInfraSection items={attackerInfraData} />
+        <AttackerInfraSection items={filteredAttackerInfra} />
         <SystemsSection systems={computedSystems} title={t('auto.systemes_compromis')} />
         <CompromisedAccountsSection accounts={filteredAccounts} />
         <MalwareSection items={filteredMalware} />
         <NetworkIndicatorsSection indicators={filteredIndicators} />
         <ExfiltrationsSection exfiltrations={filteredExfiltrations} />
-        <ActivityHistorySection logs={auditLogs} />
+        <ActivityHistorySection logs={filteredAuditLogs} />
 
         <div className="px-8 py-6 border-t border-gray-100">
           <SectionHeader icon={Network} title={t('auto.mouvements_lateraux')} />
@@ -768,21 +777,21 @@ export function CaseReport({ caseId }: CaseReportProps) {
             />
           </div>
           <div id="chronological-tree-container" className="mt-4 rounded-xl overflow-hidden">
-            <ChronologicalTreeView caseId={caseId} staticRender={true} />
+            <ChronologicalTreeView caseId={caseId} staticRender={true} endDate={dateRange?.end} />
           </div>
         </div>
 
         <div className="px-8 py-6 border-t border-gray-100">
           <SectionHeader icon={GitBranch} title={t('auto.timeline_visuelle', { defaultValue: 'Timeline Visuelle' })} />
           <div id="visual-timeline-container" className="mt-4 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 w-full">
-            <VisualTimeline caseId={caseId} killChainType={caseData.kill_chain_type ?? null} isReportView={true} forceTheme="light" />
+            <VisualTimeline caseId={caseId} killChainType={caseData.kill_chain_type ?? null} isReportView={true} forceTheme="light" endDate={dateRange?.end} />
           </div>
         </div>
 
         <div className="px-8 py-6 border-t border-gray-100">
           <SectionHeader icon={FileBarChart} title={t('auto.graphiques_activite', { defaultValue: "Graphiques d'activité" })} />
           <div id="activity-plot-container" className="mt-4 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 w-full">
-            <ActivityPlot caseId={caseId} isReportView={true} forceTheme="light" />
+            <ActivityPlot caseId={caseId} isReportView={true} forceTheme="light" endDate={dateRange?.end} />
           </div>
         </div>
 
@@ -946,7 +955,7 @@ function TaskReportCard({
             <div className="mt-3 bg-white rounded border border-gray-200 p-3">
               <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
                 <Clock className="w-3 h-3" />
-                {t('auto.faits_marquants')}{events.length})
+                {t('report.highlights', { count: events.length })}
               </p>
               <div className="space-y-1.5">
                 {events.map((ev) => (

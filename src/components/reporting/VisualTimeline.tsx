@@ -18,7 +18,7 @@ import {
   Crosshair,
 } from 'lucide-react';
 import { useTranslation } from "react-i18next";
-import { getKillChainPhases, type KillChainPhase } from '../../lib/killChainDefinitions';
+import { getKillChainPhases, KILL_CHAIN_DEFINITIONS, type KillChainPhase } from '../../lib/killChainDefinitions';
 
 interface SystemEntry {
   id: string;
@@ -31,6 +31,7 @@ interface TimelineEvent {
   event_datetime: string;
   kill_chain: string | null;
   malware_id: string | null;
+  description: string | null;
 }
 
 interface Props {
@@ -38,6 +39,7 @@ interface Props {
   killChainType?: string | null;
   isReportView?: boolean;
   forceTheme?: 'light' | 'dark';
+  endDate?: string;
 }
 
 
@@ -156,6 +158,22 @@ function findPhase(phases: KillChainPhase[], value: string): KillChainPhase | un
   return phases.find(p => p.value === value);
 }
 
+// Fallback: search across ALL kill chain definitions if the primary one didn't match
+function findPhaseAcrossAll(value: string): KillChainPhase | undefined {
+  for (const def of Object.values(KILL_CHAIN_DEFINITIONS)) {
+    const found = def.phases.find(p => p.value === value);
+    if (found) return found;
+  }
+  // Also try adding common prefixes: bare 'initial_access' -> 'att_initial_access', 'ukc_initial_access'
+  for (const prefix of ['att_', 'ukc_']) {
+    for (const def of Object.values(KILL_CHAIN_DEFINITIONS)) {
+      const found = def.phases.find(p => p.value === prefix + value);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
 function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString('fr-FR', {
     hour: '2-digit',
@@ -177,7 +195,7 @@ function dateKey(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('fr-FR');
 }
 
-type EnrichedEvent = TimelineEvent & { sourceName: string; targetName: string | null; malwareName: string | null; diamondNotes: string | null };
+type EnrichedEvent = TimelineEvent & { sourceName: string | null; targetName: string | null; malwareName: string | null; diamondNotes: string | null };
 
 interface DateGroup {
   date: string;
@@ -185,7 +203,7 @@ interface DateGroup {
   events: EnrichedEvent[];
 }
 
-export function VisualTimeline({ caseId, killChainType, isReportView }: Props) {
+export function VisualTimeline({ caseId, killChainType, isReportView, endDate }: Props) {
   const { t } = useTranslation();
   // Theme is handled via onclone in CaseReport.tsx
   const [groups, setGroups] = useState<DateGroup[]>([]);
@@ -207,7 +225,14 @@ export function VisualTimeline({ caseId, killChainType, isReportView }: Props) {
         api.get(`/investigation/diamond-overrides/by-case/${caseId}`),
       ]);
 
-      const events = (eventsRes || []).sort((a: any, b: any) => new Date(a.event_datetime).getTime() - new Date(b.event_datetime).getTime());
+      const allEventsRaw = (eventsRes || []);
+      const eventsFiltered = endDate
+        ? allEventsRaw.filter((e: any) => {
+            const createdAt = (e.created_at || '').replace(' ', 'T') + (e.created_at?.includes('Z') ? '' : 'Z');
+            return createdAt <= endDate;
+          })
+        : allEventsRaw;
+      const events = eventsFiltered.sort((a: any, b: any) => new Date(a.event_datetime).getTime() - new Date(b.event_datetime).getTime());
 
       const sysMap = new Map<string, string>();
       (systemsRes || []).forEach((s: SystemEntry) => sysMap.set(s.id, s.name));
@@ -226,13 +251,13 @@ export function VisualTimeline({ caseId, killChainType, isReportView }: Props) {
 
       const enriched = events.map((e: any) => {
         const ov = overridesMap.get(e.id);
-        let srcName = 'Inconnu';
+        let srcName: string | null = null;
         let tgtName: string | null = null;
         if (ov) {
           try {
             const infra = JSON.parse(ov.infrastructure || '[]');
             const vic = JSON.parse(ov.victim || '[]');
-            if (infra[0]?.type === 'system') srcName = sysMap.get(infra[0].id) || 'Inconnu';
+            if (infra[0]?.type === 'system') srcName = sysMap.get(infra[0].id) || null;
             if (vic[0]?.type === 'system') tgtName = sysMap.get(vic[0].id) || null;
           } catch (err) { }
         }
@@ -398,7 +423,10 @@ export function VisualTimeline({ caseId, killChainType, isReportView }: Props) {
                 const cfg = getConfig(event.event_type);
                 const Icon = cfg.icon;
                 const isRight = ei % 2 === 0;
-                const kcPhase = event.kill_chain ? findPhase(phases, event.kill_chain) : null;
+                // Try current kill chain type first, then search across all definitions
+                const kcPhase = event.kill_chain
+                  ? (findPhase(phases, event.kill_chain) || findPhaseAcrossAll(event.kill_chain))
+                  : null;
 
                 return (
                   <div key={event.id} className="relative flex items-start">
@@ -428,7 +456,7 @@ export function VisualTimeline({ caseId, killChainType, isReportView }: Props) {
         ))}
 
         {filtered.length === 0 && (
-          <div className="text-center py-8 text-sm text-gray-400 dark:text-slate-500">
+          <div className="text-center py-8 text-sm text-gray-500 dark:text-slate-400">
             {t('auto.aucun_evenement_ne_correspond_')}</div>
         )}
       </div>
@@ -453,7 +481,7 @@ function KillChainBar({ events, kcCounts, activePhase, onPhaseClick, phases }: K
       <div className="flex items-center gap-2 mb-4">
         <Crosshair className="w-4 h-4 text-gray-600 dark:text-slate-400" />
         <h4 className="text-sm font-semibold text-gray-800 dark:text-white">{t('auto.cyber_kill_chain')}</h4>
-        <span className="text-xs text-gray-400 dark:text-slate-500">
+        <span className="text-xs text-gray-500 dark:text-slate-400">
           ({totalWithKc} {t('auto.evenement')}{totalWithKc !== 1 ? 's' : ''} {t('auto.categorise')}{totalWithKc !== 1 ? 's' : ''})
         </span>
         {activePhase !== 'all' && (
@@ -536,27 +564,37 @@ function TimelineCard({ event, cfg, Icon, align, kcPhase }: TimelineCardProps) {
         <div className="flex-1 min-w-0">
           <div className={`flex items-center gap-2 mb-2 pb-1.5 border-b ${kcPhase ? kcPhase.border : 'border-gray-200 dark:border-slate-700'}`}>
             <span className={`text-sm font-bold ${kcPhase ? kcPhase.textColor : 'text-gray-500 dark:text-slate-400'}`}>
-              {kcPhase ? kcPhase.label : 'Phase inconnue'}
+              {kcPhase ? kcPhase.label : (event.kill_chain ? event.kill_chain.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase()) : 'Phase inconnue')}
             </span>
-            <span className="text-xs text-gray-400 dark:text-slate-500 flex items-center gap-1 ml-auto">
+            <span className="text-xs text-gray-500 dark:text-slate-400 flex items-center gap-1 ml-auto">
               <Clock className="w-3 h-3" />
               {formatTime(event.event_datetime)}
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 text-sm mb-1">
-            <span className="font-semibold text-gray-800 dark:text-slate-200">
-              {event.sourceName}
-            </span>
-            {event.targetName && (
-              <>
-                <ArrowRight className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
-                <span className="font-semibold text-gray-800 dark:text-slate-200">
-                  {event.targetName}
-                </span>
-              </>
-            )}
-          </div>
+          {/* Show source → target system mapping if available from Diamond overrides */}
+          {event.sourceName && (
+            <div className="flex flex-wrap items-center gap-1.5 text-sm mb-1">
+              <span className="font-semibold text-gray-800 dark:text-slate-200">
+                {event.sourceName}
+              </span>
+              {event.targetName && (
+                <>
+                  <ArrowRight className="w-3.5 h-3.5 text-gray-500 dark:text-slate-400" />
+                  <span className="font-semibold text-gray-800 dark:text-slate-200">
+                    {event.targetName}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Always show event description */}
+          {event.description && (
+            <p className="text-sm text-gray-700 dark:text-slate-300 leading-relaxed line-clamp-3">
+              {event.description}
+            </p>
+          )}
 
           {event.malwareName && (
             <div className="flex items-center gap-1.5 mt-1.5">

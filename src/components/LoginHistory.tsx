@@ -87,7 +87,7 @@ export function LoginHistory({ adminMode = false }: { adminMode?: boolean }) {
 
   if (entries.length === 0) {
     return (
-      <p className="text-sm text-gray-400 dark:text-slate-500 text-center py-4">
+      <p className="text-sm text-gray-500 dark:text-slate-400 text-center py-4">
         Aucune connexion enregistrée
       </p>
     );
@@ -121,21 +121,21 @@ export function LoginHistory({ adminMode = false }: { adminMode?: boolean }) {
                 <Monitor className="w-3 h-3 flex-shrink-0" />
                 <span className="truncate">{parseUserAgent(entry.user_agent)}</span>
                 {parseOS(entry.user_agent) && (
-                  <span className="text-gray-400 dark:text-slate-500 flex-shrink-0">· {parseOS(entry.user_agent)}</span>
+                  <span className="text-gray-500 dark:text-slate-400 flex-shrink-0">· {parseOS(entry.user_agent)}</span>
                 )}
               </div>
             </div>
             {adminMode && entry.email && (
-              <span className="text-xs text-gray-400 dark:text-slate-500 truncate block">{entry.email}</span>
+              <span className="text-xs text-gray-500 dark:text-slate-400 truncate block">{entry.email}</span>
             )}
-            <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500 mt-0.5 sm:hidden">
+            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-slate-400 mt-0.5 sm:hidden">
               <Clock className="w-3 h-3 flex-shrink-0" />
               <span>{formatDate(entry.created_at)}</span>
             </div>
           </div>
 
           {/* Time — hidden on mobile, shown inline on sm+ */}
-          <div className="hidden sm:flex items-center gap-1 text-xs text-gray-400 dark:text-slate-500 flex-shrink-0">
+          <div className="hidden sm:flex items-center gap-1 text-xs text-gray-500 dark:text-slate-400 flex-shrink-0">
             <Clock className="w-3 h-3" />
             <span>{formatDate(entry.created_at)}</span>
           </div>

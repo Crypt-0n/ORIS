@@ -1,23 +1,26 @@
-import { useState, useEffect, useRef, useCallback, ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, ReactNode, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { KillChainProvider } from './contexts/KillChainContext';
 import { InitialSetup } from './components/InitialSetup';
 import { Login } from './components/Login';
-import { AdminPanel } from './components/AdminPanel';
-import { UserProfile } from './components/UserProfile';
-import { MyTasks } from './components/MyTasks';
-import { CasesList } from './components/CasesList';
-import { CaseDetails } from './components/CaseDetails';
-import { CreateCase } from './components/CreateCase';
-import { AlertsList } from './components/AlertsList';
-import { About } from './components/About';
-import { ApiDocs } from './components/ApiDocs';
-import { Dashboard } from './components/Dashboard';
 import { AppLayout } from './components/layout/AppLayout';
 import { LockScreen } from './components/LockScreen';
 import { api } from './lib/api';
 import { useTranslation } from "react-i18next";
+
+// Lazy-loaded pages for code-splitting (reduces initial bundle)
+const AdminPanel = lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
+const UserProfile = lazy(() => import('./components/UserProfile').then(m => ({ default: m.UserProfile })));
+const MyTasks = lazy(() => import('./components/MyTasks').then(m => ({ default: m.MyTasks })));
+const CasesList = lazy(() => import('./components/CasesList').then(m => ({ default: m.CasesList })));
+const CaseDetails = lazy(() => import('./components/CaseDetails').then(m => ({ default: m.CaseDetails })));
+const CreateCase = lazy(() => import('./components/CreateCase').then(m => ({ default: m.CreateCase })));
+const AlertsList = lazy(() => import('./components/AlertsList').then(m => ({ default: m.AlertsList })));
+const About = lazy(() => import('./components/About').then(m => ({ default: m.About })));
+const ApiDocs = lazy(() => import('./components/ApiDocs').then(m => ({ default: m.ApiDocs })));
+const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
 
 const ROUTE_STORAGE_KEY = 'oris_last_path';
 
@@ -251,25 +254,33 @@ function AppContent() {
   return (
     <>
       {isLocked && <LockScreen />}
-      <AppLayout>
-        <RouteRestorer>
-          <Routes>
-            <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
-            <Route path="/cases" element={<CasesListRoute />} />
-            <Route path="/cases/:caseId" element={<CaseDetailsRoute />} />
-            <Route path="/alerts" element={<AlertsListRoute />} />
-            <Route path="/alerts/:caseId" element={<AlertDetailsRoute />} />
-            <Route path="/tasks" element={<PageWrapper><MyTasks /></PageWrapper>} />
-            <Route path="/profile" element={<PageWrapper><UserProfile /></PageWrapper>} />
-            {isAdmin && (
-              <Route path="/admin" element={<PageWrapper><AdminPanel /></PageWrapper>} />
-            )}
-            <Route path="/about" element={<PageWrapper><About /></PageWrapper>} />
-            <Route path="/api-docs" element={<PageWrapper><ApiDocs /></PageWrapper>} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </RouteRestorer>
-      </AppLayout>
+      <KillChainProvider>
+        <AppLayout>
+          <Suspense fallback={
+            <div className="flex items-center justify-center min-h-[50vh]">
+              <div className="text-gray-500 dark:text-slate-400">{t('common.loading')}</div>
+            </div>
+          }>
+            <RouteRestorer>
+              <Routes>
+                <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
+                <Route path="/cases" element={<CasesListRoute />} />
+                <Route path="/cases/:caseId" element={<CaseDetailsRoute />} />
+                <Route path="/alerts" element={<AlertsListRoute />} />
+                <Route path="/alerts/:caseId" element={<AlertDetailsRoute />} />
+                <Route path="/tasks" element={<PageWrapper><MyTasks /></PageWrapper>} />
+                <Route path="/profile" element={<PageWrapper><UserProfile /></PageWrapper>} />
+                {isAdmin && (
+                  <Route path="/admin" element={<PageWrapper><AdminPanel /></PageWrapper>} />
+                )}
+                <Route path="/about" element={<PageWrapper><About /></PageWrapper>} />
+                <Route path="/api-docs" element={<PageWrapper><ApiDocs /></PageWrapper>} />
+                <Route path="*" element={<Navigate to="/" />} />
+              </Routes>
+            </RouteRestorer>
+          </Suspense>
+        </AppLayout>
+      </KillChainProvider>
     </>
   );
 }

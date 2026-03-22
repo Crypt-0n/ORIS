@@ -1,9 +1,11 @@
-const db = require('../db');
+const { getDb } = require('../db-arango');
 const crypto = require('crypto');
 
 async function dispatchWebhooks(eventType, payload) {
     try {
-        const webhooks = await db('webhooks').where({ enabled: 1 });
+        const db = getDb();
+        const cursor = await db.query(`FOR w IN webhooks FILTER w.enabled == 1 RETURN w`);
+        const webhooks = await cursor.all();
 
         for (const wh of webhooks) {
             try {
@@ -32,7 +34,7 @@ async function dispatchWebhooks(eventType, payload) {
                     body,
                     signal: AbortSignal.timeout(10000),
                 }).then(async res => {
-                    await db('webhooks').where({ id: wh.id }).update({ last_triggered_at: new Date().toISOString() });
+                    await db.query(`UPDATE @key WITH { last_triggered_at: @time } IN webhooks`, { key: wh._key, time: new Date().toISOString() });
                     if (!res.ok) {
                         console.error(`[Webhook] ${wh.name} returned ${res.status} for ${eventType}`);
                     }

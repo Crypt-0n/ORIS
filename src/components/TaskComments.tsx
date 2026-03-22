@@ -299,7 +299,7 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, on
                     <FileText className="w-4 h-4 text-gray-500 dark:text-slate-400 flex-shrink-0" />
                     <div className="min-w-0">
                       <div className="text-gray-700 dark:text-slate-300 truncate max-w-[150px]">{att.file_name}</div>
-                      <div className="text-xs text-gray-400 dark:text-slate-500">{formatFileSize(att.file_size)}</div>
+                      <div className="text-xs text-gray-500 dark:text-slate-400">{formatFileSize(att.file_size)}</div>
                     </div>
                     <Download className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                   </a>
@@ -361,7 +361,7 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, on
                       <FileText className="w-4 h-4 text-gray-500 dark:text-slate-400 flex-shrink-0" />
                     )}
                     <span className="text-gray-700 dark:text-slate-300 max-w-[120px] truncate">{file.name}</span>
-                    <span className="text-xs text-gray-400 dark:text-slate-500">{formatFileSize(file.size)}</span>
+                    <span className="text-xs text-gray-500 dark:text-slate-400">{formatFileSize(file.size)}</span>
                     <button
                       type="button"
                       onClick={() => removeFile(i)}

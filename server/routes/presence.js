@@ -1,5 +1,6 @@
 const express = require('express');
-const db = require('../db');
+const { getDb } = require('../db-arango');
+const BaseRepository = require('../repositories/BaseRepository');
 const authenticateToken = require('../middleware/auth');
 
 const router = express.Router();
@@ -20,7 +21,9 @@ router.post('/heartbeat', async (req, res) => {
         const { caseId, taskId } = req.body;
         if (!caseId) return res.status(400).json({ error: 'caseId required' });
 
-        const user = await db('user_profiles').where({ id: req.user.id }).select('full_name').first();
+        const repo = new BaseRepository(getDb(), 'user_profiles');
+        const user = await repo.findById(req.user.id);
+        
         presenceMap.set(req.user.id, {
             userId: req.user.id, fullName: user?.full_name || 'Inconnu',
             caseId, taskId: taskId || null, lastSeen: Date.now(),

@@ -21,6 +21,8 @@ export interface TimelineEventData {
   malware_id: string | null;
   compromised_account_id: string | null;
   exfiltration_id: string | null;
+  source_system_id: string | null;
+  target_system_id: string | null;
 }
 
 interface AddTimelineEventProps {
@@ -182,11 +184,21 @@ export function AddTimelineEvent({ caseId, killChainType, preselectedSystemId, t
 
   useEffect(() => {
     const init = async () => {
-      const [, malRes, accRes, exfilRes] = await fetchAll();
+      const [sysRes, malRes, accRes, exfilRes] = await fetchAll();
 
       if (isEditing && editEvent) {
         loadExistingDiamondOverride(editEvent.id);
         const objs: LinkedObject[] = [];
+        // Pre-populate source system (infrastructure)
+        if (editEvent.source_system_id) {
+          const sys = (sysRes || []).find((s: any) => s.id === editEvent.source_system_id);
+          if (sys) objs.push({ id: sys.id, label: sys.name, type: 'system' });
+        }
+        // Pre-populate target system (victim)
+        if (editEvent.target_system_id && editEvent.target_system_id !== editEvent.source_system_id) {
+          const sys = (sysRes || []).find((s: any) => s.id === editEvent.target_system_id);
+          if (sys) objs.push({ id: sys.id, label: sys.name, type: 'system' });
+        }
         if (editEvent.malware_id) {
           const data = malRes.find((m: any) => m.id === editEvent.malware_id);
           if (data) objs.push({ id: data.id, label: data.file_name, type: 'malware' });
@@ -483,12 +495,18 @@ export function AddTimelineEvent({ caseId, killChainType, preselectedSystemId, t
     const accountLinked = linkedObjects.find(o => o.type === 'account');
     const exfilLinked = linkedObjects.find(o => o.type === 'exfiltration');
 
+    // Mappage implicite du diamant vers source/target pour declencher creation de SRO (Lateral Movement STIX)
+    const sourcePlatform = diamondInfrastructure.find(o => o.type === 'system' || o.type === 'attacker_infra');
+    const targetPlatform = diamondVictim.find(o => o.type === 'system');
+
     const fields = {
       event_datetime: formDateTime + 'Z',
       kill_chain: formKillChain || null,
       malware_id: malwareLinked?.id || null,
       compromised_account_id: accountLinked?.id || null,
       exfiltration_id: exfilLinked?.id || null,
+      source_system_id: sourcePlatform?.id || null,
+      target_system_id: targetPlatform?.id || null,
     };
 
     let savedEventId: string | null = null;
@@ -643,7 +661,7 @@ export function AddTimelineEvent({ caseId, killChainType, preselectedSystemId, t
 
                 <div className="max-h-40 overflow-y-auto">
                   {linkOptions.length === 0 ? (
-                    <p className="text-xs text-gray-400 dark:text-slate-500 text-center py-3">{t('auto.aucun_objet_disponible')}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 text-center py-3">{t('auto.aucun_objet_disponible')}</p>
                   ) : (
                     linkOptions.slice(0, 20).map(opt => (
                       <button
@@ -840,7 +858,7 @@ export function AddTimelineEvent({ caseId, killChainType, preselectedSystemId, t
             )}
 
             {linkedObjects.length === 0 && !linkPickerOpen && (
-              <p className="text-xs text-gray-400 dark:text-slate-500 italic">
+              <p className="text-xs text-gray-500 dark:text-slate-400 italic">
                 {t('auto.liez_des_systemes_malwares_com')}</p>
             )}
           </div>
@@ -952,7 +970,7 @@ export function AddTimelineEvent({ caseId, killChainType, preselectedSystemId, t
                         />
                         <div className="max-h-28 overflow-y-auto">
                           {pickerOptions.length === 0 ? (
-                            <p className="text-[10px] text-gray-400 dark:text-slate-500 text-center py-2 italic">{t('auto.aucun_objet_disponible')}</p>
+                            <p className="text-[10px] text-gray-500 dark:text-slate-400 text-center py-2 italic">{t('auto.aucun_objet_disponible')}</p>
                           ) : (
                             pickerOptions.slice(0, 15).map(opt => (
                               <button

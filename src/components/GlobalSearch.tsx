@@ -135,8 +135,8 @@ export function GlobalSearch() {
         ? "mt-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl shadow-2xl overflow-hidden max-h-[70vh] overflow-y-auto"
         : "absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl shadow-2xl overflow-hidden z-50 max-h-[420px] overflow-y-auto"
       }>
-        {loading && <div className="px-4 py-3 text-sm text-gray-400 dark:text-slate-500 text-center">{t('auto.chargement')}</div>}
-        {noResults && !loading && <div className="px-4 py-6 text-sm text-gray-400 dark:text-slate-500 text-center">{t('auto.aucun_resultat')}</div>}
+        {loading && <div className="px-4 py-3 text-sm text-gray-500 dark:text-slate-400 text-center">{t('auto.chargement')}</div>}
+        {noResults && !loading && <div className="px-4 py-6 text-sm text-gray-500 dark:text-slate-400 text-center">{t('auto.aucun_resultat')}</div>}
         {hasResults && !loading && (
           <>
             {results.cases.length > 0 && (
@@ -144,7 +144,7 @@ export function GlobalSearch() {
                 {results.cases.map((c) => (
                   <ResultItem key={c.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'case' && a.id === c.id)} onClick={() => navigateTo({ ...c, type: 'case' })}>
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs font-mono text-gray-400 dark:text-slate-500 flex-shrink-0">{c.case_number}</span>
+                      <span className="text-xs font-mono text-gray-500 dark:text-slate-400 flex-shrink-0">{c.case_number}</span>
                       <span className="text-sm text-gray-800 dark:text-white truncate font-medium">{c.title}</span>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -161,7 +161,7 @@ export function GlobalSearch() {
                   <ResultItem key={task.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'task' && a.id === task.id)} onClick={() => navigateTo({ ...task, type: 'task' })}>
                     <div className="min-w-0">
                       <span className="text-sm text-gray-800 dark:text-white truncate font-medium block">{task.title}</span>
-                      <span className="text-xs text-gray-400 dark:text-slate-500">{task.case_number} — {task.case_title}</span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">{task.case_number} — {task.case_title}</span>
                     </div>
                     <StatusBadge status={task.status} />
                   </ResultItem>
@@ -174,7 +174,7 @@ export function GlobalSearch() {
                   <ResultItem key={sys.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'system' && a.id === sys.id)} onClick={() => navigateTo({ ...sys, type: 'system' })}>
                     <div className="min-w-0">
                       <span className="text-sm text-gray-800 dark:text-white truncate font-medium block">{sys.name}</span>
-                      <span className="text-xs text-gray-400 dark:text-slate-500">{sys.case_number} · {sys.system_type}</span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">{sys.case_number} · {sys.system_type}</span>
                     </div>
                   </ResultItem>
                 ))}
@@ -189,7 +189,7 @@ export function GlobalSearch() {
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-mono font-bold">{ioc.iocType}</span>
                         <span className="text-sm text-gray-800 dark:text-white truncate font-mono">{ioc.value}</span>
                       </div>
-                      <span className="text-xs text-gray-400 dark:text-slate-500">{ioc.case_number}</span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">{ioc.case_number}</span>
                     </div>
                   </ResultItem>
                 ))}
@@ -204,7 +204,7 @@ export function GlobalSearch() {
                         {mal.is_malicious && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold">Malveillant</span>}
                         <span className="text-sm text-gray-800 dark:text-white truncate font-medium">{mal.file_name}</span>
                       </div>
-                      <span className="text-xs text-gray-400 dark:text-slate-500">{mal.case_number}{mal.file_path ? ` · ${mal.file_path}` : ''}</span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">{mal.case_number}{mal.file_path ? ` · ${mal.file_path}` : ''}</span>
                     </div>
                   </ResultItem>
                 ))}
@@ -216,7 +216,7 @@ export function GlobalSearch() {
                   <ResultItem key={acc.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'account' && a.id === acc.id)} onClick={() => navigateTo({ ...acc, type: 'account' })}>
                     <div className="min-w-0">
                       <span className="text-sm text-gray-800 dark:text-white truncate font-medium font-mono block">{acc.label}</span>
-                      <span className="text-xs text-gray-400 dark:text-slate-500">{acc.case_number}{acc.privileges ? ` · ${acc.privileges}` : ''}</span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">{acc.case_number}{acc.privileges ? ` · ${acc.privileges}` : ''}</span>
                     </div>
                   </ResultItem>
                 ))}
@@ -228,7 +228,7 @@ export function GlobalSearch() {
                   <ResultItem key={exf.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'exfiltration' && a.id === exf.id)} onClick={() => navigateTo({ ...exf, type: 'exfiltration' })}>
                     <div className="min-w-0">
                       <span className="text-sm text-gray-800 dark:text-white truncate font-medium block">{exf.file_name || 'Exfiltration'}</span>
-                      <span className="text-xs text-gray-400 dark:text-slate-500">{exf.case_number}{exf.file_size ? ` · ${exf.file_size}` : ''}</span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">{exf.case_number}{exf.file_size ? ` · ${exf.file_size}` : ''}</span>
                     </div>
                   </ResultItem>
                 ))}
@@ -243,7 +243,7 @@ export function GlobalSearch() {
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 font-bold">{infraTypeLabels[ai.infra_type] || ai.infra_type}</span>
                         <span className="text-sm text-gray-800 dark:text-white truncate font-medium">{ai.name}</span>
                       </div>
-                      <span className="text-xs text-gray-400 dark:text-slate-500">{ai.case_number}</span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">{ai.case_number}</span>
                     </div>
                   </ResultItem>
                 ))}
@@ -255,7 +255,7 @@ export function GlobalSearch() {
                   <ResultItem key={cm.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'comment' && a.id === cm.id)} onClick={() => navigateTo({ ...cm, type: 'comment' })}>
                     <div className="min-w-0">
                       <span className="text-sm text-gray-800 dark:text-white truncate block">{cm.content || '...'}</span>
-                      <span className="text-xs text-gray-400 dark:text-slate-500">{cm.case_number} · {cm.task_title} · {cm.author_name}</span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">{cm.case_number} · {cm.task_title} · {cm.author_name}</span>
                     </div>
                   </ResultItem>
                 ))}
@@ -267,7 +267,7 @@ export function GlobalSearch() {
                   <ResultItem key={ev.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'event' && a.id === ev.id)} onClick={() => navigateTo({ ...ev, type: 'event' })}>
                     <div className="min-w-0">
                       <span className="text-sm text-gray-800 dark:text-white truncate block">{ev.description || killChainLabelMap[ev.kill_chain] || ev.kill_chain || '...'}</span>
-                      <span className="text-xs text-gray-400 dark:text-slate-500">{ev.case_number} · {ev.event_datetime}</span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">{ev.case_number} · {ev.event_datetime}</span>
                     </div>
                   </ResultItem>
                 ))}
@@ -275,7 +275,7 @@ export function GlobalSearch() {
             )}
           </>
         )}
-        <div className="hidden sm:flex px-3 py-2 border-t border-gray-100 dark:border-slate-700 items-center gap-3 text-[10px] text-gray-400 dark:text-slate-500">
+        <div className="hidden sm:flex px-3 py-2 border-t border-gray-100 dark:border-slate-700 items-center gap-3 text-[10px] text-gray-500 dark:text-slate-400">
           <span><kbd className="px-1 py-0.5 rounded bg-gray-100 dark:bg-slate-700 font-mono">↑↓</kbd> naviguer</span>
           <span><kbd className="px-1 py-0.5 rounded bg-gray-100 dark:bg-slate-700 font-mono">↵</kbd> ouvrir</span>
           <span><kbd className="px-1 py-0.5 rounded bg-gray-100 dark:bg-slate-700 font-mono">esc</kbd> fermer</span>
@@ -304,6 +304,7 @@ export function GlobalSearch() {
               <input ref={mobileInputRef} type="text" value={query}
                 onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown}
                 placeholder={`${t('auto.rechercher')}...`}
+                aria-label={t('auto.rechercher')}
                 className="flex-1 bg-transparent text-sm text-gray-700 dark:text-slate-300 placeholder-gray-400 outline-none" autoFocus />
               <button onClick={closeAll} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
             </div>
@@ -319,11 +320,12 @@ export function GlobalSearch() {
             ? 'bg-white dark:bg-slate-800 border-blue-400 dark:border-blue-500 ring-2 ring-blue-100 dark:ring-blue-900/30 w-96'
             : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600 w-64'
         }`}>
-          <Search className="w-4 h-4 text-gray-400 dark:text-slate-500 flex-shrink-0" />
+          <Search className="w-4 h-4 text-gray-500 dark:text-slate-400 flex-shrink-0" />
           <input ref={inputRef} type="text" value={query}
             onChange={e => { setQuery(e.target.value); setIsOpen(true); }}
             onFocus={() => setIsOpen(true)} onKeyDown={handleKeyDown}
             placeholder={`${t('auto.rechercher')}... (Ctrl+K)`}
+            aria-label={t('auto.rechercher')}
             className="flex-1 bg-transparent text-sm text-gray-700 dark:text-slate-300 placeholder-gray-400 outline-none min-w-0" />
           {query && (
             <button onClick={() => { setQuery(''); setResults(null); }} className="text-gray-400 hover:text-gray-600">

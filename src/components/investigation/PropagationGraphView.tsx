@@ -78,7 +78,7 @@ function buildPropagationGraph(nodes: DiamondNode[]): GraphData {
     const dt = node.eventDatetime;
 
     const victimSystems = node.axes.victim.filter((o) => o.type === 'system');
-    const infraSystems = node.axes.infrastructure.filter((o) => o.type === 'system');
+    const infraSystems = node.axes.infrastructure.filter((o) => o.type === 'system' || o.type === 'attacker_infra');
     const malwares = node.axes.capability.filter((o) => o.type === 'malware');
     const accounts = node.axes.adversary.filter((o) => o.type === 'account');
     const networks = node.axes.infrastructure.filter((o) => o.type === 'network');
@@ -215,7 +215,7 @@ function SystemCard({ sys, variant }: { sys: SystemNode; variant: 'orphan' | 'sh
           <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium flex-shrink-0 ${colors.badge}`}>
             {t('auto.zone_d_ombre')}</span>
         )}
-        <span className="text-[10px] text-gray-400 dark:text-slate-500 flex-shrink-0">{sys.eventCount} {t('auto.evt_25')}</span>
+        <span className="text-[10px] text-gray-500 dark:text-slate-400 flex-shrink-0">{sys.eventCount} {t('auto.evt_25')}</span>
       </div>
       <div className="px-3 py-2 space-y-1.5">
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
@@ -278,7 +278,7 @@ function EdgeRow({ edge, isExfiltration }: { edge: PropagationEdge; isExfiltrati
         <Server className="w-3 h-3 text-orange-400 flex-shrink-0" />
         <span className="text-[10px] text-orange-600 dark:text-orange-300 truncate max-w-[100px]">{edge.fromLabel}</span>
       </div>
-      <ArrowRight className="w-3 h-3 text-gray-400 dark:text-slate-500 flex-shrink-0" />
+      <ArrowRight className="w-3 h-3 text-gray-500 dark:text-slate-400 flex-shrink-0" />
       <div className="flex items-center gap-1.5 min-w-0 flex-1">
         {isExfiltration
           ? <Upload className="w-3 h-3 text-purple-400 flex-shrink-0" />
@@ -310,7 +310,7 @@ export function PropagationGraphView({ nodes }: PropagationGraphViewProps) {
 
   if (nodes.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-slate-500">
+      <div className="flex flex-col items-center justify-center py-16 text-gray-500 dark:text-slate-400">
         <EyeOff className="w-8 h-8 mb-3 opacity-30" />
         <p className="text-sm">{t('auto.aucun_evenement_dans_le_modele')}</p>
       </div>

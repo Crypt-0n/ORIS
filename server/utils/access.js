@@ -12,7 +12,8 @@
  * 
  * All DB-accessing functions are async (Knex query builder).
  */
-const db = require('../db');
+const { getDb } = require('../db-arango');
+const BaseRepository = require('../repositories/BaseRepository');
 
 // ─── Role Parsing ───────────────────────────────────────────────
 
@@ -39,10 +40,8 @@ function isTeamLead(roleStr) {
 
 async function getMemberRoles(userId, beneficiaryId) {
     if (!userId || !beneficiaryId) return [];
-    const row = await db('beneficiary_members')
-        .where({ user_id: userId, beneficiary_id: beneficiaryId })
-        .select('role')
-        .first();
+    const memRepo = new BaseRepository(getDb(), 'beneficiary_members');
+    const row = await memRepo.findFirst({ user_id: userId, beneficiary_id: beneficiaryId });
     if (!row?.role) return [];
     return getRoles(row.role);
 }
@@ -67,33 +66,38 @@ function hasTypeAccess(roleStr, type, level = 'viewer') {
 
 async function userHasTypeAccessForBeneficiary(userId, beneficiaryId, type, level = 'viewer') {
     if (!userId) return false;
-    const user = await db('user_profiles').where({ id: userId }).select('role').first();
+    const userRepo = new BaseRepository(getDb(), 'user_profiles');
+    const user = await userRepo.findById(userId);
     if (user && isAdmin(user.role)) return true;
     if (!beneficiaryId) return false;
-    const member = await db('beneficiary_members')
-        .where({ user_id: userId, beneficiary_id: beneficiaryId })
-        .select('role')
-        .first();
+    const memRepo = new BaseRepository(getDb(), 'beneficiary_members');
+    const member = await memRepo.findFirst({ user_id: userId, beneficiary_id: beneficiaryId });
     if (!member?.role) return false;
     return hasTypeAccess(member.role, type, level);
 }
 
 async function userHasAnyTypeAccess(userId, type) {
     if (!userId) return false;
-    const user = await db('user_profiles').where({ id: userId }).select('role').first();
+    const userRepo = new BaseRepository(getDb(), 'user_profiles');
+    const user = await userRepo.findById(userId);
     if (user && isAdmin(user.role)) return true;
 
     const prefix = type === 'alert' ? 'alert' : 'case';
-    const row = await db('beneficiary_members')
-        .where('user_id', userId)
-        .andWhere(function() {
-            this.where('role', 'like', `%"${prefix}_analyst"%`)
-                .orWhere('role', 'like', `%"${prefix}_manager"%`)
-                .orWhere('role', 'like', `%"${prefix}_user"%`)
-                .orWhere('role', 'like', `%"${prefix}_viewer"%`);
-        })
-        .first();
-    return !!row;
+    const memRepo = new BaseRepository(getDb(), 'beneficiary_members');
+    const aql = `
+        FOR m IN beneficiary_members
+            FILTER m.user_id == @userId
+            FILTER m.role LIKE @r1 OR m.role LIKE @r2 OR m.role LIKE @r3 OR m.role LIKE @r4
+            RETURN m
+    `;
+    const rows = await memRepo.query(aql, {
+        userId,
+        r1: `%"${prefix}_analyst"%`,
+        r2: `%"${prefix}_manager"%`,
+        r3: `%"${prefix}_user"%`,
+        r4: `%"${prefix}_viewer"%`
+    });
+    return rows.length > 0;
 }
 
 async function canSeeType(userId, type) {
@@ -102,18 +106,19 @@ async function canSeeType(userId, type) {
 
 async function isTeamLeadForBeneficiary(userId, beneficiaryId) {
     if (!userId || !beneficiaryId) return false;
-    const row = await db('beneficiary_members')
-        .where({ user_id: userId, beneficiary_id: beneficiaryId })
-        .select('is_team_lead')
-        .first();
+    const memRepo = new BaseRepository(getDb(), 'beneficiary_members');
+    const row = await memRepo.findFirst({ user_id: userId, beneficiary_id: beneficiaryId });
     return row?.is_team_lead === 1;
 }
 
 async function isTeamLeadForCase(userId, caseId) {
     if (!userId || !caseId) return false;
-    const user = await db('user_profiles').where({ id: userId }).select('role').first();
+    const userRepo = new BaseRepository(getDb(), 'user_profiles');
+    const user = await userRepo.findById(userId);
     if (user && isAdmin(user.role)) return true;
-    const caseRow = await db('cases').where({ id: caseId }).select('beneficiary_id').first();
+    
+    const caseRepo = new BaseRepository(getDb(), 'cases');
+    const caseRow = await caseRepo.findById(caseId);
     if (!caseRow?.beneficiary_id) return false;
     return isTeamLeadForBeneficiary(userId, caseRow.beneficiary_id);
 }
@@ -122,27 +127,31 @@ async function isTeamLeadForCase(userId, caseId) {
 
 async function canAccessCase(userId, caseId) {
     if (!userId || !caseId) return false;
-    const user = await db('user_profiles').where({ id: userId }).select('role').first();
+    const userRepo = new BaseRepository(getDb(), 'user_profiles');
+    const user = await userRepo.findById(userId);
     if (!user) return false;
     if (isAdmin(user.role)) return true;
 
-    const caseRow = await db('cases').where({ id: caseId }).select('author_id', 'type', 'beneficiary_id').first();
+    const caseRepo = new BaseRepository(getDb(), 'cases');
+    const caseRow = await caseRepo.findById(caseId);
     if (!caseRow) return false;
     if (caseRow.author_id === userId) return true;
 
-    const isAssigned = await db('case_assignments').where({ case_id: caseId, user_id: userId }).first();
+    const assignRepo = new BaseRepository(getDb(), 'case_assignments');
+    const isAssigned = await assignRepo.findFirst({ case_id: caseId, user_id: userId });
     if (isAssigned) return true;
 
     if (caseRow.beneficiary_id) {
-        const isMember = await db('beneficiary_members')
-            .where({ beneficiary_id: caseRow.beneficiary_id, user_id: userId }).first();
+        const memRepo = new BaseRepository(getDb(), 'beneficiary_members');
+        const isMember = await memRepo.findFirst({ beneficiary_id: caseRow.beneficiary_id, user_id: userId });
         if (isMember) return true;
     }
     return false;
 }
 
 async function getUserRole(userId) {
-    const user = await db('user_profiles').where({ id: userId }).select('role').first();
+    const userRepo = new BaseRepository(getDb(), 'user_profiles');
+    const user = await userRepo.findById(userId);
     return user?.role || null;
 }
 
@@ -155,7 +164,8 @@ async function userHasTypeAccess(userId, type, level = 'viewer') {
 // ─── Express Middleware ─────────────────────────────────────────
 
 function requireAdmin(req, res, next) {
-    db('user_profiles').where({ id: req.user.id }).select('role').first()
+    const userRepo = new BaseRepository(getDb(), 'user_profiles');
+    userRepo.findById(req.user.id)
         .then(user => {
             if (!user) return res.status(401).json({ error: 'User not found' });
             if (!isAdmin(user.role)) return res.status(403).json({ error: 'Admin access required' });
@@ -169,7 +179,8 @@ function requireAdmin(req, res, next) {
 
 function requireRole(...requiredRoles) {
     return (req, res, next) => {
-        db('user_profiles').where({ id: req.user.id }).select('role').first()
+        const userRepo = new BaseRepository(getDb(), 'user_profiles');
+        userRepo.findById(req.user.id)
             .then(user => {
                 if (!user) return res.status(401).json({ error: 'User not found' });
                 const userRoles = getRoles(user.role);

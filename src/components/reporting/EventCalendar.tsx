@@ -143,7 +143,7 @@ export function EventCalendar({ eventDates, utcOffset }: Props) {
 
       <div className="grid grid-cols-7 gap-1">
         {DAY_HEADERS.map(dh => (
-          <div key={dh} className="text-center text-[10px] font-semibold text-gray-400 dark:text-slate-500 pb-1">
+          <div key={dh} className="text-center text-[10px] font-semibold text-gray-500 dark:text-slate-400 pb-1">
             {dh}
           </div>
         ))}
@@ -167,7 +167,7 @@ export function EventCalendar({ eventDates, utcOffset }: Props) {
                 text-xs transition-all duration-150
                 ${cell.count > 0
                   ? intensityClass(cell.count)
-                  : 'text-gray-400 dark:text-slate-500'
+                  : 'text-gray-500 dark:text-slate-400'
                 }
                 ${isToday ? 'ring-1 ring-sky-400 dark:ring-sky-500' : ''}
               `}
@@ -187,7 +187,7 @@ export function EventCalendar({ eventDates, utcOffset }: Props) {
       </div>
 
       <div className="flex items-center justify-between mt-4">
-        <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-slate-500">
+        <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-slate-400">
           <span>{t('auto.moins')}</span>
           <div className="flex gap-0.5">
             {[0.1, 0.3, 0.6, 1].map((ratio, i) => (

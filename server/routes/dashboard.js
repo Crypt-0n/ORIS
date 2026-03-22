@@ -1,5 +1,5 @@
 const express = require('express');
-const db = require('../db');
+const { getDb } = require('../db-arango');
 const authenticateToken = require('../middleware/auth');
 const { isAdmin, canSeeType } = require('../utils/access');
 
@@ -9,82 +9,118 @@ router.use(authenticateToken);
 router.get('/', async (req, res) => {
     try {
         const userId = req.user.id;
-        const currentUser = await db('user_profiles').where({ id: userId }).select('role').first();
+        const db = getDb();
+        
+        let currentUser = null;
+        try {
+            const userCursor = await db.query(`FOR u IN user_profiles FILTER u._key == @userId RETURN u`, { userId });
+            currentUser = await userCursor.next();
+        } catch (e) {}
+        
         const admin = currentUser && isAdmin(currentUser.role);
         const canSeeAlerts = await canSeeType(userId, 'alert');
         const canSeeCases = await canSeeType(userId, 'case');
 
-        const countCases = async (status, type) => {
-            if (admin) {
-                const r = await db('cases').whereRaw("status = ? AND COALESCE(type, 'case') = ?", [status, type]).count('* as count').first();
-                return r.count;
-            }
-            const r = await db('cases')
-                .whereRaw("status = ? AND COALESCE(type, 'case') = ?", [status, type])
-                .andWhere(function() {
-                    this.where('author_id', userId)
-                        .orWhereExists(db('case_assignments').whereRaw('case_id = cases.id').andWhere('user_id', userId))
-                        .orWhereExists(db('beneficiary_members').whereRaw('beneficiary_id = cases.beneficiary_id').andWhere('user_id', userId));
-                })
-                .count('* as count').first();
-            return r.count;
-        };
-
         const [openCasesCount, closedCasesCount, openAlertsCount, closedAlertsCount] = await Promise.all([
-            countCases('open', 'case'), countCases('closed', 'case'),
-            countCases('open', 'alert'), countCases('closed', 'alert'),
+            countCases(db, userId, admin, 'open', 'case'),
+            countCases(db, userId, admin, 'closed', 'case'),
+            countCases(db, userId, admin, 'open', 'alert'),
+            countCases(db, userId, admin, 'closed', 'alert')
         ]);
 
-        const myOpenTasks = await db('tasks').where({ assigned_to: userId, status: 'open' }).count('* as count').first();
+        const tasksCursor = await db.query(`
+            FOR t IN tasks
+            FILTER t.assigned_to == @userId AND t.status == 'open'
+            COLLECT WITH COUNT INTO length
+            RETURN length
+        `, { userId });
+        const myOpenTasksCount = await tasksCursor.next();
 
-        const unassignedTasks = await db('tasks')
-            .whereNull('assigned_to').andWhere('status', 'open')
-            .andWhere(function() {
-                this.whereExists(db('cases').whereRaw('cases.id = tasks.case_id').andWhere('cases.author_id', userId))
-                    .orWhereExists(db('case_assignments').whereRaw('case_assignments.case_id = tasks.case_id').andWhere('case_assignments.user_id', userId));
-            })
-            .count('* as count').first();
-
-        let recentActivityQuery = db('case_audit_log as al')
-            .leftJoin('user_profiles as up', 'al.user_id', 'up.id')
-            .leftJoin('cases as c', 'al.case_id', 'c.id')
-            .select('al.*', 'up.full_name as user_name', 'c.case_number', 'c.title as case_title',
-                db.raw("COALESCE(c.type, 'case') as case_type"))
-            .orderBy('al.created_at', 'desc').limit(15);
-
-        if (!admin) {
-            recentActivityQuery = recentActivityQuery.whereIn('al.case_id',
-                db('cases').select('id').where('author_id', userId)
-                    .unionAll(db('case_assignments').select('case_id').where('user_id', userId))
-            );
+        let unassignedTasksCount = 0;
+        if (admin) {
+            const uCursor = await db.query(`
+                FOR t IN tasks
+                FILTER t.assigned_to == null AND t.status == 'open'
+                COLLECT WITH COUNT INTO length
+                RETURN length
+            `);
+            unassignedTasksCount = await uCursor.next();
+        } else {
+            const uCursor = await db.query(`
+                FOR t IN tasks
+                FILTER t.assigned_to == null AND t.status == 'open'
+                LET c = (FOR c IN cases FILTER c._key == t.case_id RETURN c)[0]
+                LET isAuthor = c.author_id == @userId
+                LET isAssigned = (FOR a IN case_assignments FILTER a.case_id == t.case_id AND a.user_id == @userId LIMIT 1 RETURN 1)
+                FILTER isAuthor OR LENGTH(isAssigned) > 0
+                COLLECT WITH COUNT INTO length
+                RETURN length
+            `, { userId });
+            unassignedTasksCount = await uCursor.next();
         }
-        const recentActivity = await recentActivityQuery;
 
-        let criticalQuery = db('cases')
-            .leftJoin('severities', 'cases.severity_id', 'severities.id')
-            .where('cases.status', 'open')
-            .whereIn('severities.label', ['Critique', 'Critical', 'Haute', 'High'])
-            .select('cases.id', 'cases.case_number', 'cases.title',
-                db.raw("COALESCE(cases.type, 'case') as type"), 'cases.created_at',
-                'severities.label as severity_label', 'severities.color as severity_color')
-            .orderBy('cases.created_at', 'desc').limit(5);
-
-        if (!admin) {
-            criticalQuery = criticalQuery.andWhere(function() {
-                this.where('cases.author_id', userId)
-                    .orWhereExists(db('case_assignments').whereRaw('case_id = cases.id').andWhere('user_id', userId));
-            });
+        let recentActivity = [];
+        if (admin) {
+            const rCursor = await db.query(`
+                FOR al IN case_audit_log
+                SORT al.created_at DESC
+                LIMIT 15
+                LET up = (FOR u IN user_profiles FILTER u._key == al.user_id RETURN u)[0]
+                LET c = (FOR c IN cases FILTER c._key == al.case_id RETURN c)[0]
+                RETURN MERGE(al, { id: al._key, user_name: up.full_name, case_number: c.case_number, case_title: c.title, case_type: c.type || 'case' })
+            `);
+            recentActivity = await rCursor.all();
+        } else {
+            const rCursor = await db.query(`
+                FOR al IN case_audit_log
+                SORT al.created_at DESC
+                LET c = (FOR c IN cases FILTER c._key == al.case_id RETURN c)[0]
+                LET isAuthor = c.author_id == @userId
+                LET isAssigned = (FOR a IN case_assignments FILTER a.case_id == al.case_id AND a.user_id == @userId LIMIT 1 RETURN 1)
+                FILTER isAuthor OR LENGTH(isAssigned) > 0
+                LIMIT 15
+                LET up = (FOR u IN user_profiles FILTER u._key == al.user_id RETURN u)[0]
+                RETURN MERGE(al, { id: al._key, user_name: up.full_name, case_number: c.case_number, case_title: c.title, case_type: c.type || 'case' })
+            `, { userId });
+            recentActivity = await rCursor.all();
         }
-        const criticalCases = await criticalQuery;
+
+        let criticalCases = [];
+        if (admin) {
+            const cCursor = await db.query(`
+                FOR c IN cases
+                FILTER c.status == 'open'
+                LET sev = (FOR s IN severities FILTER s._key == c.severity_id RETURN s)[0]
+                FILTER sev.label IN ['Critique', 'Critical', 'Haute', 'High']
+                SORT c.created_at DESC
+                LIMIT 5
+                RETURN { id: c._key, case_number: c.case_number, title: c.title, type: c.type || 'case', created_at: c.created_at, severity_label: sev.label, severity_color: sev.color }
+            `);
+            criticalCases = await cCursor.all();
+        } else {
+            const cCursor = await db.query(`
+                FOR c IN cases
+                FILTER c.status == 'open'
+                LET isAuthor = c.author_id == @userId
+                LET isAssigned = (FOR a IN case_assignments FILTER a.case_id == c._key AND a.user_id == @userId LIMIT 1 RETURN 1)
+                FILTER isAuthor OR LENGTH(isAssigned) > 0
+                LET sev = (FOR s IN severities FILTER s._key == c.severity_id RETURN s)[0]
+                FILTER sev.label IN ['Critique', 'Critical', 'Haute', 'High']
+                SORT c.created_at DESC
+                LIMIT 5
+                RETURN { id: c._key, case_number: c.case_number, title: c.title, type: c.type || 'case', created_at: c.created_at, severity_label: sev.label, severity_color: sev.color }
+            `, { userId });
+            criticalCases = await cCursor.all();
+        }
 
         res.json({
             stats: {
-                openCases: canSeeCases ? parseInt(openCasesCount, 10) || 0 : 0,
-                closedCases: canSeeCases ? parseInt(closedCasesCount, 10) || 0 : 0,
-                openAlerts: canSeeAlerts ? parseInt(openAlertsCount, 10) || 0 : 0,
-                closedAlerts: canSeeAlerts ? parseInt(closedAlertsCount, 10) || 0 : 0,
-                myOpenTasks: parseInt(myOpenTasks.count, 10) || 0,
-                unassignedTasks: parseInt(unassignedTasks.count, 10) || 0,
+                openCases: canSeeCases ? openCasesCount : 0,
+                closedCases: canSeeCases ? closedCasesCount : 0,
+                openAlerts: canSeeAlerts ? openAlertsCount : 0,
+                closedAlerts: canSeeAlerts ? closedAlertsCount : 0,
+                myOpenTasks: myOpenTasksCount,
+                unassignedTasks: unassignedTasksCount,
             },
             recentActivity, criticalCases, canSeeAlerts, canSeeCases,
         });
@@ -93,5 +129,28 @@ router.get('/', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+async function countCases(db, userId, admin, status, type) {
+    if (admin) {
+        const cursor = await db.query(`
+            FOR c IN cases
+            FILTER c.status == @status AND (c.type == @type OR (c.type == null AND @type == 'case'))
+            COLLECT WITH COUNT INTO length
+            RETURN length
+        `, { status, type });
+        return await cursor.next();
+    }
+    const cursor = await db.query(`
+        FOR c IN cases
+        FILTER c.status == @status AND (c.type == @type OR (c.type == null AND @type == 'case'))
+        LET isAuthor = c.author_id == @userId
+        LET isAssigned = (FOR a IN case_assignments FILTER a.case_id == c._key AND a.user_id == @userId LIMIT 1 RETURN 1)
+        LET inBeneficiary = (FOR bm IN beneficiary_members FILTER bm.beneficiary_id == c.beneficiary_id AND bm.user_id == @userId LIMIT 1 RETURN 1)
+        FILTER isAuthor OR LENGTH(isAssigned) > 0 OR LENGTH(inBeneficiary) > 0
+        COLLECT WITH COUNT INTO length
+        RETURN length
+    `, { status, type, userId });
+    return await cursor.next();
+}
 
 module.exports = router;

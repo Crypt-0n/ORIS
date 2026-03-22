@@ -10,7 +10,7 @@ export function exportActivityThreadAsPng(nodes: DiamondNode[], killChainType: s
   const systemMap = new Map<string, string>();
   nodes.forEach((node) => {
     [...node.axes.infrastructure, ...node.axes.victim].forEach((obj) => {
-      if (obj.type === 'system' && !systemMap.has(obj.id)) systemMap.set(obj.id, obj.label);
+      if ((obj.type === 'system' || obj.type === 'attacker_infra') && !systemMap.has(obj.id)) systemMap.set(obj.id, obj.label);
     });
   });
 
@@ -18,7 +18,7 @@ export function exportActivityThreadAsPng(nodes: DiamondNode[], killChainType: s
   systemMap.forEach((label, id) => cols.push({ id, label, isExternal: false }));
   const hasExternal = nodes.some((node) => {
     const victims = node.axes.victim.filter((o) => o.type === 'system');
-    const infra = node.axes.infrastructure.filter((o) => o.type === 'system');
+    const infra = node.axes.infrastructure.filter((o) => o.type === 'system' || o.type === 'attacker_infra');
     return victims.length === 0 && infra.length === 0;
   });
   if (hasExternal) cols.push({ id: '__external__', label: 'Externe / Inconnu', isExternal: true });
@@ -52,17 +52,10 @@ export function exportActivityThreadAsPng(nodes: DiamondNode[], killChainType: s
     const next = nodes[i + 1];
     const ry1 = rowCenter(i);
     const ry2 = rowCenter(i + 1);
-    const behavior = deriveEventBehavior(node.killChainPhase, node.axes);
-    const isLat = behavior === 'lateralisation' || behavior === 'c2';
-    const victims1 = node.axes.victim.filter((o) => o.type === 'system').map((o) => o.id);
-    const infra1 = node.axes.infrastructure.filter((o) => o.type === 'system').map((o) => o.id);
-    const allIds1 = isLat ? [...infra1, ...victims1] : victims1.length > 0 ? victims1 : ['__external__'];
-    const victims2 = next.axes.victim.filter((o) => o.type === 'system').map((o) => o.id);
-    const infra2 = next.axes.infrastructure.filter((o) => o.type === 'system').map((o) => o.id);
-    const behavior2 = deriveEventBehavior(next.killChainPhase, next.axes);
-    const isLat2 = behavior2 === 'lateralisation' || behavior2 === 'c2';
-    const allIds2 = isLat2 ? [...infra2, ...victims2] : victims2.length > 0 ? victims2 : ['__external__'];
-    allIds1.filter((id) => allIds2.includes(id)).forEach((colId) => {
+    const ext1 = extractSystemsFromNode(node);
+    const ext2 = extractSystemsFromNode(next);
+    
+    ext1.allIds.filter((id) => ext2.allIds.includes(id)).forEach((colId) => {
       lines.push(`<linearGradient id="g-${i}-${colId}" x1="0" y1="${ry1}" x2="0" y2="${ry2}" gradientUnits="userSpaceOnUse">
         <stop offset="0%" stop-color="${node.killChainHexColor}" stop-opacity="0.4"/>
         <stop offset="100%" stop-color="${next.killChainHexColor}" stop-opacity="0.4"/>
@@ -84,31 +77,11 @@ export function exportActivityThreadAsPng(nodes: DiamondNode[], killChainType: s
   nodes.forEach((node, ri) => {
     const ry = rowCenter(ri);
     const color = node.killChainHexColor;
-    const behavior = deriveEventBehavior(node.killChainPhase, node.axes);
-    const isLat = behavior === 'lateralisation' || behavior === 'c2';
+    const { sourceId, targetId, allIds, behavior } = extractSystemsFromNode(node);
+    
+    const isLink = sourceId && targetId && sourceId !== targetId;
 
-    const infraSystems = node.axes.infrastructure.filter((o) => o.type === 'system');
-    const victimSystems = node.axes.victim.filter((o) => o.type === 'system');
-    let sourceId: string | null = null;
-    let targetId: string | null = null;
-    if (isLat) {
-      if (behavior === 'c2') {
-        // C2: Direction is Machine (Victim) -> C2 Server (Infra)
-        if (victimSystems.length > 0) sourceId = victimSystems[0].id;
-        if (infraSystems.length > 0) targetId = infraSystems[0].id;
-      } else {
-        // PIVOT: Direction is Source (Infra) -> Target (Victim)
-        if (infraSystems.length > 0) sourceId = infraSystems[0].id;
-        if (victimSystems.length > 0) targetId = victimSystems[0].id;
-      }
-    } else {
-      if (victimSystems.length > 0) sourceId = victimSystems[0].id;
-    }
-    let allIds = isLat ? [...(sourceId ? [sourceId] : []), ...(targetId ? [targetId] : [])]
-      : sourceId ? [sourceId] : [];
-    if (allIds.length === 0) allIds = ['__external__'];
-
-    if (isLat && sourceId && targetId) {
+    if (isLink) {
       const sci = cols.findIndex((c) => c.id === sourceId);
       const tci = cols.findIndex((c) => c.id === targetId);
       if (sci !== -1 && tci !== -1) {
@@ -118,7 +91,7 @@ export function exportActivityThreadAsPng(nodes: DiamondNode[], killChainType: s
         const tip = x2 - dir * 12; const sz = 6;
         lines.push(`<polygon points="${x2},${ry} ${tip},${ry - sz} ${tip},${ry + sz}" fill="${color}" opacity="0.85"/>`);
         const mx = (x1 + x2) / 2;
-        const labelText = deriveEventBehavior(node.killChainPhase, node.axes) === 'c2' ? 'C2' : 'PIVOT';
+        const labelText = behavior === 'c2' ? 'C2' : (behavior === 'lateralisation' ? 'PIVOT' : 'ACTION');
         const labelWidth = labelText.length * 5 + 10;
         lines.push(`<rect x="${mx - labelWidth / 2}" y="${ry - 19}" width="${labelWidth}" height="13" rx="3" fill="${color}"/>`);
         lines.push(`<text x="${mx}" y="${ry - 10}" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" letter-spacing="0.05em">${labelText}</text>`);
@@ -127,12 +100,8 @@ export function exportActivityThreadAsPng(nodes: DiamondNode[], killChainType: s
 
     if (ri < nodes.length - 1) {
       const next = nodes[ri + 1];
-      const behavior2 = deriveEventBehavior(next.killChainPhase, next.axes);
-      const isLat2 = behavior2 === 'lateralisation' || behavior2 === 'c2';
-      const v2 = next.axes.victim.filter((o) => o.type === 'system').map((o) => o.id);
-      const i2 = next.axes.infrastructure.filter((o) => o.type === 'system').map((o) => o.id);
-      const allIds2 = isLat2 ? [...i2, ...v2] : v2.length > 0 ? v2 : ['__external__'];
-      allIds.filter((id) => allIds2.includes(id)).forEach((colId) => {
+      const ext2 = extractSystemsFromNode(next);
+      allIds.filter((id) => ext2.allIds.includes(id)).forEach((colId) => {
         const ci = cols.findIndex((c) => c.id === colId);
         if (ci === -1) return;
         const cx = colCenter(ci);
@@ -148,7 +117,7 @@ export function exportActivityThreadAsPng(nodes: DiamondNode[], killChainType: s
       const isSource = colId === sourceId;
       const isTarget = colId === targetId;
       lines.push(`<circle cx="${cx}" cy="${ry}" r="${DOT_R}" fill="${color}40" stroke="${color}" stroke-width="1.5"/>`);
-      if (isLat) {
+      if (isLink) {
         const letter = isSource ? 'S' : isTarget ? 'T' : '•';
         lines.push(`<text x="${cx}" y="${ry + 1}" text-anchor="middle" dominant-baseline="middle" font-size="8" font-weight="800" fill="#fff">${letter}</text>`);
       }
@@ -219,20 +188,20 @@ interface EventRow {
   involvedColumnIds: string[];
   sourceColumnId: string | null;
   targetColumnId: string | null;
-  isLateralisation: boolean;
+  behavior: string;
 }
 
-function extractSystemsFromNode(node: DiamondNode): { sourceId: string | null; targetId: string | null; allIds: string[] } {
+function extractSystemsFromNode(node: DiamondNode): { sourceId: string | null; targetId: string | null; allIds: string[], behavior: string } {
   const behavior = deriveEventBehavior(node.killChainPhase, node.axes);
   const isLat = behavior === 'lateralisation' || behavior === 'c2';
 
   let sourceId: string | null = null;
   let targetId: string | null = null;
+  
+  const infraSystems = node.axes.infrastructure.filter((o) => o.type === 'system' || o.type === 'attacker_infra');
+  const victimSystems = node.axes.victim.filter((o) => o.type === 'system');
 
   if (isLat) {
-    const infraSystems = node.axes.infrastructure.filter((o) => o.type === 'system');
-    const victimSystems = node.axes.victim.filter((o) => o.type === 'system');
-
     if (behavior === 'c2') {
       // C2: Machine (Victim) -> C2 Server (Infra)
       if (victimSystems.length > 0) sourceId = victimSystems[0].id;
@@ -243,14 +212,38 @@ function extractSystemsFromNode(node: DiamondNode): { sourceId: string | null; t
       if (victimSystems.length > 0) targetId = victimSystems[0].id;
     }
   } else {
-    const victimSystems = node.axes.victim.filter((o) => o.type === 'system');
-    if (victimSystems.length > 0) sourceId = victimSystems[0].id;
+    // Standard event: infrastructure -> victim
+    if (infraSystems.length > 0 && victimSystems.length > 0) {
+      sourceId = infraSystems[0].id;
+      targetId = victimSystems[0].id;
+    } else if (victimSystems.length > 0) {
+      sourceId = victimSystems[0].id;
+    } else if (infraSystems.length > 0) {
+      sourceId = infraSystems[0].id;
+    }
+  }
+
+  // Fallback: If we have multiple systems but missed assigning source/target
+  if (!sourceId || !targetId) {
+    const allAvailable = [...infraSystems, ...victimSystems];
+    if (allAvailable.length >= 2) {
+      if (!sourceId) sourceId = allAvailable[0].id;
+      if (!targetId || targetId === sourceId) targetId = allAvailable.find(s => s.id !== sourceId)?.id || null;
+    } else if (allAvailable.length === 1) {
+      if (!sourceId) sourceId = allAvailable[0].id;
+    }
   }
 
   const allIds: string[] = [];
   if (sourceId) allIds.push(sourceId);
   if (targetId && targetId !== sourceId) allIds.push(targetId);
-  return { sourceId, targetId, allIds };
+  
+  const allAvailable = [...infraSystems, ...victimSystems];
+  allAvailable.forEach(sys => {
+    if (!allIds.includes(sys.id)) allIds.push(sys.id);
+  });
+
+  return { sourceId, targetId, allIds, behavior };
 }
 
 function truncateLabel(text: string, max: number) {
@@ -277,7 +270,7 @@ export function ActivityThread({ nodes, selectedNodeId, onSelectNode }: Activity
 
     nodes.forEach((node) => {
       [...node.axes.infrastructure, ...node.axes.victim].forEach((obj) => {
-        if (obj.type === 'system' && !systemMap.has(obj.id)) {
+        if ((obj.type === 'system' || obj.type === 'attacker_infra') && !systemMap.has(obj.id)) {
           systemMap.set(obj.id, obj.label);
         }
       });
@@ -299,7 +292,6 @@ export function ActivityThread({ nodes, selectedNodeId, onSelectNode }: Activity
     const eventRows: EventRow[] = nodes.map((node, index) => {
       const { sourceId, targetId, allIds } = extractSystemsFromNode(node);
       const beh = deriveEventBehavior(node.killChainPhase, node.axes);
-      const isLat = beh === 'lateralisation' || beh === 'c2';
 
       let involvedIds = allIds;
       if (involvedIds.length === 0) involvedIds = ['__external__'];
@@ -310,7 +302,7 @@ export function ActivityThread({ nodes, selectedNodeId, onSelectNode }: Activity
         involvedColumnIds: involvedIds,
         sourceColumnId: sourceId || (involvedIds[0] === '__external__' ? '__external__' : null),
         targetColumnId: targetId,
-        isLateralisation: isLat,
+        behavior: beh,
       };
     });
 
@@ -401,7 +393,8 @@ export function ActivityThread({ nodes, selectedNodeId, onSelectNode }: Activity
           })}
 
           {rows.map((row) => {
-            const { node, index, involvedColumnIds, sourceColumnId, targetColumnId, isLateralisation } = row;
+            const { node, index, involvedColumnIds, sourceColumnId, targetColumnId, behavior } = row;
+            const isLateralisation = behavior === 'lateralisation' || behavior === 'c2';
             const ry = rowCenter(index);
             const color = node.killChainHexColor;
             const isSelected = selectedNodeId === node.id;
@@ -411,7 +404,7 @@ export function ActivityThread({ nodes, selectedNodeId, onSelectNode }: Activity
 
             return (
               <g key={node.id}>
-                {isLateralisation && sourceColIdx !== -1 && targetColIdx !== -1 && (
+                {sourceColIdx !== -1 && targetColIdx !== -1 && sourceColIdx !== targetColIdx && (
                   <g>
                     <line
                       x1={colCenter(sourceColIdx)}
@@ -428,28 +421,30 @@ export function ActivityThread({ nodes, selectedNodeId, onSelectNode }: Activity
                       fill={color}
                       opacity="0.85"
                     />
-                    <foreignObject
-                      x={(colCenter(sourceColIdx) + colCenter(targetColIdx)) / 2 - 22}
-                      y={ry - 22}
-                      width={44}
-                      height={16}
-                    >
-                      <div
-                        style={{
-                          background: color,
-                          color: '#fff',
-                          fontSize: 8,
-                          fontWeight: 800,
-                          textAlign: 'center',
-                          borderRadius: 4,
-                          padding: '1px 4px',
-                          letterSpacing: '0.05em',
-                          textTransform: 'uppercase',
-                        }}
+                    {isLateralisation && (
+                      <foreignObject
+                        x={(colCenter(sourceColIdx) + colCenter(targetColIdx)) / 2 - 22}
+                        y={ry - 22}
+                        width={44}
+                        height={16}
                       >
-                        {deriveEventBehavior(node.killChainPhase, node.axes) === 'c2' ? 'C2' : 'PIVOT'}
-                      </div>
-                    </foreignObject>
+                        <div
+                          style={{
+                            background: color,
+                            color: '#fff',
+                            fontSize: 8,
+                            fontWeight: 800,
+                            textAlign: 'center',
+                            borderRadius: 4,
+                            padding: '1px 4px',
+                            letterSpacing: '0.05em',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {deriveEventBehavior(node.killChainPhase, node.axes) === 'c2' ? 'C2' : 'PIVOT'}
+                        </div>
+                      </foreignObject>
+                    )}
                   </g>
                 )}
 

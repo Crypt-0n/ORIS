@@ -56,7 +56,7 @@ function buildRoleTransitions(nodes: DiamondNode[]): SystemRole[] {
     });
 
     node.axes.infrastructure.forEach((obj) => {
-      if (obj.type !== 'system') return;
+      if (obj.type !== 'system' && obj.type !== 'attacker_infra') return;
       const entry = ensureEntry(obj);
       if (!entry.asInfrastructure.some((r) => r.nodeId === node.id)) {
         entry.asInfrastructure.push({

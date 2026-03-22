@@ -1,24 +1,19 @@
 /**
  * Database initialization — ORIS.
  * 
- * Runs Knex migrations to create/update the schema.
- * This replaces the previous raw SQL schema + auto-migration approach.
- * Works with PostgreSQL, MySQL, and SQLite.
+ * Initializes ArangoDB.
+ * ArangoDB is the sole database for all features and STIX graph operations.
  */
-const db = require('./db');
+const { initArango } = require('./db-arango');
 
 async function initDatabase() {
-    console.log('Running database migrations...');
+    // 1. ArangoDB initialization (collections, graph, indexes, seeds)
     try {
-        const [batchNo, log] = await db.migrate.latest();
-        if (log.length === 0) {
-            console.log('Database schema is up to date.');
-        } else {
-            console.log(`Batch ${batchNo} applied ${log.length} migrations:`);
-            log.forEach(f => console.log(`  - ${f}`));
-        }
+        console.log('[ArangoDB] Starting initialization...');
+        await initArango();
+        console.log('[ArangoDB] Database is up to date.');
     } catch (err) {
-        console.error('Migration failed:', err);
+        console.error('[ArangoDB] Initialization failed:', err);
         throw err;
     }
 }

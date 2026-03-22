@@ -46,7 +46,7 @@ export function UserProfile() {
       <div className="flex justify-center">
         <Link
           to="/about"
-          className="flex items-center gap-2 text-sm text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 transition"
+          className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 transition"
         >
           <Info className="w-4 h-4" />
           {t('nav.about')}
@@ -182,7 +182,7 @@ function ApiTokensCard() {
             <div key={token.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-100 dark:border-slate-700/50">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-800 dark:text-slate-200 truncate">{token.name}</p>
-                <p className="text-[10px] text-gray-400 dark:text-slate-500">
+                <p className="text-[10px] text-gray-500 dark:text-slate-400">
                   {t('auto.cree_le')} {new Date(token.created_at).toLocaleDateString()}
                   {token.last_used_at && ` • ${t('auto.utilise_le')} ${new Date(token.last_used_at).toLocaleDateString()}`}
                 </p>
@@ -336,7 +336,7 @@ function InfoRow({
         <Icon className="w-4 h-4 text-gray-500 dark:text-slate-400" />
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-gray-400 dark:text-slate-500">{label}</p>
+        <p className="text-xs text-gray-500 dark:text-slate-400">{label}</p>
         <p className="text-sm font-medium text-gray-800 dark:text-slate-200 truncate">{value}</p>
       </div>
     </div>
@@ -507,7 +507,7 @@ function PinCodeCard() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 transition"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 transition"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -727,7 +727,7 @@ function PasswordField({
         <button
           type="button"
           onClick={onToggle}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 transition"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 transition"
         >
           {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
         </button>

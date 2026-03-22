@@ -214,7 +214,7 @@ export function AiConfigPanel() {
           </button>
         </div>
         {config.ai_provider === 'ollama' && (
-          <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
+          <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
             Ollama ne nécessite pas de clé API (sauf si un reverse-proxy l'exige).
           </p>
         )}

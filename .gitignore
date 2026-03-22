@@ -44,3 +44,11 @@ server/avatars/
 # Fichiers système
 .DS_Store
 Thumbs.db
+
+# Lighthouse / Audit
+lighthouse-report.*
+lighthouse-reports/
+lighthouse-audit.*
+
+# Backups
+server/backups/

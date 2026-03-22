@@ -109,7 +109,7 @@ export function CaseSidebar({ activeSection, onSectionChange, isClosed, showInve
                       className={`p-1 rounded transition-colors flex-shrink-0 ${
                         pinned
                           ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30'
-                          : 'text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800/50'
+                          : 'text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800/50'
                       }`}
                     >
                       <Pin className={`w-3 h-3 transition-transform ${pinned ? 'rotate-0' : '-rotate-45'}`} />
@@ -156,6 +156,7 @@ export function CaseSectionSelect({ activeSection, onSectionChange, isClosed, sh
         value={activeSection}
         onChange={(e) => onSectionChange(e.target.value as CaseSection)}
         className="w-full px-3 py-2.5 text-sm font-medium bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 dark:text-white"
+        aria-label={t('sidebar.navigation')}
       >
         {groups.map((group) => (
           <optgroup key={group.labelKey} label={t(group.labelKey)}>

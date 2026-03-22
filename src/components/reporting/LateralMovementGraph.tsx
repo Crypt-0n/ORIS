@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../../lib/api';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useKillChain } from '../../contexts/KillChainContext';
 import { getKillChainColors } from '../../lib/killChainDefinitions';
 import {
   GitBranch,
@@ -40,6 +41,8 @@ interface LateralEdge {
   killChain: string | null;
   pairIndex: number;
   pairCount: number;
+  attackPatternName?: string | null;
+  killChainPhases?: { kill_chain_name: string; phase_name: string }[] | null;
 }
 
 interface EmailMarker {
@@ -348,6 +351,7 @@ function buildLegendItems(edges: LateralEdge[], killChainColors: Record<string, 
 export function LateralMovementGraph({ caseId, killChainType, startDate, endDate, isReportView, forceTheme, layoutMode = 'force' }: Props) {
   const { t } = useTranslation();
   const { theme: globalTheme } = useTheme();
+  const { activeKillChain } = useKillChain();
   const theme = forceTheme || globalTheme;
   const isDark = theme === 'dark';
   const killChainColors = getKillChainColors(killChainType ?? null);
@@ -442,247 +446,74 @@ export function LateralMovementGraph({ caseId, killChainType, startDate, endDate
   useEffect(() => {
     (async () => {
       try {
-        console.log('Fetching events for lateral movement graph...');
-        const eventsData = await api.get(`/investigation/events/by-case/${caseId}`);
-        const allEvents = (eventsData || []).sort((a: any, b: any) => new Date(a.event_datetime).getTime() - new Date(b.event_datetime).getTime());
+        setLoading(true);
+        console.log('Fetching lateral movements from STIX graph...');
 
-        const overridesRes = await api.get(`/investigation/diamond-overrides/by-case/${caseId}`);
-        const overridesMap = new Map();
-        (overridesRes || []).forEach((ov: any) => overridesMap.set(ov.event_id, ov));
+        const [lateralRes, bundleRes] = await Promise.all([
+          api.get(`/stix/lateral/${caseId}`),
+          api.get(`/stix/bundle/${caseId}`)
+        ]);
 
-        const mappedEvents = allEvents.map((e: any) => {
-          let src = null, tgt = null;
-          const ov = overridesMap.get(e.id);
-          if (ov) {
-            try {
-              const infra = JSON.parse(ov.infrastructure || '[]');
-              if (infra[0]?.type === 'system') src = infra[0].id;
-              const vic = JSON.parse(ov.victim || '[]');
-              if (vic[0]?.type === 'system') tgt = vic[0].id;
-            } catch (err) { }
-          }
-          return { ...e, mapped_source: src, mapped_target: tgt };
-        });
+        const movements = lateralRes || [];
+        const stixObjects = bundleRes?.objects || [];
 
-        let validEvents = mappedEvents.filter((e: any) => e.mapped_target && e.mapped_source && e.mapped_source !== e.mapped_target);
-        let emailEventsRaw = mappedEvents.filter((e: any) => e.event_type === 'email' && !e.mapped_target && e.mapped_source);
-
-        if (startDate) {
-          validEvents = validEvents.filter((e: any) => {
-            const dt = e.event_datetime.includes('T') ? e.event_datetime : e.event_datetime.replace(' ', 'T') + 'Z';
-            return new Date(dt).getTime() >= new Date(startDate).getTime();
-          });
-          emailEventsRaw = emailEventsRaw.filter((e: any) => {
-            const dt = e.event_datetime.includes('T') ? e.event_datetime : e.event_datetime.replace(' ', 'T') + 'Z';
-            return new Date(dt).getTime() >= new Date(startDate).getTime();
-          });
-        }
-        if (endDate) {
-          validEvents = validEvents.filter((e: any) => {
-            const dt = e.event_datetime.includes('T') ? e.event_datetime : e.event_datetime.replace(' ', 'T') + 'Z';
-            return new Date(dt).getTime() <= new Date(endDate).getTime();
-          });
-          emailEventsRaw = emailEventsRaw.filter((e: any) => {
-            const dt = e.event_datetime.includes('T') ? e.event_datetime : e.event_datetime.replace(' ', 'T') + 'Z';
-            return new Date(dt).getTime() <= new Date(endDate).getTime();
-          });
-        }
-
-        // Pre-scan Diamond overrides for events linking attacker_infra to systems
-        // This ensures systems only connected to C2/infra (not lateral movement) also appear
-        const earlyInfraLinks: { infraId: string; infraName: string; systemId: string }[] = [];
-        (overridesRes || []).forEach((ov: any) => {
-          try {
-            const infra = JSON.parse(ov.infrastructure || '[]');
-            const victim = JSON.parse(ov.victim || '[]');
-            const infraAttackerObjs = infra.filter((o: any) => o.type === 'attacker_infra');
-            const victimSystems = victim.filter((o: any) => o.type === 'system');
-            for (const ai of infraAttackerObjs) {
-              for (const sys of victimSystems) {
-                earlyInfraLinks.push({ infraId: ai.id, infraName: ai.label || ai.name || '', systemId: sys.id });
-              }
-            }
-          } catch { /* ignore */ }
-        });
-
+        // Extract unique systems from movements (source and target)
         const sysIds = new Set<string>();
-        validEvents.forEach((e: any) => {
-          sysIds.add(e.mapped_source);
-          sysIds.add(e.mapped_target);
+        movements.forEach((m: any) => {
+          sysIds.add(m.source.id);
+          sysIds.add(m.target.id);
         });
-        emailEventsRaw.forEach((e: any) => {
-          sysIds.add(e.mapped_source);
-        });
-        // Also add systems that only appear with attacker infra
-        earlyInfraLinks.forEach(l => sysIds.add(l.systemId));
 
-        if (validEvents.length === 0 && emailEventsRaw.length === 0 && earlyInfraLinks.length === 0) {
+        if (sysIds.size === 0) {
           setNodes([]);
           setEdges([]);
           setEmailMarkers([]);
+          setInfraNodes([]);
+          setInfraLinks([]);
           setLoading(false);
           return;
         }
 
-        if (sysIds.size === 0) {
-          setLoading(false);
-          return;
-        }
-
-        const allSystems = await api.get(`/investigation/systems/by-case/${caseId}`);
-        const systems = (allSystems || []).filter((s: any) => sysIds.has(s.id));
-
-        if (!systems || systems.length === 0) {
-          setLoading(false);
-          return;
-        }
-
-        const malwareData = await api.get(`/investigation/malware/by-case/${caseId}`);
-        const maliciousMalware = (malwareData || []).filter((m: any) => m.is_malicious && sysIds.has(m.system_id));
-
-        // Fetch attacker infrastructure
-        let attackerInfraData: any[] = [];
-        try {
-          attackerInfraData = (await api.get(`/investigation/attacker-infra/by-case/${caseId}`)) || [];
-        } catch { /* ignore if endpoint fails */ }
-
-        // Build infra-to-system links from event_linked_objects AND Diamond overrides
-        const infraSystemLinks: InfraLink[] = [];
-        const linkedInfraIds = new Set<string>();
-        const addLink = (infraId: string, systemId: string) => {
-          const linkKey = `${infraId}:${systemId}`;
-          if (!infraSystemLinks.some(l => `${l.infraId}:${l.systemId}` === linkKey)) {
-            infraSystemLinks.push({ infraId, systemId });
-          }
-          linkedInfraIds.add(infraId);
-        };
-
-        // Method 1: Check event_linked_objects table
-        try {
-          const linkedObjsRes = await api.get(`/investigation/event-linked-objects/by-case/${caseId}`);
-          const linkedObjs = linkedObjsRes || [];
-          // Group by event_id
-          const byEvent = new Map<string, any[]>();
-          linkedObjs.forEach((lo: any) => {
-            const list = byEvent.get(lo.event_id) || [];
-            list.push(lo);
-            byEvent.set(lo.event_id, list);
-          });
-          // For each event, find co-occurring attacker_infra + system
-          byEvent.forEach((objs) => {
-            const infraObjs = objs.filter((o: any) => o.object_type === 'attacker_infra');
-            const sysObjs = objs.filter((o: any) => o.object_type === 'system' && sysIds.has(o.object_id));
-            for (const ai of infraObjs) {
-              for (const sys of sysObjs) {
-                addLink(ai.object_id, sys.object_id);
-              }
-            }
-          });
-        } catch { /* ignore if endpoint fails */ }
-
-        // Method 2: Also check Diamond overrides as fallback
-        (overridesRes || []).forEach((ov: any) => {
-          try {
-            const infra = JSON.parse(ov.infrastructure || '[]');
-            const victim = JSON.parse(ov.victim || '[]');
-            const allAxes = [...infra, ...victim];
-            const infraObjs = allAxes.filter((o: any) => o.type === 'attacker_infra');
-            const systemObjs = allAxes.filter((o: any) => o.type === 'system');
-            const infraSystemObjs = infra.filter((o: any) => o.type === 'system');
-            const allSysObjs = [...systemObjs, ...infraSystemObjs];
-            for (const ai of infraObjs) {
-              for (const sys of allSysObjs) {
-                if (sysIds.has(sys.id)) {
-                  addLink(ai.id, sys.id);
-                }
-              }
-            }
-          } catch { /* ignore parse errors */ }
-        });
-
-        // If no links found but infra exists, show all infra connected to all graph systems
-        if (infraSystemLinks.length === 0 && attackerInfraData.length > 0) {
-          attackerInfraData.forEach((ai: any) => {
-            sysIds.forEach(sysId => {
-              addLink(ai.id, sysId);
-            });
-          });
-        }
-
-        // Merge earlyInfraLinks (from Diamond overrides pre-scan)
-        earlyInfraLinks.forEach(l => {
-          addLink(l.infraId, l.systemId);
-        });
-
-        // Create infraNodes for linked attacker infra entries
-        const infraNodesArr: AttackerInfraNode[] = attackerInfraData
-          .filter((ai: any) => linkedInfraIds.has(ai.id))
-          .map((ai: any) => ({ id: ai.id, name: ai.name, x: 0, y: 0 }));
-
-        // Also create infra nodes from earlyInfraLinks for entries not in case_attacker_infra
-        // (e.g. systems with type infrastructure_attaquant stored in Diamond overrides)
-        earlyInfraLinks.forEach(l => {
-          if (!infraNodesArr.some(n => n.id === l.infraId)) {
-            infraNodesArr.push({ id: l.infraId, name: l.infraName, x: 0, y: 0 });
-          }
-        });
-
-        const systemsWithMalware = new Set<string>();
-        maliciousMalware.forEach((m: any) => {
-          systemsWithMalware.add(m.system_id);
-        });
-
-        const tasksData = await api.get(`/tasks/by-case/${caseId}`);
-        const tasksBySystem = new Map<string, any[]>();
-        (tasksData || []).forEach((t: any) => {
-          const sysId = t.system_id || t.system?.id;
-          if (!sysId) return;
-          const list = tasksBySystem.get(sysId) || [];
-          list.push(t);
-          tasksBySystem.set(sysId, list);
-        });
-
-        const getStatusFromTasks = (tasks: any[]): string | null => {
-          const closedTasks = tasks.filter(t => t.status === 'closed' && (t.investigation_status || t.initial_investigation_status));
-          if (closedTasks.length > 0) {
-            if (closedTasks.some(t => t.investigation_status === 'infected')) return 'infected';
-            if (closedTasks.some(t => t.investigation_status === 'compromised')) return 'compromised';
-            if (closedTasks.some(t => t.investigation_status === 'clean')) return 'clean';
-          }
-
-          // Also check open tasks for initial status if no closed task has an investigation status
-          if (tasks.some(t => t.initial_investigation_status === 'infected')) return 'infected';
-          if (tasks.some(t => t.initial_investigation_status === 'compromised')) return 'compromised';
-          if (tasks.some(t => t.initial_investigation_status === 'clean')) return 'clean';
-
-          return null;
-        };
+        // Get full STIX objects for systems to retrieve systemType, status, etc.
+        const systems = stixObjects.filter((o: any) => o.type === 'infrastructure' && sysIds.has(o.id));
 
         const graphNodes: SystemNode[] = systems.map((s: any) => {
-          const systemTasks = tasksBySystem.get(s.id) || [];
-          const status = getStatusFromTasks(systemTasks) || s.investigation_status || null;
-
           return {
             id: s.id,
-            name: s.name,
-            systemType: s.system_type,
+            name: s.name || 'Unknown',
+            systemType: s.infrastructure_types?.[0] || 'serveur',
             x: 0,
             y: 0,
-            hasMaliciousMalware: systemsWithMalware.has(s.id),
-            investigationStatus: status,
+            hasMaliciousMalware: false, // Could be enhanced by checking malware relationships
+            investigationStatus: null, // Could be enhanced by checking task/grouping relationships
           };
         });
 
-        const graphEdges: LateralEdge[] = validEvents.map((e: any) => ({
-          id: e.id,
-          sourceId: e.mapped_source,
-          targetId: e.mapped_target,
-          description: e.description || '',
-          datetime: e.event_datetime,
-          eventType: e.event_type,
-          killChain: e.kill_chain || null,
+        // Filter movements based on date range if applicable
+        let validMovements = movements;
+        if (startDate || endDate) {
+          validMovements = validMovements.filter((m: any) => {
+            const dt = m.event_datetime;
+            if (!dt) return true;
+            const time = new Date(dt.includes('T') ? dt : dt.replace(' ', 'T') + 'Z').getTime();
+            if (startDate && time < new Date(startDate).getTime()) return false;
+            if (endDate && time > new Date(endDate).getTime()) return false;
+            return true;
+          });
+        }
+
+        const graphEdges: LateralEdge[] = validMovements.map((m: any, idx: number) => ({
+          id: `edge-${idx}`,
+          sourceId: m.source.id,
+          targetId: m.target.id,
+          description: m.relationship_type,
+          datetime: m.event_datetime,
+          eventType: 'lateral-movement',
+          killChain: m.kill_chain_phases?.[0]?.kill_chain_name || null,
           pairIndex: 0,
           pairCount: 1,
+          attackPatternName: m.attack_pattern_name || null,
+          killChainPhases: m.kill_chain_phases || null,
         }));
 
         const pairCounts = new Map<string, number>();
@@ -699,23 +530,21 @@ export function LateralMovementGraph({ caseId, killChainType, startDate, endDate
           e.pairCount = pairCounts.get(k) || 1;
         });
 
-        const graphEmails: EmailMarker[] = (emailEventsRaw || []).map((e: any) => ({
-          id: e.id,
-          systemId: e.mapped_source,
-          description: e.description || '',
-          datetime: e.event_datetime,
-          killChain: e.kill_chain || null,
-        }));
+        // We don't have email events directly in this graph for now, can be expanded later
+        setEmailMarkers([]);
+        
+        // Setup attacker infra nodes if any
+        const infraNodesArr: AttackerInfraNode[] = [];
+        const infraSystemLinks: InfraLink[] = [];
+        // Optional: Extract attacker_infra from bundle if they have 'targets' relationships
 
-        // Attempt to load saved layout first
         const nodesWithSavedLayout = await loadLayout(graphNodes);
 
         let finalNodes;
         if (nodesWithSavedLayout) {
           finalNodes = nodesWithSavedLayout;
         } else {
-          // Fallback to auto-layout if no saved layout exists
-        if (layoutMode === 'chronological') {
+          if (layoutMode === 'chronological') {
             layoutNodesChronological(graphNodes, graphEdges, computeVH(graphNodes.length));
           } else {
             layoutNodesForce(graphNodes, graphEdges, computeVH(graphNodes.length));
@@ -725,36 +554,16 @@ export function LateralMovementGraph({ caseId, killChainType, startDate, endDate
 
         setNodes(finalNodes);
         setEdges(graphEdges);
-        setEmailMarkers(graphEmails);
         setInfraNodes(infraNodesArr);
         setInfraLinks(infraSystemLinks);
 
-        // Position infra nodes near their linked systems
-        if (infraNodesArr.length > 0) {
-          infraNodesArr.forEach(iNode => {
-            const linkedSysIds = infraSystemLinks.filter(l => l.infraId === iNode.id).map(l => l.systemId);
-            const linkedSystems = finalNodes.filter(n => linkedSysIds.includes(n.id));
-            if (linkedSystems.length > 0) {
-              const avgX = linkedSystems.reduce((s, n) => s + n.x, 0) / linkedSystems.length;
-              const avgY = linkedSystems.reduce((s, n) => s + n.y, 0) / linkedSystems.length;
-              // Offset to the right and slightly up
-              iNode.x = Math.min(VW - PAD, avgX + 100 + Math.random() * 40);
-              iNode.y = Math.max(PAD, avgY - 40 + Math.random() * 80);
-            } else {
-              iNode.x = VW - PAD;
-              iNode.y = PAD + Math.random() * (computeVH(finalNodes.length) - PAD * 2);
-            }
-          });
-          setInfraNodes([...infraNodesArr]);
-        }
-
         setLoading(false);
       } catch (err) {
-        console.error(err);
+        console.error('Error fetching lateral movements:', err);
         setLoading(false);
       }
     })();
-  }, [caseId, loadLayout, startDate, endDate]);
+  }, [caseId, loadLayout, startDate, endDate, layoutMode]);
 
   useEffect(() => {
     const allColors = new Set<string>();
@@ -1002,22 +811,39 @@ export function LateralMovementGraph({ caseId, killChainType, startDate, endDate
             const labelY = my + ny2 * (curve * 0.4);
 
             const dt = new Date(edge.datetime);
-            const label = `${dt.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} ${dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+            const timeLabel = `${dt.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} ${dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
             const dim = (hovered !== null && hovered !== edge.id) || hoveredEmail !== null;
 
+            const matchingPhase = edge.killChainPhases?.find((p) => p.kill_chain_name === activeKillChain);
+            const phaseLabel = matchingPhase ? matchingPhase.phase_name : '';
+
             return (
-              <text
-                key={`lbl-${edge.id}`}
-                x={labelX}
-                y={labelY}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill={isDark ? '#94a3b8' : '#64748b'}
-                style={{ fontSize: 9, fontWeight: 500, pointerEvents: 'none' }}
-                opacity={dim ? 0.1 : 0.85}
-              >
-                {label}
-              </text>
+              <g key={`lbl-g-${edge.id}`}>
+                {phaseLabel && (
+                  <text
+                    x={labelX}
+                    y={labelY - 10}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill={isDark ? '#e2e8f0' : '#334155'}
+                    style={{ fontSize: 10, fontWeight: 600, pointerEvents: 'none' }}
+                    opacity={dim ? 0.1 : 1}
+                  >
+                    {phaseLabel}
+                  </text>
+                )}
+                <text
+                  x={labelX}
+                  y={labelY + (phaseLabel ? 2 : 0)}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill={isDark ? '#94a3b8' : '#64748b'}
+                  style={{ fontSize: 9, fontWeight: 500, pointerEvents: 'none' }}
+                  opacity={dim ? 0.1 : 0.85}
+                >
+                  {timeLabel}
+                </text>
+              </g>
             );
           })}
 

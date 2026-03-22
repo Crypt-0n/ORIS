@@ -1,25 +1,60 @@
+# PostgreSQL + ArangoDB stack for ORIS
+# Usage: docker compose up -d
+
 services:
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
+
+
+  arangodb:
+    image: arangodb:3.12
     restart: unless-stopped
+    ports:
+      - "8529:8529"
+    environment:
+      ARANGO_ROOT_PASSWORD: oris_secret
+    volumes:
+      - oris_arangodata:/var/lib/arangodb3
+      - oris_arangoapps:/var/lib/arangodb3-apps
+    healthcheck:
+      test: [ "CMD", "arangosh", "--server.endpoint", "tcp://127.0.0.1:8529", "--server.password", "oris_secret", "--javascript.execute-string", "db._version()" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   backend:
     build:
       context: ./server
       dockerfile: Dockerfile
-    ports:
-      - "3001:3001"
+    #    ports:
+    #      - "3001:3001"
     environment:
       - PORT=3001
-      - DB_PATH=/app/data/database.sqlite
+      - ARANGO_URL=http://arangodb:8529
+      - ARANGO_DB=oris
+      - ARANGO_USER=root
+      - ARANGO_PASSWORD=oris_secret
     volumes:
-      - /data/oris/data:/app/data
-      - /data/oris/uploads:/app/uploads
-      - /data/oris/avatars:/app/avatars
+      - oris_uploads:/app/uploads
+      - oris_backups:/app/data/backups
+      - oris_avatars:/app/avatars
+    depends_on:
+      arangodb:
+        condition: service_healthy
     restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3457:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  oris_arangodata:
+  oris_arangoapps:
+  oris_uploads:
+  oris_backups:
+  oris_avatars:

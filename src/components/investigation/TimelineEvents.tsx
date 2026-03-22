@@ -242,7 +242,7 @@ export function TimelineEvents({ caseId, isClosed, killChainType }: TimelineEven
 
         if (ov) {
           const infra = ov.infrastructure[0];
-          if (infra && infra.id && infra.type === 'system') infraSysId = infra.id;
+          if (infra && infra.id && (infra.type === 'system' || infra.type === 'attacker_infra')) infraSysId = infra.id;
 
           const vic = ov.victim[0];
           if (vic && vic.id && vic.type === 'system') vicSysId = vic.id;
@@ -293,7 +293,7 @@ export function TimelineEvents({ caseId, isClosed, killChainType }: TimelineEven
     let infraSysId = '';
     let vicSysId = '';
     if (ov) {
-      if (ov.infrastructure[0]?.type === 'system') infraSysId = ov.infrastructure[0].id;
+      if (ov.infrastructure[0]?.type === 'system' || ov.infrastructure[0]?.type === 'attacker_infra') infraSysId = ov.infrastructure[0].id;
       if (ov.victim[0]?.type === 'system') vicSysId = ov.victim[0].id;
     }
     setFormSourceSystem(infraSysId);
@@ -615,7 +615,7 @@ export function TimelineEvents({ caseId, isClosed, killChainType }: TimelineEven
                   ))}
                 </select>
                 {malwareEntries.length === 0 && (
-                  <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
                     {t('auto.ajoutez_d_abord_des_malwares_d')}</p>
                 )}
               </div>
@@ -751,16 +751,16 @@ export function TimelineEvents({ caseId, isClosed, killChainType }: TimelineEven
 
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 pt-2 border-t border-gray-100 dark:border-slate-700/50">
                       {event.creator_name && (
-                        <span className="text-[11px] text-gray-400 dark:text-slate-500 flex items-center gap-1">
+                        <span className="text-[11px] text-gray-500 dark:text-slate-400 flex items-center gap-1">
                           <User className="w-3 h-3" />
                           {event.creator_name}
                         </span>
                       )}
-                      <span className="text-[11px] text-gray-400 dark:text-slate-500">
+                      <span className="text-[11px] text-gray-500 dark:text-slate-400">
                         {formatDateTime(event.created_at)}
                       </span>
                       {event.updated_at && event.updated_at !== event.created_at && (
-                        <span className="text-[11px] text-gray-400 dark:text-slate-500 italic">
+                        <span className="text-[11px] text-gray-500 dark:text-slate-400 italic">
                           {t('auto.modifie_le_31')}{formatDateTime(event.updated_at)})
                         </span>
                       )}

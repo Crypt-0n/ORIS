@@ -223,7 +223,7 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-mono text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 px-2 py-1 rounded">{caseItem.case_number}</span>
                       {!hasAccess && (
-                        <span className="text-xs text-gray-400 dark:text-slate-500 italic">({t('cases.restrictedAccess')})</span>
+                        <span className="text-xs text-gray-500 dark:text-slate-400 italic">({t('cases.restrictedAccess')})</span>
                       )}
                     </div>
                     {hasAccess ? (
@@ -281,7 +281,7 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
                       </>
                     ) : (
                       <>
-                        <h3 className="text-base sm:text-lg font-semibold text-gray-400 dark:text-slate-500 mb-2">{t('cases.confidential')}</h3>
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-500 dark:text-slate-400 mb-2">{t('cases.confidential')}</h3>
                         <div className="flex flex-wrap items-center gap-2 mb-3">
                           <span
                             className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 ${caseItem.status === 'open'
@@ -292,7 +292,7 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
                             {caseItem.status === 'open' ? t('cases.openStatus') : t('cases.closedStatus')}
                           </span>
                         </div>
-                        <div className="text-gray-400 dark:text-slate-500 text-sm mb-3">
+                        <div className="text-gray-500 dark:text-slate-400 text-sm mb-3">
                           <p className="mb-1">
                             {caseItem.case_assignments.length} {caseItem.case_assignments.length > 1 ? t('cases.teamMembersPlural') : t('cases.teamMembers')}:
                           </p>
@@ -300,7 +300,7 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
                             {caseItem.case_assignments.map(a => userProfiles.get(a.user_id) || t('cases.unknown')).join(', ')}
                           </p>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-gray-400 dark:text-slate-500">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-gray-500 dark:text-slate-400">
                           <span>{t('cases.author')}: {caseItem.author.full_name}</span>
                         </div>
                       </>
@@ -331,7 +331,7 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
               .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
               .map((p, idx, arr) => (
                 <span key={p}>
-                  {idx > 0 && arr[idx - 1] !== p - 1 && <span className="text-gray-400 dark:text-slate-500 px-1">…</span>}
+                  {idx > 0 && arr[idx - 1] !== p - 1 && <span className="text-gray-500 dark:text-slate-400 px-1">…</span>}
                   <button
                     onClick={() => setCurrentPage(p)}
                     className={`min-w-[2rem] h-8 rounded-lg text-sm font-medium transition ${

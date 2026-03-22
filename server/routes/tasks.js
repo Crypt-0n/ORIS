@@ -1,6 +1,8 @@
 const express = require('express');
 const crypto = require('crypto');
-const db = require('../db');
+const { getDb } = require('../db-arango');
+const BaseRepository = require('../repositories/BaseRepository');
+const TaskRepository = require('../repositories/TaskRepository');
 const authenticateToken = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 const { isAdmin, getUserRole } = require('../utils/access');
@@ -15,9 +17,11 @@ router.post('/', async (req, res) => {
         const id = crypto.randomUUID();
         const created_by = req.user.id;
 
-        await db('tasks').insert({
+        const taskRepo = new TaskRepository();
+        await taskRepo.create({
             id, case_id, title, description, result_id, system_id, malware_id,
             is_osint: is_osint ? 1 : 0, assigned_to, created_by,
+            status: 'open',
             initial_investigation_status: initial_investigation_status || null,
         });
 
@@ -26,7 +30,8 @@ router.post('/', async (req, res) => {
         if (assigned_to && assigned_to !== created_by) {
             try {
                 const { createNotification } = require('./notifications');
-                const actor = await db('user_profiles').where({ id: created_by }).select('full_name').first();
+                const userRepo = new BaseRepository(getDb(), 'user_profiles');
+                const actor = await userRepo.findById(created_by);
                 const actorName = actor?.full_name || 'Quelqu\'un';
                 createNotification(assigned_to, 'assignment',
                     `${actorName} vous a assigné une tâche`,
@@ -46,32 +51,8 @@ router.post('/', async (req, res) => {
 // Get all tasks for a given case
 router.get('/by-case/:caseId', async (req, res) => {
     try {
-        const rows = await db('tasks')
-            .leftJoin('task_results', 'tasks.result_id', 'task_results.id')
-            .leftJoin('user_profiles as c', 'tasks.created_by', 'c.id')
-            .leftJoin('user_profiles as a', 'tasks.assigned_to', 'a.id')
-            .leftJoin('case_systems as sys', 'tasks.system_id', 'sys.id')
-            .leftJoin('case_malware_tools as mal', 'tasks.malware_id', 'mal.id')
-            .where('tasks.case_id', req.params.caseId)
-            .select(
-                'tasks.*',
-                'task_results.label as result_label', 'task_results.color as result_color',
-                'c.full_name as created_by_full_name', 'c.email as created_by_email',
-                'a.full_name as assigned_to_full_name', 'a.email as assigned_to_email',
-                'sys.name as sys_name', 'sys.system_type as sys_type',
-                'mal.file_name as mal_file_name', 'mal.is_malicious as mal_is_malicious'
-            )
-            .orderBy('tasks.created_at', 'desc');
-
-        const tasks = rows.map(r => ({
-            ...r,
-            result: r.result_id ? { label: r.result_label, color: r.result_color } : null,
-            created_by_user: { id: r.created_by, full_name: r.created_by_full_name, email: r.created_by_email },
-            assigned_to_user: r.assigned_to ? { id: r.assigned_to, full_name: r.assigned_to_full_name, email: r.assigned_to_email } : null,
-            system: r.system_id ? { id: r.system_id, name: r.sys_name, system_type: r.sys_type } : null,
-            malware: r.malware_id ? { id: r.malware_id, file_name: r.mal_file_name, is_malicious: r.mal_is_malicious } : null,
-            is_osint: r.is_osint === 1,
-        }));
+        const taskRepo = new TaskRepository();
+        const tasks = await taskRepo.findAllByCaseId(req.params.caseId);
 
         res.json(tasks);
     } catch (err) {
@@ -87,95 +68,23 @@ router.get('/my-tasks', async (req, res) => {
         const page = parseInt(req.query.page) || 0;
         const limit = Math.min(parseInt(req.query.limit) || 50, 200);
 
-        const formatTask = r => ({
-            ...r,
-            result: r.result_id ? { label: r.result_label, color: r.result_color } : null,
-            created_by_user: { full_name: r.created_by_full_name },
-            assigned_to_user: r.assigned_to ? { full_name: r.assigned_to_full_name } : null,
-            case: {
-                id: r.case_id, case_number: r.case_number, title: r.case_title, status: r.case_status,
-                severity: r.severity_label ? { label: r.severity_label, color: r.severity_color } : null,
-            },
-            system: r.system_id ? { id: r.system_id, name: r.sys_name, system_type: r.sys_type } : null,
-            malware: r.malware_id ? { id: r.malware_id, file_name: r.mal_file_name, is_malicious: r.mal_is_malicious } : null,
-        });
+        const currentUserRepo = new BaseRepository(getDb(), 'user_profiles');
+        const currentUser = await currentUserRepo.findById(userId);
+        const userIsAdmin = currentUser && isAdmin(currentUser.role);
 
-        const userRoleStr = await getUserRole(req.user.id);
-        const userIsAdmin = isAdmin(userRoleStr);
+        const taskRepo = new TaskRepository();
+        const result = await taskRepo.findMyTasks(userId, userIsAdmin, page, limit);
 
-        let assignedQuery = db('tasks')
-            .leftJoin('task_results', 'tasks.result_id', 'task_results.id')
-            .leftJoin('user_profiles as c', 'tasks.created_by', 'c.id')
-            .leftJoin('user_profiles as a', 'tasks.assigned_to', 'a.id')
-            .leftJoin('cases as case_obj', 'tasks.case_id', 'case_obj.id')
-            .leftJoin('severities as sev', 'case_obj.severity_id', 'sev.id')
-            .leftJoin('case_systems as sys', 'tasks.system_id', 'sys.id')
-            .leftJoin('case_malware_tools as mal', 'tasks.malware_id', 'mal.id')
-            .where('tasks.assigned_to', userId)
-            .select(
-                'tasks.*',
-                'task_results.label as result_label', 'task_results.color as result_color',
-                'c.full_name as created_by_full_name',
-                'a.full_name as assigned_to_full_name',
-                'case_obj.title as case_title', 'case_obj.status as case_status', 'case_obj.case_number',
-                'sev.label as severity_label', 'sev.color as severity_color',
-                'sys.name as sys_name', 'sys.system_type as sys_type',
-                'mal.file_name as mal_file_name', 'mal.is_malicious as mal_is_malicious'
-            )
-            .orderBy('tasks.created_at', 'desc');
-
-        if (!userIsAdmin) {
-            assignedQuery = assignedQuery.andWhere(function() {
-                this.where('case_obj.author_id', userId)
-                    .orWhereExists(db('case_assignments').whereRaw('case_assignments.case_id = tasks.case_id').andWhere('case_assignments.user_id', userId))
-                    .orWhereExists(db('beneficiary_members').whereRaw('beneficiary_members.beneficiary_id = case_obj.beneficiary_id').andWhere('beneficiary_members.user_id', userId));
-            });
-        }
-
-        const assignedRows = await assignedQuery;
-
-        let unassignedQuery = db('tasks')
-            .leftJoin('task_results', 'tasks.result_id', 'task_results.id')
-            .leftJoin('user_profiles as c', 'tasks.created_by', 'c.id')
-            .leftJoin('cases as case_obj', 'tasks.case_id', 'case_obj.id')
-            .leftJoin('severities as sev', 'case_obj.severity_id', 'sev.id')
-            .leftJoin('case_systems as sys', 'tasks.system_id', 'sys.id')
-            .leftJoin('case_malware_tools as mal', 'tasks.malware_id', 'mal.id')
-            .whereNull('tasks.assigned_to')
-            .select(
-                'tasks.*',
-                'task_results.label as result_label', 'task_results.color as result_color',
-                'c.full_name as created_by_full_name',
-                'case_obj.title as case_title', 'case_obj.status as case_status', 'case_obj.case_number',
-                'sev.label as severity_label', 'sev.color as severity_color',
-                'sys.name as sys_name', 'sys.system_type as sys_type',
-                'mal.file_name as mal_file_name', 'mal.is_malicious as mal_is_malicious'
-            )
-            .orderBy('tasks.created_at', 'desc');
-
-        if (!userIsAdmin) {
-            unassignedQuery = unassignedQuery.andWhere(function() {
-                this.where('case_obj.author_id', userId)
-                    .orWhereExists(db('case_assignments').whereRaw('case_assignments.case_id = tasks.case_id').andWhere('case_assignments.user_id', userId))
-                    .orWhereExists(db('beneficiary_members').whereRaw('beneficiary_members.beneficiary_id = case_obj.beneficiary_id').andWhere('beneficiary_members.user_id', userId));
-            });
-        }
-
-        const unassignedRows = await unassignedQuery;
-
-        const assigned = assignedRows.map(formatTask);
-        const unassigned = unassignedRows.map(formatTask);
-
-        if (page <= 0) return res.json({ assigned, unassigned });
+        if (page <= 0) return res.json({ assigned: result.assigned, unassigned: result.unassigned });
 
         const offset = (page - 1) * limit;
         res.json({
-            assigned: assigned.slice(offset, offset + limit),
-            unassigned: unassigned.slice(offset, offset + limit),
+            assigned: result.assigned,
+            unassigned: result.unassigned,
             pagination: {
                 page, limit,
-                totalAssigned: assigned.length, totalUnassigned: unassigned.length,
-                totalPages: Math.ceil(Math.max(assigned.length, unassigned.length) / limit),
+                totalAssigned: result.totalAssigned, totalUnassigned: result.totalUnassigned,
+                totalPages: Math.ceil(Math.max(result.totalAssigned, result.totalUnassigned) / limit),
             },
         });
     } catch (err) {
@@ -187,32 +96,15 @@ router.get('/my-tasks', async (req, res) => {
 // Get a single task
 router.get('/:id', async (req, res) => {
     try {
-        const r = await db('tasks')
-            .leftJoin('task_results', 'tasks.result_id', 'task_results.id')
-            .leftJoin('user_profiles as c', 'tasks.created_by', 'c.id')
-            .leftJoin('user_profiles as a', 'tasks.assigned_to', 'a.id')
-            .leftJoin('user_profiles as closed', 'tasks.closed_by', 'closed.id')
-            .leftJoin('user_profiles as mod', 'tasks.closure_comment_modified_by', 'mod.id')
-            .leftJoin('case_systems as sys', 'tasks.system_id', 'sys.id')
-            .leftJoin('case_malware_tools as mal', 'tasks.malware_id', 'mal.id')
-            .where('tasks.id', req.params.id)
-            .select(
-                'tasks.*',
-                'task_results.label as result_label', 'task_results.color as result_color',
-                'c.full_name as created_by_full_name', 'c.email as created_by_email',
-                'a.full_name as assigned_to_full_name', 'a.email as assigned_to_email',
-                'closed.full_name as closed_by_full_name', 'closed.email as closed_by_email',
-                'mod.full_name as mod_by_full_name', 'mod.email as mod_by_email',
-                'sys.name as sys_name', 'sys.system_type as sys_type',
-                'mal.file_name as mal_file_name', 'mal.is_malicious as mal_is_malicious'
-            )
-            .first();
-
+        const taskRepo = new TaskRepository();
+        const r = await taskRepo.findByIdWithDetails(req.params.id);
         if (!r) return res.status(404).json({ error: 'Task not found' });
 
-        const caseObj = await db('cases').where({ id: r.case_id }).select('author_id', 'type', 'beneficiary_id').first();
+        const caseRepo = new BaseRepository(getDb(), 'cases');
+        const caseObj = await caseRepo.findById(r.case_id);
         const { userHasTypeAccessForBeneficiary, isAdmin } = require('../utils/access');
-        const currentUserRole = await db('user_profiles').where({ id: req.user.id }).select('role').first();
+        const userRepo = new BaseRepository(getDb(), 'user_profiles');
+        const currentUserRole = await userRepo.findById(req.user.id);
         
         let can_edit_task = false;
         if (currentUserRole && isAdmin(currentUserRole.role)) {
@@ -225,18 +117,7 @@ router.get('/:id', async (req, res) => {
             can_edit_task = await userHasTypeAccessForBeneficiary(req.user.id, caseObj.beneficiary_id, caseObj.type || 'case', 'analyst');
         }
 
-        res.json({
-            ...r,
-            can_edit_task,
-            result: r.result_id ? { label: r.result_label, color: r.result_color } : null,
-            created_by_user: { id: r.created_by, full_name: r.created_by_full_name, email: r.created_by_email },
-            assigned_to_user: r.assigned_to ? { id: r.assigned_to, full_name: r.assigned_to_full_name, email: r.assigned_to_email } : null,
-            closed_by_user: r.closed_by ? { id: r.closed_by, full_name: r.closed_by_full_name, email: r.closed_by_email } : null,
-            closure_comment_modified_by_user: r.closure_comment_modified_by ? { id: r.closure_comment_modified_by, full_name: r.mod_by_full_name } : null,
-            system: r.system_id ? { id: r.system_id, name: r.sys_name, system_type: r.sys_type } : null,
-            malware: r.malware_id ? { id: r.malware_id, file_name: r.mal_file_name, is_malicious: r.mal_is_malicious } : null,
-            is_osint: r.is_osint === 1,
-        });
+        res.json({ ...r, can_edit_task });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -262,12 +143,16 @@ router.put('/:id', async (req, res) => {
         if (initial_investigation_status !== undefined) updateData.initial_investigation_status = initial_investigation_status;
         if (investigation_status !== undefined) updateData.investigation_status = investigation_status;
 
-        const oldTask = await db('tasks').where({ id: req.params.id }).select('case_id', 'title', 'description', 'assigned_to', 'created_by', 'status', 'system_id', 'investigation_status').first();
+        const taskRepo = new TaskRepository();
+        const oldTask = await taskRepo.findById(req.params.id);
         if (!oldTask) return res.status(404).json({ error: 'Task not found' });
 
-        const caseObj = await db('cases').where({ id: oldTask.case_id }).select('author_id', 'type', 'beneficiary_id').first();
+        const caseRepo = new BaseRepository(getDb(), 'cases');
+        const caseObj = await caseRepo.findById(oldTask.case_id);
         const { userHasTypeAccessForBeneficiary, isAdmin } = require('../utils/access');
-        const currentUserRole = await db('user_profiles').where({ id: req.user.id }).select('role').first();
+        
+        const userRepo = new BaseRepository(getDb(), 'user_profiles');
+        const currentUserRole = await userRepo.findById(req.user.id);
         
         let can_edit_task = false;
         if (currentUserRole && isAdmin(currentUserRole.role)) {
@@ -284,17 +169,18 @@ router.put('/:id', async (req, res) => {
             return res.status(403).json({ error: 'Forbidden: you must be an analyst, the creator, the assignee, or a team leader to edit this task.' });
         }
 
-        await db('tasks').where({ id: req.params.id }).update(updateData);
+        await taskRepo.update(req.params.id, updateData);
 
         // Auto-sync system investigation_status when task has a linked system
         const effectiveStatus = investigation_status ?? initial_investigation_status;
         if (effectiveStatus !== undefined && oldTask?.system_id) {
-            await db('case_systems').where({ id: oldTask.system_id }).update({
-                investigation_status: effectiveStatus, updated_at: new Date().toISOString(),
+            const sysRepo = new BaseRepository(getDb(), 'case_systems');
+            await sysRepo.update(oldTask.system_id, {
+                investigation_status: effectiveStatus, updated_at: new Date().toISOString()
             });
         }
 
-        const task = await db('tasks').where({ id: req.params.id }).select('case_id', 'title', 'description', 'assigned_to', 'status').first();
+        const task = await taskRepo.findById(req.params.id);
         if (task && oldTask) {
             const changes = [];
             if (title !== undefined && oldTask.title !== task.title) changes.push('title');
@@ -308,7 +194,7 @@ router.put('/:id', async (req, res) => {
 
             try {
                 const { createNotification } = require('./notifications');
-                const actor = await db('user_profiles').where({ id: req.user.id }).select('full_name').first();
+                const actor = await userRepo.findById(req.user.id);
                 const actorName = actor?.full_name || 'Quelqu\'un';
                 const link = `/cases/${task.case_id}?task=${req.params.id}`;
 
@@ -323,14 +209,17 @@ router.put('/:id', async (req, res) => {
 
             if (oldTask.status === 'closed' && task.status === 'open') {
                 logAudit(task.case_id, req.user.id, 'task_reopened', 'task', req.params.id, { title: task.title });
-                const userProfile = await db('user_profiles').where({ id: req.user.id }).select('full_name').first();
+                const userProfile = await userRepo.findById(req.user.id);
                 const userName = userProfile ? userProfile.full_name : 'Unknown User';
                 const now = new Date();
                 const dateStr = now.toLocaleDateString('fr-FR');
                 const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
                 const commentContent = `<p><strong>Tâche réouverte</strong> par ${userName} le ${dateStr} à ${timeStr}.</p>`;
                 const commentId = crypto.randomUUID();
-                await db('comments').insert({ id: commentId, task_id: req.params.id, author_id: req.user.id, content: commentContent });
+                
+                const commentRepo = new BaseRepository(getDb(), 'comments');
+                await commentRepo.create({ id: commentId, task_id: req.params.id, author_id: req.user.id, content: commentContent });
+                
                 logAudit(task.case_id, req.user.id, 'comment_added', 'task', req.params.id, { task_title: task.title, comment_id: commentId });
             }
         }
@@ -346,22 +235,22 @@ router.put('/:id', async (req, res) => {
 router.post('/:id/close', async (req, res) => {
     try {
         const { closure_comment, investigation_status } = req.body;
-        const task = await db('tasks').where({ id: req.params.id }).select('case_id', 'title', 'system_id').first();
+        const taskRepo = new TaskRepository();
+        const task = await taskRepo.findById(req.params.id);
         if (!task) return res.status(404).json({ error: 'Task not found' });
 
-        await db.transaction(async trx => {
-            await trx('tasks').where({ id: req.params.id }).update({
-                status: 'closed', closure_comment, closed_by: req.user.id,
-                closed_at: new Date().toISOString(),
-                investigation_status: investigation_status || null,
-                updated_at: new Date().toISOString(),
-            });
-            if (task.system_id && investigation_status) {
-                await trx('case_systems').where({ id: task.system_id }).update({
-                    investigation_status, updated_at: new Date().toISOString(),
-                });
-            }
+        await taskRepo.update(req.params.id, {
+            status: 'closed', closure_comment, closed_by: req.user.id,
+            closed_at: new Date().toISOString(),
+            investigation_status: investigation_status || null,
         });
+        
+        if (task.system_id && investigation_status) {
+            const sysRepo = new BaseRepository(getDb(), 'case_systems');
+            await sysRepo.update(task.system_id, {
+                investigation_status
+            });
+        }
 
         logAudit(task.case_id, req.user.id, 'task_closed', 'task', req.params.id, { title: task.title || '' });
         res.json({ success: true });
@@ -374,12 +263,15 @@ router.post('/:id/close', async (req, res) => {
 // Delete task
 router.delete('/:id', async (req, res) => {
     try {
-        const task = await db('tasks').where({ id: req.params.id }).first();
+        const taskRepo = new TaskRepository();
+        const task = await taskRepo.findById(req.params.id);
         if (!task) return res.status(404).json({ error: 'Task not found' });
 
-        const caseObj = await db('cases').where({ id: task.case_id }).select('author_id', 'type', 'beneficiary_id').first();
+        const caseRepo = new BaseRepository(getDb(), 'cases');
+        const caseObj = await caseRepo.findById(task.case_id);
         const { userHasTypeAccessForBeneficiary, isAdmin } = require('../utils/access');
-        const currentUserRole = await db('user_profiles').where({ id: req.user.id }).select('role').first();
+        const userRepo = new BaseRepository(getDb(), 'user_profiles');
+        const currentUserRole = await userRepo.findById(req.user.id);
         
         let can_edit_task = false;
         if (currentUserRole && isAdmin(currentUserRole.role)) {
@@ -396,7 +288,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(403).json({ error: 'Forbidden: you must be an analyst, the creator, the assignee, or a team leader to delete this task.' });
         }
 
-        await db('tasks').where({ id: req.params.id }).del();
+        await taskRepo.delete(req.params.id);
         logAudit(task.case_id, req.user.id, 'task_deleted', 'task', req.params.id, { title: task.title });
         res.status(204).end();
     } catch (err) {

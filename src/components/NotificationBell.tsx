@@ -196,7 +196,7 @@ export function NotificationBell() {
                     {n.body && (
                       <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5 truncate">{n.body}</p>
                     )}
-                    <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">{formatTime(n.created_at)}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-1">{formatTime(n.created_at)}</p>
                   </div>
                   <div className="flex-shrink-0 flex items-center gap-0.5">
                     {!n.is_read && (

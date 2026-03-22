@@ -1,17 +1,17 @@
 const webpush = require('web-push');
-const db = require('../db');
+const { getDb } = require('../db-arango');
 
 async function initVapid() {
-    let publicKey = await db('system_config').where({ key: 'vapid_public_key' }).select('value').first();
-    let privateKey = await db('system_config').where({ key: 'vapid_private_key' }).select('value').first();
+    const db = getDb();
+    let configCursor = await db.query(`FOR c IN system_config FILTER c.key IN ['vapid_public_key', 'vapid_private_key'] RETURN c`);
+    let rows = await configCursor.all();
+    let publicKey = rows.find(r => r.key === 'vapid_public_key');
+    let privateKey = rows.find(r => r.key === 'vapid_private_key');
 
     if (!publicKey || !privateKey) {
         const keys = webpush.generateVAPIDKeys();
-        // Upsert: use onConflict for multi-dialect support
-        await db('system_config').insert({ key: 'vapid_public_key', value: keys.publicKey })
-            .onConflict('key').merge();
-        await db('system_config').insert({ key: 'vapid_private_key', value: keys.privateKey })
-            .onConflict('key').merge();
+        await db.query(`UPSERT { key: 'vapid_public_key' } INSERT { key: 'vapid_public_key', value: @val } UPDATE { value: @val } IN system_config`, { val: keys.publicKey });
+        await db.query(`UPSERT { key: 'vapid_private_key' } INSERT { key: 'vapid_private_key', value: @val } UPDATE { value: @val } IN system_config`, { val: keys.privateKey });
         publicKey = { value: keys.publicKey };
         privateKey = { value: keys.privateKey };
         console.log('[Push] Generated new VAPID keys');
@@ -26,7 +26,9 @@ async function initVapid() {
 }
 
 async function sendPushToUser(userId, payload) {
-    const subscriptions = await db('push_subscriptions').where({ user_id: userId });
+    const db = getDb();
+    const cursor = await db.query(`FOR s IN push_subscriptions FILTER s.user_id == @userId RETURN s`, { userId });
+    const subscriptions = await cursor.all();
 
     for (const sub of subscriptions) {
         const pushSubscription = {
@@ -38,8 +40,8 @@ async function sendPushToUser(userId, payload) {
             await webpush.sendNotification(pushSubscription, JSON.stringify(payload));
         } catch (err) {
             if (err.statusCode === 410 || err.statusCode === 404) {
-                await db('push_subscriptions').where({ id: sub.id }).del();
-                console.log(`[Push] Removed stale subscription ${sub.id}`);
+                await db.query(`REMOVE @key IN push_subscriptions`, { key: sub._key });
+                console.log(`[Push] Removed stale subscription ${sub._key}`);
             } else {
                 console.error(`[Push] Error sending to ${sub.endpoint}:`, err.message);
             }

@@ -58,7 +58,7 @@ function buildCorrelationMatrix(nodes: DiamondNode[]): SystemCorrelation[] {
   for (const node of nodes) {
     const dt = node.eventDatetime;
     const victimSystems = node.axes.victim.filter((o) => o.type === 'system');
-    const infraSystems = node.axes.infrastructure.filter((o) => o.type === 'system');
+    const infraSystems = node.axes.infrastructure.filter((o) => o.type === 'system' || o.type === 'attacker_infra');
     const networkItems = node.axes.infrastructure.filter((o) => o.type === 'network');
     const malwareItems = node.axes.capability.filter((o) => o.type === 'malware');
     const accountItems = node.axes.adversary.filter((o) => o.type === 'account');

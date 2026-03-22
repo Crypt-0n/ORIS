@@ -206,10 +206,10 @@ export function TaskFiles({ taskId, caseId, isClosed, onCountChange }: TaskFiles
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              <Upload className="w-8 h-8 text-gray-400 dark:text-slate-500" />
+              <Upload className="w-8 h-8 text-gray-500 dark:text-slate-400" />
               <span className="text-sm text-gray-600 dark:text-slate-300">
                 {t('auto.glissez_vos_fichiers_ici_ou_cl')}</span>
-              <span className="text-xs text-gray-400 dark:text-slate-500">
+              <span className="text-xs text-gray-500 dark:text-slate-400">
                 {t('auto.tous_types_de_fichiers_accepte')}</span>
             </div>
           )}

@@ -479,7 +479,7 @@ export function InitialSetup({ onComplete }: InitialSetupProps) {
           <label
             className={`flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg font-medium transition cursor-pointer
               ${restoring
-                ? 'bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 cursor-not-allowed'
+                ? 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 cursor-not-allowed'
                 : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700 border border-gray-300 dark:border-slate-600'
               }`}
           >
