@@ -26,10 +26,10 @@ class CaseRepository extends BaseRepository {
                 FOR u IN user_profiles
                     FILTER u._key == m.user_id
                     SORT u.full_name ASC
-                    RETURN KEEP(u, '_key', 'full_name')
+                    RETURN KEEP(u, '_key', 'full_name', 'email')
         `;
         const members = await this.query(aql, { beneficiaryId });
-        return members.map(m => ({ id: m._key, full_name: m.full_name }));
+        return members.map(m => ({ id: m._key, full_name: m.full_name, email: m.email }));
     }
 
     async createWithAssignment(caseData, assignedToId) {
