@@ -9,7 +9,6 @@
 ![Docker](https://img.shields.io/badge/docker-ready-blue?logo=docker)
 ![Node](https://img.shields.io/badge/node-20%2B-brightgreen?logo=node.js)
 ![ArangoDB](https://img.shields.io/badge/ArangoDB-3.12-red?logo=arangodb)
-![Lighthouse](https://img.shields.io/badge/lighthouse-100%2F100%2F100%2F100-brightgreen)
 
 **Collaborative cybersecurity incident response platform**
 
