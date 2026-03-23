@@ -32,6 +32,8 @@ class TaskRepository extends BaseRepository {
     }
 
     async findMyTasks(userId, hasAdminAccess, page, limit) {
+        // For non-admin users, we build per-beneficiary type access maps
+        // so SOC (alert_*) users only see alert tasks and CERT (case_*) users only see case tasks
         const aql = `
             LET userCaseIds = (
                 FOR c IN cases
@@ -43,10 +45,14 @@ class TaskRepository extends BaseRepository {
                     FILTER ca.user_id == @userId
                     RETURN ca.case_id
             )
-            LET userBeneficiaryIds = (
+            LET userMemberships = (
                 FOR m IN beneficiary_members
                     FILTER m.user_id == @userId
-                    RETURN m.beneficiary_id
+                    RETURN { bid: m.beneficiary_id, role: m.role }
+            )
+            LET userBeneficiaryIds = (
+                FOR m IN userMemberships
+                    RETURN m.bid
             )
 
             LET allTasks = (
@@ -54,8 +60,40 @@ class TaskRepository extends BaseRepository {
                     SORT t.created_at DESC
                     
                     LET case_obj = DOCUMENT('cases', t.case_id)
-                    LET hasAccess = @hasAdminAccess OR (case_obj._key IN userCaseIds) OR (case_obj._key IN assignedCaseIds) OR (case_obj.beneficiary_id IN userBeneficiaryIds)
+                    LET isAuthorOrAssigned = (case_obj._key IN userCaseIds) OR (case_obj._key IN assignedCaseIds)
+                    LET inBeneficiary = (case_obj.beneficiary_id IN userBeneficiaryIds)
+                    LET hasAccess = @hasAdminAccess OR isAuthorOrAssigned OR inBeneficiary
                     FILTER hasAccess
+                    
+                    // Role-based type filtering for non-admin, non-author/assigned users
+                    LET membership = FIRST(
+                        FOR m IN userMemberships
+                            FILTER m.bid == case_obj.beneficiary_id
+                            RETURN m
+                    )
+                    LET memberRoles = membership.role != null ? (
+                        IS_ARRAY(membership.role) ? membership.role : (
+                            SUBSTRING(TO_STRING(membership.role), 0, 1) == "[" 
+                                ? JSON_PARSE(TO_STRING(membership.role)) 
+                                : [TO_STRING(membership.role)]
+                        )
+                    ) : []
+                    LET hasCaseRole = LENGTH(
+                        FOR r IN memberRoles
+                            FILTER LIKE(r, "case_%") OR r == "admin" OR r == "team_leader"
+                            RETURN 1
+                    ) > 0
+                    LET hasAlertRole = LENGTH(
+                        FOR r IN memberRoles
+                            FILTER LIKE(r, "alert_%") OR r == "admin" OR r == "team_leader"
+                            RETURN 1
+                    ) > 0
+                    LET caseType = case_obj.type || "case"
+                    LET typeAllowed = @hasAdminAccess OR isAuthorOrAssigned OR (
+                        (caseType == "case" AND hasCaseRole) OR
+                        (caseType == "alert" AND hasAlertRole)
+                    )
+                    FILTER typeAllowed
                     
                     LET res = DOCUMENT('task_results', t.result_id)
                     LET c = DOCUMENT('user_profiles', t.created_by)

@@ -45,7 +45,7 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        if (!await userHasTypeAccessForBeneficiary(req.user.id, beneficiary_id, entityType, 'manager')) {
+        if (!await userHasTypeAccessForBeneficiary(req.user.id, beneficiary_id, entityType, 'analyst')) {
             return res.status(403).json({ error: `You do not have permission to create ${entityType}s for this beneficiary` });
         }
 

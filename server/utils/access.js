@@ -205,6 +205,26 @@ function requireCaseAccess(source = 'params', field = 'caseId') {
     };
 }
 
+/**
+ * Returns which entity types a user can access for a given beneficiary.
+ * Returns { case: bool, alert: bool } based on per-beneficiary roles.
+ */
+async function getUserAccessibleTypes(userId, beneficiaryId) {
+    if (!userId || !beneficiaryId) return { case: false, alert: false };
+    const userRepo = new BaseRepository(getDb(), 'user_profiles');
+    const user = await userRepo.findById(userId);
+    if (user && isAdmin(user.role)) return { case: true, alert: true };
+
+    const memRepo = new BaseRepository(getDb(), 'beneficiary_members');
+    const member = await memRepo.findFirst({ user_id: userId, beneficiary_id: beneficiaryId });
+    if (!member?.role) return { case: false, alert: false };
+
+    const roles = getRoles(member.role);
+    const hasCase = roles.some(r => r.startsWith('case_') || r === 'admin' || r === 'team_leader');
+    const hasAlert = roles.some(r => r.startsWith('alert_') || r === 'admin' || r === 'team_leader');
+    return { case: hasCase, alert: hasAlert };
+}
+
 module.exports = {
     getRoles,
     getMemberRoles,
@@ -219,6 +239,7 @@ module.exports = {
     canAccessCase,
     getUserRole,
     userHasTypeAccess,
+    getUserAccessibleTypes,
     requireAdmin,
     requireRole,
     requireCaseAccess,
