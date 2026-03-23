@@ -239,10 +239,6 @@ class StixGraphRepository {
         `, { caseId });
 
         const results = await cursor.all();
-        console.log(`[DEBUG] getLateralMovements for ${caseId} returned ${results.length} edges.`);
-        if (results.length > 0) {
-            console.log(`[DEBUG] Sample:`, JSON.stringify(results[0], null, 2));
-        }
 
         return results;
     }

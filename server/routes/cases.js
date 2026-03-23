@@ -39,6 +39,7 @@ router.get('/beneficiary-members/:beneficiary_id', async (req, res) => {
 router.post('/', async (req, res) => {
     try {
         const { title, description, severity_id, tlp_id, pap_id, tlp, pap, kill_chain_type, beneficiary_id, type, assigned_to } = req.body;
+        // case_number is always auto-generated — never accept it from the client
         const entityType = type === 'alert' ? 'alert' : 'case';
 
         if (!title || !description || !severity_id || !beneficiary_id) {
