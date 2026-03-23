@@ -4,6 +4,11 @@
  * Handles STIX Domain Objects (SDOs) as vertices in stix_objects collection,
  * and STIX Relationship Objects (SROs) as edges in stix_relationships collection.
  *
+ * OASIS STIX 2.1 ID Rules:
+ *   - SDO IDs (report, malware, infrastructure, etc.) → UUIDv4 (crypto.randomUUID)
+ *   - SCO IDs (ipv4-addr, file, url, domain-name, user-account) → UUIDv5 deterministic
+ *   - SRO IDs (relationship) → UUIDv4 (crypto.randomUUID)
+ *
  * Provides:
  * - CRUD for STIX objects and relationships
  * - Graph traversals for Diamond Model axes
@@ -335,7 +340,7 @@ class StixGraphRepository {
             }
 
             if (mal.system_id) {
-                const edgeId = `relationship--${deterministicUuid(`malware-target-${mal._key}-${mal.system_id}`)}`;
+                const edgeId = `relationship--${crypto.randomUUID()}`;
                 await this.createRelationship(caseId, {
                     type: 'relationship', id: edgeId,
                     relationship_type: 'targets',
@@ -413,7 +418,7 @@ class StixGraphRepository {
 
             // Link indicator to its SCO via based-on relationship
             if (scoId) {
-                const edgeId = `relationship--${deterministicUuid(`ind-based-on-${ind._key}`)}`;
+                const edgeId = `relationship--${crypto.randomUUID()}`;
                 await this.createRelationship(caseId, {
                     type: 'relationship', id: edgeId,
                     relationship_type: 'based-on',
@@ -465,7 +470,7 @@ class StixGraphRepository {
 
             // Create relationships for source and target systems
             if (evt.source_system_id) {
-                const edgeId = `relationship--${deterministicUuid(`origin-${evt._key}-${evt.source_system_id}`)}`;
+                const edgeId = `relationship--${crypto.randomUUID()}`;
                 await this.createRelationship(caseId, {
                     type: 'relationship', id: edgeId,
                     relationship_type: 'originates-from',
@@ -477,7 +482,7 @@ class StixGraphRepository {
             }
 
             if (evt.target_system_id) {
-                const edgeId = `relationship--${deterministicUuid(`target-${evt._key}-${evt.target_system_id}`)}`;
+                const edgeId = `relationship--${crypto.randomUUID()}`;
                 await this.createRelationship(caseId, {
                     type: 'relationship', id: edgeId,
                     relationship_type: 'targets',
@@ -503,7 +508,7 @@ class StixGraphRepository {
             
             // Link compromised account
             if (evt.compromised_account_id) {
-                const edgeId = `relationship--${deterministicUuid(`uses-${evt._key}-${evt.compromised_account_id}`)}`;
+                const edgeId = `relationship--${crypto.randomUUID()}`;
                 await this.createRelationship(caseId, {
                     type: 'relationship', id: edgeId,
                     relationship_type: 'uses',
@@ -517,7 +522,7 @@ class StixGraphRepository {
 
         // Create ONE lateral-movement edge per unique infrastructure pair
         for (const [, pair] of lateralPairs) {
-            const lmEdgeId = `relationship--${deterministicUuid(`lateral-${pair.source_system_id}-${pair.target_system_id}`)}`;
+            const lmEdgeId = `relationship--${crypto.randomUUID()}`;
             await this.createRelationship(caseId, {
                 type: 'relationship', id: lmEdgeId,
                 relationship_type: 'lateral-movement',
@@ -545,7 +550,7 @@ class StixGraphRepository {
             vertexCount++;
 
             for (const evt of events.filter(e => e.task_id === task._key)) {
-                const edgeId = `relationship--${deterministicUuid(`task-consists-${task._key}-${evt._key}`)}`;
+                const edgeId = `relationship--${crypto.randomUUID()}`;
                 await this.createRelationship(caseId, {
                     type: 'relationship', id: edgeId,
                     relationship_type: 'consists-of',
