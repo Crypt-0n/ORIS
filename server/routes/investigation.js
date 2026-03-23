@@ -11,20 +11,29 @@ router.use(authenticateToken);
 
 const { canAccessCase } = require('../utils/access');
 
-// Known columns per table (replaces PRAGMA table_info which is SQLite-specific)
-// IMPORTANT: keep in sync with migrations/001_initial_schema.js + 002_task_centric_investigation.js
+// ─── STIX SCO namespace (OASIS recommended) ─────────────────────
+const STIX_SCO_NAMESPACE = '00abedb4-aa42-466c-9c01-fed23315a9b7';
+
+/**
+ * Generate a deterministic UUIDv5 from a seed string (RFC 4122).
+ */
+function deterministicUuid(seed) {
+    const nsBytes = Buffer.from(STIX_SCO_NAMESPACE.replace(/-/g, ''), 'hex');
+    const hash = crypto.createHash('sha1').update(nsBytes).update(seed).digest();
+    hash[6] = (hash[6] & 0x0f) | 0x50;
+    hash[8] = (hash[8] & 0x3f) | 0x80;
+    const hex = hash.subarray(0, 16).toString('hex');
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
+}
+
+// ─── Generic CRUD router for remaining tables ──────────────────
 const TABLE_COLUMNS = {
-    case_systems: ['id', 'case_id', 'task_id', 'name', 'system_type', 'ip_addresses', 'owner', 'network_indicator_id', 'investigation_status', 'created_by', 'created_at', 'updated_at'],
     case_events: ['id', 'case_id', 'task_id', 'description', 'event_datetime', 'kill_chain', 'source_system_id', 'target_system_id', 'malware_id', 'compromised_account_id', 'exfiltration_id', 'created_by', 'created_at', 'updated_at'],
-    case_network_indicators: ['id', 'case_id', 'task_id', 'ip', 'domain_name', 'port', 'url', 'context', 'first_activity', 'last_activity', 'malware_id', 'created_by', 'created_at', 'updated_at', 'updated_by'],
-    case_malware_tools: ['id', 'case_id', 'task_id', 'system_id', 'file_name', 'file_path', 'hashes', 'description', 'is_malicious', 'creation_date', 'modification_date', 'created_by', 'created_at', 'updated_at', 'updated_by'],
-    case_exfiltrations: ['id', 'case_id', 'task_id', 'exfiltration_date', 'source_system_id', 'exfil_system_id', 'destination_system_id', 'file_name', 'file_size', 'file_size_unit', 'content_description', 'other_info', 'created_by', 'created_at', 'updated_at', 'updated_by'],
-    case_compromised_accounts: ['id', 'case_id', 'task_id', 'system_id', 'account_name', 'domain', 'sid', 'privileges', 'context', 'first_malicious_activity', 'last_malicious_activity', 'created_by', 'created_at', 'updated_at', 'updated_by'],
     case_diamond_overrides: ['id', 'case_id', 'event_id', 'label', 'adversary', 'infrastructure', 'capability', 'victim', 'notes', 'created_at', 'updated_at', 'updated_by'],
     case_diamond_node_order: ['id', 'case_id', 'node_order', 'created_at', 'updated_at', 'updated_by'],
     case_graph_layouts: ['id', 'case_id', 'graph_type', 'layout_data', 'created_at', 'updated_at', 'updated_by'],
-    case_attacker_infra: ['id', 'case_id', 'name', 'infra_type', 'ip_addresses', 'network_indicator_id', 'description', 'created_by', 'created_at', 'updated_at'],
 };
+
 const createCrudRouter = (tableName) => {
     const subRouter = express.Router();
     const allowedColumns = TABLE_COLUMNS[tableName] || [];
@@ -38,14 +47,12 @@ const createCrudRouter = (tableName) => {
         } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
     });
 
-    // GET by task (task-centric investigation)
     subRouter.get('/by-task/:taskId', async (req, res) => {
         try {
             const taskRepo = new BaseRepository(getDb(), 'tasks');
             const task = await taskRepo.findById(req.params.taskId);
             if (!task) return res.status(404).json({ error: 'Task not found' });
             if (!await canAccessCase(req.user.id, task.case_id)) return res.status(403).json({ error: 'Access denied' });
-            
             const repo = new BaseRepository(getDb(), tableName);
             const items = await repo.findWhere({ task_id: req.params.taskId }, { sort: '-created_at' });
             res.json(items);
@@ -155,31 +162,13 @@ const createCrudRouter = (tableName) => {
     return subRouter;
 };
 
-router.use('/systems', createCrudRouter('case_systems'));
+// ─── Remaining CRUD routes ──────────────────────────────────────
 router.use('/events', createCrudRouter('case_events'));
-router.use('/indicators', createCrudRouter('case_network_indicators'));
-router.use('/malware', createCrudRouter('case_malware_tools'));
-router.use('/exfiltrations', createCrudRouter('case_exfiltrations'));
-router.use('/accounts', createCrudRouter('case_compromised_accounts'));
-
-// Temporary stubs — will be replaced by STIX2-native routes
-const createLegacyStub = () => {
-    const stubRouter = express.Router();
-    stubRouter.get('/by-case/:caseId', (_req, res) => res.json([]));
-    stubRouter.get('/by-task/:taskId', (_req, res) => res.json([]));
-    stubRouter.get('/by-event/:eventId', (_req, res) => res.json([]));
-    stubRouter.get('/:id', (_req, res) => res.status(404).json({ error: 'Use STIX API' }));
-    stubRouter.post('/', (req, res) => res.status(201).json({ id: crypto.randomUUID(), ...req.body }));
-    stubRouter.put('/:id', (req, res) => res.json({ success: true, ...req.body }));
-    stubRouter.put('/by-event/:eventId', (req, res) => res.json({ success: true, ...req.body }));
-    stubRouter.delete('/:id', (_req, res) => res.json({ success: true }));
-    return stubRouter;
-};
-// Legacy APIs restored from temporary STIX stubs 
 router.use('/diamond-overrides', createCrudRouter('case_diamond_overrides'));
 router.use('/diamond-node-order', createCrudRouter('case_diamond_node_order'));
 router.use('/graph-layouts', createCrudRouter('case_graph_layouts'));
-router.use('/attacker-infra', createCrudRouter('case_attacker_infra'));
+
+// ─── Audit log ──────────────────────────────────────────────────
 const auditRouter = express.Router();
 auditRouter.get('/by-case/:caseId', async (req, res) => {
     try {
@@ -191,58 +180,310 @@ auditRouter.get('/by-case/:caseId', async (req, res) => {
 });
 router.use('/audit', auditRouter);
 
-router.get('/account_systems/:caseId', async (req, res) => {
+// ─── STIX Objects per Task (Unified API) ────────────────────────
+
+/**
+ * GET /api/investigation/stix/by-task/:taskId
+ * Returns all STIX objects linked to the given task via x_oris_task_id.
+ */
+router.get('/stix/by-task/:taskId', async (req, res) => {
     try {
-        if (!await canAccessCase(req.user.id, req.params.caseId)) return res.status(403).json({ error: 'Access denied' });
-        
-        const aql = `
-            FOR cas IN case_compromised_account_systems
-                FOR sys IN case_systems
-                    FILTER cas.system_id == sys._key
-                    FILTER sys.case_id == @caseId
-                    RETURN KEEP(cas, 'system_id', 'account_id')
-        `;
-        const repo = new BaseRepository(getDb(), 'case_compromised_account_systems');
-        const links = await repo.query(aql, { caseId: req.params.caseId });
-        
-        res.json(links);
+        const taskRepo = new BaseRepository(getDb(), 'tasks');
+        const task = await taskRepo.findById(req.params.taskId);
+        if (!task) return res.status(404).json({ error: 'Task not found' });
+        if (!await canAccessCase(req.user.id, task.case_id)) return res.status(403).json({ error: 'Access denied' });
+
+        const graphRepo = new StixGraphRepository(getDb());
+        const objects = await graphRepo.getObjectsByTaskId(req.params.taskId);
+        res.json(objects);
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-router.post('/account_systems', async (req, res) => {
+/**
+ * GET /api/investigation/stix/by-case/:caseId
+ * Returns all STIX objects for a case.
+ */
+router.get('/stix/by-case/:caseId', async (req, res) => {
     try {
-        const links = req.body;
-        if (!Array.isArray(links)) return res.status(400).json({ error: 'Expected array' });
+        if (!await canAccessCase(req.user.id, req.params.caseId)) return res.status(403).json({ error: 'Access denied' });
+        const graphRepo = new StixGraphRepository(getDb());
+        const objects = await graphRepo.getObjectsByCaseId(req.params.caseId);
+        res.json(objects);
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+});
 
-        if (links.length > 0) {
-            const sysRepo = new BaseRepository(getDb(), 'case_systems');
-            const system = await sysRepo.findById(links[0].system_id);
-            if (system && !await canAccessCase(req.user.id, system.case_id)) return res.status(403).json({ error: 'Access denied' });
+/**
+ * POST /api/investigation/stix
+ * Create STIX objects for a task.
+ * Body: { case_id, task_id, stix_type, data }
+ * stix_type: 'infrastructure' | 'user-account' | 'malware' | 'ipv4-addr' | 'domain-name' | 'url'
+ */
+router.post('/stix', async (req, res) => {
+    try {
+        const { case_id, task_id, stix_type, data } = req.body;
+        if (!case_id || !task_id || !stix_type || !data) {
+            return res.status(400).json({ error: 'Missing required fields: case_id, task_id, stix_type, data' });
+        }
+        if (!await canAccessCase(req.user.id, case_id)) return res.status(403).json({ error: 'Access denied' });
+
+        const graphRepo = new StixGraphRepository(getDb());
+        const now = new Date().toISOString();
+        const createdObjects = [];
+
+        // ── SDO types ──
+        if (stix_type === 'infrastructure') {
+            const id = `infrastructure--${crypto.randomUUID()}`;
+            const obj = {
+                type: 'infrastructure', id, spec_version: '2.1',
+                name: data.name,
+                description: data.description || '',
+                infrastructure_types: [data.infrastructure_type || 'unknown'],
+                x_oris_task_id: task_id,
+                created: now, modified: now,
+            };
+            await graphRepo.createObject(case_id, obj, req.user.id);
+            createdObjects.push(obj);
+
+            // Create observed-data linking to this infrastructure
+            const obsId = `observed-data--${crypto.randomUUID()}`;
+            const obs = {
+                type: 'observed-data', id: obsId, spec_version: '2.1',
+                x_oris_task_id: task_id,
+                first_observed: now, last_observed: now,
+                number_observed: 1,
+                object_refs: [id],
+                created: now, modified: now,
+            };
+            await graphRepo.createObject(case_id, obs, req.user.id);
+            createdObjects.push(obs);
+
+            // relationship: observed-data → infrastructure
+            const relId = `relationship--${crypto.randomUUID()}`;
+            await graphRepo.createRelationship(case_id, {
+                type: 'relationship', id: relId,
+                relationship_type: 'originates-from',
+                source_ref: obsId, target_ref: id,
+                created: now, modified: now,
+            }, req.user.id);
         }
 
-        const repo = new BaseRepository(getDb(), 'case_compromised_account_systems');
-        if (links.length > 0) {
-            for (const link of links) {
-                await repo.create({
-                    id: crypto.randomUUID(), account_id: link.account_id, system_id: link.system_id,
-                    created_at: new Date().toISOString(),
-                });
+        if (stix_type === 'malware') {
+            const malId = `malware--${crypto.randomUUID()}`;
+            const malObj = {
+                type: 'malware', id: malId, spec_version: '2.1',
+                name: data.name || 'Unknown',
+                description: data.description || '',
+                malware_types: data.malware_types || ['unknown'],
+                is_family: !!data.is_family,
+                x_oris_task_id: task_id,
+                created: now, modified: now,
+            };
+            await graphRepo.createObject(case_id, malObj, req.user.id);
+            createdObjects.push(malObj);
+
+            // Create file SCO if hash or filename provided
+            if (data.file_name || data.sha256 || data.md5) {
+                const fileSeed = `file-${data.file_name || ''}-${data.sha256 || data.md5 || crypto.randomUUID()}`;
+                const fileId = `file--${deterministicUuid(fileSeed)}`;
+                const hashes = {};
+                if (data.sha256) hashes['SHA-256'] = data.sha256;
+                if (data.md5) hashes['MD5'] = data.md5;
+                const fileObj = {
+                    type: 'file', id: fileId, spec_version: '2.1',
+                    name: data.file_name || undefined,
+                    ...(Object.keys(hashes).length > 0 ? { hashes } : {}),
+                    x_oris_task_id: task_id,
+                };
+                await graphRepo.createObject(case_id, fileObj, req.user.id);
+                createdObjects.push(fileObj);
             }
+
+            // Create observed-data
+            const obsId = `observed-data--${crypto.randomUUID()}`;
+            const obs = {
+                type: 'observed-data', id: obsId, spec_version: '2.1',
+                x_oris_task_id: task_id,
+                first_observed: now, last_observed: now,
+                number_observed: 1, object_refs: [malId],
+                created: now, modified: now,
+            };
+            await graphRepo.createObject(case_id, obs, req.user.id);
+            createdObjects.push(obs);
         }
-        res.status(201).json({ success: true });
-    } catch (error) {
-        console.error('Error in POST /account_systems:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+
+        // ── SCO types ──
+        if (stix_type === 'user-account') {
+            const seed = `user-account-${data.user_id || data.display_name || crypto.randomUUID()}`;
+            const id = `user-account--${deterministicUuid(seed)}`;
+            const obj = {
+                type: 'user-account', id, spec_version: '2.1',
+                user_id: data.user_id || data.account_name,
+                display_name: data.display_name || `${data.account_name || ''}${data.domain ? '@' + data.domain : ''}`,
+                x_oris_task_id: task_id,
+                created: now, modified: now,
+            };
+            await graphRepo.createObject(case_id, obj, req.user.id);
+            createdObjects.push(obj);
+
+            const obsId = `observed-data--${crypto.randomUUID()}`;
+            const obs = {
+                type: 'observed-data', id: obsId, spec_version: '2.1',
+                x_oris_task_id: task_id,
+                first_observed: now, last_observed: now,
+                number_observed: 1, object_refs: [id],
+                created: now, modified: now,
+            };
+            await graphRepo.createObject(case_id, obs, req.user.id);
+            createdObjects.push(obs);
+        }
+
+        if (stix_type === 'ipv4-addr') {
+            const id = `ipv4-addr--${deterministicUuid(`ipv4-${data.value}`)}`;
+            const obj = {
+                type: 'ipv4-addr', id, spec_version: '2.1',
+                value: data.value,
+                x_oris_task_id: task_id,
+            };
+            await graphRepo.createObject(case_id, obj, req.user.id);
+            createdObjects.push(obj);
+
+            // Also create an indicator SDO
+            const indId = `indicator--${crypto.randomUUID()}`;
+            const indObj = {
+                type: 'indicator', id: indId, spec_version: '2.1',
+                name: data.value,
+                pattern: `[ipv4-addr:value = '${data.value}']`,
+                pattern_type: 'stix',
+                valid_from: now,
+                x_oris_task_id: task_id,
+                created: now, modified: now,
+            };
+            await graphRepo.createObject(case_id, indObj, req.user.id);
+            createdObjects.push(indObj);
+
+            // based-on relationship
+            const relId = `relationship--${crypto.randomUUID()}`;
+            await graphRepo.createRelationship(case_id, {
+                type: 'relationship', id: relId,
+                relationship_type: 'based-on',
+                source_ref: indId, target_ref: id,
+                created: now, modified: now,
+            }, req.user.id);
+
+            // observed-data
+            const obsId = `observed-data--${crypto.randomUUID()}`;
+            await graphRepo.createObject(case_id, {
+                type: 'observed-data', id: obsId, spec_version: '2.1',
+                x_oris_task_id: task_id,
+                first_observed: now, last_observed: now,
+                number_observed: 1, object_refs: [id],
+                created: now, modified: now,
+            }, req.user.id);
+        }
+
+        if (stix_type === 'domain-name') {
+            const id = `domain-name--${deterministicUuid(`domain-${data.value}`)}`;
+            const obj = {
+                type: 'domain-name', id, spec_version: '2.1',
+                value: data.value,
+                x_oris_task_id: task_id,
+            };
+            await graphRepo.createObject(case_id, obj, req.user.id);
+            createdObjects.push(obj);
+
+            const indId = `indicator--${crypto.randomUUID()}`;
+            await graphRepo.createObject(case_id, {
+                type: 'indicator', id: indId, spec_version: '2.1',
+                name: data.value,
+                pattern: `[domain-name:value = '${data.value}']`,
+                pattern_type: 'stix',
+                valid_from: now,
+                x_oris_task_id: task_id,
+                created: now, modified: now,
+            }, req.user.id);
+
+            const relId = `relationship--${crypto.randomUUID()}`;
+            await graphRepo.createRelationship(case_id, {
+                type: 'relationship', id: relId,
+                relationship_type: 'based-on',
+                source_ref: indId, target_ref: id,
+                created: now, modified: now,
+            }, req.user.id);
+
+            const obsId = `observed-data--${crypto.randomUUID()}`;
+            await graphRepo.createObject(case_id, {
+                type: 'observed-data', id: obsId, spec_version: '2.1',
+                x_oris_task_id: task_id,
+                first_observed: now, last_observed: now,
+                number_observed: 1, object_refs: [id],
+                created: now, modified: now,
+            }, req.user.id);
+        }
+
+        if (stix_type === 'url') {
+            const id = `url--${deterministicUuid(`url-${data.value}`)}`;
+            const obj = {
+                type: 'url', id, spec_version: '2.1',
+                value: data.value,
+                x_oris_task_id: task_id,
+            };
+            await graphRepo.createObject(case_id, obj, req.user.id);
+            createdObjects.push(obj);
+
+            const indId = `indicator--${crypto.randomUUID()}`;
+            await graphRepo.createObject(case_id, {
+                type: 'indicator', id: indId, spec_version: '2.1',
+                name: data.value,
+                pattern: `[url:value = '${data.value}']`,
+                pattern_type: 'stix',
+                valid_from: now,
+                x_oris_task_id: task_id,
+                created: now, modified: now,
+            }, req.user.id);
+
+            const relId = `relationship--${crypto.randomUUID()}`;
+            await graphRepo.createRelationship(case_id, {
+                type: 'relationship', id: relId,
+                relationship_type: 'based-on',
+                source_ref: indId, target_ref: id,
+                created: now, modified: now,
+            }, req.user.id);
+
+            const obsId = `observed-data--${crypto.randomUUID()}`;
+            await graphRepo.createObject(case_id, {
+                type: 'observed-data', id: obsId, spec_version: '2.1',
+                x_oris_task_id: task_id,
+                first_observed: now, last_observed: now,
+                number_observed: 1, object_refs: [id],
+                created: now, modified: now,
+            }, req.user.id);
+        }
+
+        logAudit(case_id, req.user.id, 'stix_object_created', 'stix', stix_type, {
+            task_id, object_count: createdObjects.length,
+        });
+
+        res.status(201).json({ objects: createdObjects });
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-router.delete('/account_systems/by-account/:accountId', async (req, res) => {
+/**
+ * DELETE /api/investigation/stix/:id
+ * Delete a STIX object and its relationships.
+ */
+router.delete('/stix/:id', async (req, res) => {
     try {
-        const repo = new BaseRepository(getDb(), 'case_compromised_account_systems');
-        await repo.deleteWhere({ account_id: req.params.accountId });
-        res.json({ success: true });
-    } catch (error) { console.error(error); res.status(500).json({ error: 'Internal server error' }); }
+        const graphRepo = new StixGraphRepository(getDb());
+        const obj = await graphRepo.getObjectById(req.params.id);
+        if (!obj) return res.status(404).json({ error: 'STIX object not found' });
+        if (!await canAccessCase(req.user.id, obj.case_id)) return res.status(403).json({ error: 'Access denied' });
+
+        await graphRepo.deleteObject(req.params.id);
+        res.status(204).end();
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
+
+// ─── Reference data ─────────────────────────────────────────────
 
 router.get('/severities', async (req, res) => {
     try {

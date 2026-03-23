@@ -11,7 +11,8 @@ import { AddTimelineEvent } from './investigation/AddTimelineEvent';
 import type { TimelineEventData } from './investigation/AddTimelineEvent';
 import { getKillChainPhase } from '../lib/killChainDefinitions';
 
-import { TaskObjectsPanel } from './TaskObjectsPanel';
+import { StixObjectsList } from './investigation/StixObjectsList';
+import { StixDynamicForm } from './investigation/StixDynamicForm';
 import { ActiveUsers } from './ActiveUsers';
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from 'react-router-dom';
@@ -137,9 +138,8 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
   const [searchParams] = useSearchParams();
   const targetEventId = searchParams.get('target');
   const [commentCount, setCommentCount] = useState(0);
-  const [objectCount, setObjectCount] = useState(0);
-  const [systemsList, setSystemsList] = useState<any[]>([]);
-  const [indicatorsList, setIndicatorsList] = useState<any[]>([]);
+  const [showStixForm, setShowStixForm] = useState(false);
+  const [stixRefreshKey, setStixRefreshKey] = useState(0);
   const [sectionOpen, setSectionOpen] = useState({ discussion: true, events: true, objects: true });
   const toggleSection = (key: 'discussion' | 'events' | 'objects') => setSectionOpen(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -170,12 +170,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
     fetchCaseAuthor();
   }, [taskId]);
 
-  useEffect(() => {
-    if (taskData) {
-      const count = calculateObjectCount(taskEvents, taskData, systemsList, indicatorsList);
-      setObjectCount(count);
-    }
-  }, [taskEvents, taskData, systemsList]);
+
 
   const fetchCaseAuthor = async () => {
     try {
@@ -192,15 +187,12 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
   const fetchTaskData = async () => {
     setLoading(true);
     try {
-      const [taskRes, eventsRes, usersRes, systemsRes, _filesRes, indicatorsRes, commentsRes] = await Promise.all([
+      const [taskRes, eventsRes, usersRes, _filesRes, commentsRes] = await Promise.all([
         api.get(`/tasks/${taskId}`),
         api.get(`/investigation/events/by-case/${caseId}`),
         api.get('/auth/users'),
-        api.get(`/investigation/systems/by-case/${caseId}`),
         api.get(`/files/task/${taskId}`),
-        api.get(`/investigation/indicators/by-case/${caseId}`),
         api.get(`/comments/by-task/${taskId}`),
-        api.get(`/investigation/diamond-overrides/by-case/${caseId}`)
       ]);
 
       if (taskRes) {
@@ -235,32 +227,19 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
         const events = eventsRes.filter((e: any) => e.task_id === taskId);
         const creatorMap = new Map<string, string>();
         (usersRes || []).forEach((p: any) => creatorMap.set(p.id, p.full_name));
-        const systemsMap = new Map<string, { id: string; name: string }>();
-        (systemsRes || []).forEach((s: any) => systemsMap.set(s.id, { id: s.id, name: s.name }));
 
         // Diamond Overrides
         const ovRes = await api.get(`/investigation/diamond-overrides/by-case/${caseId}`);
         const overridesMap = new Map<string, any>();
         (ovRes || []).forEach((o: any) => overridesMap.set(o.event_id, o));
 
-        setSystemsList(systemsRes || []);
-        setIndicatorsList(indicatorsRes || []);
 
         const enriched = events.map((e: any) => {
           const ov = overridesMap.get(e.id);
-          let infra: any[] = [];
-          let vic: any[] = [];
-          if (ov) {
-            try { infra = JSON.parse(ov.infrastructure || '[]'); } catch (err) { }
-            try { vic = JSON.parse(ov.victim || '[]'); } catch (err) { }
-          }
-          const sourceSys = infra.length > 0 && infra[0].type === 'system' ? systemsMap.get(infra[0].id) : null;
-          const targetSys = vic.length > 0 && vic[0].type === 'system' ? systemsMap.get(vic[0].id) : null;
-
           return {
             ...e,
-            source_system: sourceSys,
-            target_system: targetSys,
+            source_system: null,
+            target_system: null,
             notes: ov?.notes || null,
             creator_name: creatorMap.get(e.created_by) || undefined,
           };
@@ -284,11 +263,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
         setCommentCount(commentsRes.length);
       }
 
-      if (eventsRes && systemsRes && taskRes) {
-        const events = eventsRes.filter((e: any) => e.task_id === taskId);
-        const count = calculateObjectCount(events, taskRes, systemsRes, indicatorsRes || []);
-        setObjectCount(count);
-      }
+
     } catch (err) {
       console.error(err);
     } finally {
@@ -296,39 +271,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
     }
   };
 
-  const calculateObjectCount = (events: TaskEvent[], task: TaskDetailsData | null, systemsData: any[], indicatorsData: any[]) => {
-    if (!task) return 0;
 
-    const systemIds = new Set<string>();
-    const malwareIds = new Set<string>();
-    const accountIds = new Set<string>();
-    const exfiltrationIds = new Set<string>();
-
-    const sid = task.system_id || task.system?.id;
-    if (sid) systemIds.add(sid);
-
-    const mid = task.malware_id || task.malware?.id;
-    if (mid) malwareIds.add(mid);
-
-    events.forEach((ev: any) => {
-      if (ev.source_system?.id) systemIds.add(ev.source_system.id);
-      if (ev.target_system?.id) systemIds.add(ev.target_system.id);
-      if (ev.malware_id) malwareIds.add(ev.malware_id);
-      if (ev.compromised_account_id) accountIds.add(ev.compromised_account_id);
-      if (ev.exfiltration_id) exfiltrationIds.add(ev.exfiltration_id);
-    });
-
-    const sysIdsWithIndicators = new Set((systemsData || []).filter(s => !!s.network_indicator_id).map(s => s.network_indicator_id));
-    const taskNetIndicators = (indicatorsData || []).filter(n => {
-      if (sysIdsWithIndicators.has(n.id)) {
-        const linkedSys = systemsData.find(s => s.network_indicator_id === n.id);
-        return linkedSys && systemIds.has(linkedSys.id);
-      }
-      return false;
-    });
-
-    return systemIds.size + malwareIds.size + accountIds.size + exfiltrationIds.size + taskNetIndicators.length;
-  };
 
   const handleDeleteEvent = async (eventId: string) => {
     setDeletingEventId(eventId);
@@ -795,14 +738,9 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                 <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} onNewEvent={isReadOnly ? undefined : () => { setEditingEvent(null); setShowTimelineForm(true); }} isReadOnly={isReadOnly} />
               </div>
 
-              {/* Objects */}
+              {/* STIX Objects */}
               <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500 p-5">
-                <div className="flex items-center gap-2.5 mb-4">
-                  <Database className="w-4 h-4 text-purple-500" />
-                  <span className="text-sm font-semibold text-gray-800 dark:text-white">{t('taskDetails.tabObjects')}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">{objectCount}</span>
-                </div>
-                <TaskObjectsPanel caseId={caseId} taskId={taskId} isClosed={isEffectivelyClosed} onCountChange={setObjectCount} isReadOnly={isReadOnly} />
+                <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} onAdd={() => setShowStixForm(true)} />
               </div>
             </div>
           )}
@@ -900,14 +838,9 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                     )}
                   </div>
                 </div>
-                {/* Objects */}
+                {/* STIX Objects */}
                 <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500 p-5">
-                  <div className="flex items-center gap-2.5 mb-4">
-                    <Database className="w-4 h-4 text-purple-500" />
-                    <span className="text-sm font-semibold text-gray-800 dark:text-white">{t('taskDetails.tabObjects')}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">{objectCount}</span>
-                  </div>
-                  <TaskObjectsPanel caseId={caseId} taskId={taskId} isClosed={isEffectivelyClosed} onCountChange={setObjectCount} isReadOnly={isReadOnly} />
+                  <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} onAdd={() => setShowStixForm(true)} />
                 </div>
               </div>
             </div>
@@ -1017,19 +950,18 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                 )}
               </div>
 
-              {/* Section 3: Objets */}
+              {/* Section 3: STIX Objects */}
               <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500">
                 <button onClick={() => toggleSection('objects')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
                   <div className="flex items-center gap-2.5">
                     <Database className="w-4 h-4 text-purple-500" />
-                    <span className="text-sm font-semibold text-gray-800 dark:text-white">{t('taskDetails.tabObjects')}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">{objectCount}</span>
+                    <span className="text-sm font-semibold text-gray-800 dark:text-white">{t('auto.elements_techniques', 'Éléments techniques')}</span>
                   </div>
                   <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${sectionOpen.objects ? '' : '-rotate-90'}`} />
                 </button>
                 {sectionOpen.objects && (
                   <div className="px-5 pb-5 pt-1">
-                    <TaskObjectsPanel caseId={caseId} taskId={taskId} isClosed={isEffectivelyClosed} onCountChange={setObjectCount} isReadOnly={isReadOnly} />
+                    <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} onAdd={() => setShowStixForm(true)} />
                   </div>
                 )}
               </div>
@@ -1151,6 +1083,15 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
             setEditingEvent(null);
             fetchTaskData();
           }}
+        />
+      )}
+
+      {showStixForm && (
+        <StixDynamicForm
+          caseId={caseId}
+          taskId={taskId}
+          onClose={() => setShowStixForm(false)}
+          onCreated={() => setStixRefreshKey(k => k + 1)}
         />
       )}
     </div>

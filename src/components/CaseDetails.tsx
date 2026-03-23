@@ -35,10 +35,8 @@ import { VisualTimeline } from './reporting/VisualTimeline';
 import { ActivityPlot } from './reporting/ActivityPlot';
 import { CaseReport } from './reporting/CaseReport';
 import { DiamondModel } from './investigation/DiamondModel';
-import { InvestigationAttackerInfra } from './investigation/InvestigationAttackerInfra';
 import { CaseSidebar, CaseSectionSelect, type CaseSection } from './CaseSidebar';
 import { AiChatPanel } from './investigation/AiChatPanel';
-import { buildDiamondNodes } from '../lib/diamondModelUtils';
 import { useTranslation } from "react-i18next";
 
 /** Darken a hex color for WCAG-compliant text contrast on light backgrounds */
@@ -149,34 +147,22 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
   // Fetch full case context for AI
   const fetchAiCaseContext = useCallback(async () => {
     try {
-      const [events, systems, malware, accounts, indicators, exfiltrations] = await Promise.all([
+      const [events, stixObjects] = await Promise.all([
         api.get(`/investigation/events/by-case/${caseId}`).catch(() => []),
-        api.get(`/investigation/systems/by-case/${caseId}`).catch(() => []),
-        api.get(`/investigation/malware/by-case/${caseId}`).catch(() => []),
-        api.get(`/investigation/accounts/by-case/${caseId}`).catch(() => []),
-        api.get(`/investigation/indicators/by-case/${caseId}`).catch(() => []),
-        api.get(`/investigation/exfiltrations/by-case/${caseId}`).catch(() => []),
+        api.get(`/investigation/stix/by-case/${caseId}`).catch(() => []),
       ]);
       const evts = Array.isArray(events) ? events : [];
-      const sys = Array.isArray(systems) ? systems : [];
-      const mal = Array.isArray(malware) ? malware : [];
-      const acct = Array.isArray(accounts) ? accounts : [];
-      const ind = Array.isArray(indicators) ? indicators : [];
-      const exf = Array.isArray(exfiltrations) ? exfiltrations : [];
-      let diamondNodes: any[] = [];
-      try {
-        diamondNodes = buildDiamondNodes(evts as any, sys as any, ind as any, mal as any, acct as any, exf as any, caseData?.kill_chain_type ?? null);
-      } catch { diamondNodes = []; }
+      const stix = Array.isArray(stixObjects) ? stixObjects : [];
       setAiCaseContext({
         caseTitle: caseData?.title || '',
         taskTitle: '',
         events: evts.map((e: any) => ({ description: e.notes || e.description || '', event_datetime: e.event_datetime, kill_chain: e.kill_chain })),
-        systems: sys.map((s: any) => ({ name: s.name, system_type: s.system_type, investigation_status: s.investigation_status })),
-        malware: mal.map((m: any) => ({ file_name: m.file_name, description: m.description })),
-        accounts: acct.map((a: any) => ({ account_name: a.account_name, domain: a.domain, privileges: a.privileges })),
-        indicators: ind.map((i: any) => ({ ip: i.ip, domain_name: i.domain_name, url: i.url, context: i.context })),
-        exfiltrations: exf.map((x: any) => ({ file_name: x.file_name, content_description: x.content_description })),
-        diamondNodes,
+        systems: stix.filter((o: any) => o.type === 'infrastructure').map((s: any) => ({ name: s.name })),
+        malware: stix.filter((o: any) => o.type === 'malware').map((m: any) => ({ file_name: m.name, description: m.description })),
+        accounts: stix.filter((o: any) => o.type === 'user-account').map((a: any) => ({ account_name: a.user_id || a.display_name })),
+        indicators: stix.filter((o: any) => ['ipv4-addr', 'domain-name', 'url'].includes(o.type)).map((i: any) => ({ value: i.value, type: i.type })),
+        exfiltrations: [],
+        diamondNodes: [],
       });
     } catch (err) {
       console.error('[AI] Failed to fetch case context:', err);
@@ -594,7 +580,9 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
       case 'attacker_infra':
         return (
           <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800">
-            <InvestigationAttackerInfra caseId={caseId} isClosed={caseData?.status === 'closed'} />
+            <p className="text-sm text-gray-500 dark:text-slate-400">
+              {t('auto.section_migree_stix', 'L\'infrastructure est désormais gérée via les éléments techniques STIX dans chaque tâche.')}
+            </p>
           </div>
         );
 

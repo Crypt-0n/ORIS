@@ -87,6 +87,14 @@ class StixGraphRepository {
         return await cursor.all();
     }
 
+    async getObjectsByTaskId(taskId) {
+        const cursor = await this.db.query(
+            `FOR d IN stix_objects FILTER d.data.x_oris_task_id == @taskId SORT d.created_at DESC RETURN d.data`,
+            { taskId }
+        );
+        return await cursor.all();
+    }
+
     async deleteObject(id) {
         // Delete edges referencing this object first
         await this.db.query(
