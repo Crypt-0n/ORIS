@@ -29,7 +29,7 @@ class CaseRepository extends BaseRepository {
                     RETURN KEEP(u, '_key', 'full_name', 'email')
         `;
         const members = await this.query(aql, { beneficiaryId });
-        return members.map(m => ({ id: m._key, full_name: m.full_name, email: m.email }));
+        return members.map(m => ({ id: m.id, full_name: m.full_name, email: m.email }));
     }
 
     async createWithAssignment(caseData, assignedToId) {

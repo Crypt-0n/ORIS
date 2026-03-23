@@ -45,7 +45,7 @@ interface AlertsListProps {
 }
 
 export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
-  const { user, hasAnyRole, hasRole } = useAuth();
+  const { user, hasAnyRole, hasRole, profile } = useAuth();
   const { t, i18n } = useTranslation();
   const isAdmin = hasRole('admin');
   const [alerts, setAlerts] = useState<AlertWithDetails[]>([]);
@@ -129,7 +129,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
             {showSupervision ? 'Alertes des autres équipes' : 'Gérez vos alertes de sécurité'}
           </p>
         </div>
-        {hasAnyRole(['admin', 'team_leader', 'alert_manager']) && !showSupervision && (
+        {(isAdmin || profile?.canSeeAlerts) && !showSupervision && (
           <button
             onClick={onCreateAlert}
             className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition flex items-center justify-center gap-2 w-full sm:w-auto"
