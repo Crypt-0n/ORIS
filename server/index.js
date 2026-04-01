@@ -4,6 +4,9 @@ require('tsx/cjs/api').register();
 const express = require('express');
 const cors = require('cors');
 const fileUpload = require('express-fileupload');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const path = require('path');
 
@@ -21,11 +24,33 @@ try {
 
 const app = express();
 
+// CORS : restreindre explicitement en production
+const corsOrigin = process.env.CORS_ORIGIN;
+if (!corsOrigin && process.env.NODE_ENV === 'production') {
+    console.warn('[Security] WARNING: CORS_ORIGIN is not set. Cross-origin requests will be rejected in production. Set CORS_ORIGIN to your frontend domain.');
+}
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || true,
+    origin: corsOrigin || (process.env.NODE_ENV === 'production' ? false : true),
     credentials: true
 }));
+
+// Sécurité HTTP Headers
+app.use(helmet());
+
+// Cookies et JSON
+app.use(cookieParser());
 app.use(express.json());
+
+// Limitation de requêtes (Global contre le brute force scraping)
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 2000, // Limite à 2000 requêtes par IP via API (assez large pour l'utilisation normale)
+    message: 'Trop de requêtes effectuées depuis cette IP, veuillez réessayer plus tard.',
+    standardHeaders: true, 
+    legacyHeaders: false,
+});
+app.use('/api/', globalLimiter);
+
 app.use(fileUpload({
     limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
     useTempFiles: true,
@@ -37,6 +62,10 @@ app.use(fileUpload({
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'ORIS API running' });
 });
+
+// Swagger Documentation
+const setupSwagger = require('./swagger');
+setupSwagger(app);
 
 // API routes
 app.use('/api/auth', require('./routes/auth'));
@@ -58,6 +87,7 @@ app.use('/api/backup', require('./routes/backup'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/stix', require('./routes/stix'));
+app.use('/api/kb', require('./routes/kb'));
 
 const PORT = process.env.PORT || 3001;
 

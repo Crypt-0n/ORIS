@@ -1,5 +1,6 @@
 # PostgreSQL + ArangoDB stack for ORIS
 # Usage: docker compose up -d
+# IMPORTANT: Copier .env.example en .env et définir les variables sensibles avant de lancer
 
 services:
 
@@ -10,12 +11,12 @@ services:
     ports:
       - "8529:8529"
     environment:
-      ARANGO_ROOT_PASSWORD: oris_secret
+      ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD:?Variable ARANGO_ROOT_PASSWORD non définie dans .env}
     volumes:
       - oris_arangodata:/var/lib/arangodb3
       - oris_arangoapps:/var/lib/arangodb3-apps
     healthcheck:
-      test: [ "CMD", "arangosh", "--server.endpoint", "tcp://127.0.0.1:8529", "--server.password", "oris_secret", "--javascript.execute-string", "db._version()" ]
+      test: [ "CMD", "arangosh", "--server.endpoint", "tcp://127.0.0.1:8529", "--server.password", "${ARANGO_ROOT_PASSWORD}", "--javascript.execute-string", "db._version()" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -29,10 +30,13 @@ services:
     #      - "3001:3001"
     environment:
       - PORT=3001
+      - NODE_ENV=${NODE_ENV:-development}
       - ARANGO_URL=http://arangodb:8529
-      - ARANGO_DB=oris
-      - ARANGO_USER=root
-      - ARANGO_PASSWORD=oris_secret
+      - ARANGO_DB=${ARANGO_DB:-oris}
+      - ARANGO_USER=${ARANGO_USER:-root}
+      - ARANGO_PASSWORD=${ARANGO_ROOT_PASSWORD:?Variable ARANGO_ROOT_PASSWORD non définie dans .env}
+      - JWT_SECRET=${JWT_SECRET:?Variable JWT_SECRET non définie dans .env}
+      - CORS_ORIGIN=${CORS_ORIGIN:-}
     volumes:
       - oris_uploads:/app/uploads
       - oris_backups:/app/data/backups
