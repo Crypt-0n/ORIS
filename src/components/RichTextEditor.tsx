@@ -6,6 +6,72 @@ import Mention from '@tiptap/extension-mention';
 import Placeholder from '@tiptap/extension-placeholder';
 import tippy from 'tippy.js';
 import { api } from '../lib/api';
+import { Bold, Italic, Strikethrough, Code, List, ListOrdered } from 'lucide-react';
+
+const MenuBar = ({ editor }: { editor: any }) => {
+  if (!editor) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1 p-2 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 rounded-t-lg">
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        disabled={!editor.can().chain().focus().toggleBold().run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition ${editor.isActive('bold') ? 'bg-gray-200 dark:bg-slate-700 text-cyan-600 dark:text-cyan-400' : 'text-gray-600 dark:text-slate-400'}`}
+        title="Gras"
+      >
+         <Bold className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        disabled={!editor.can().chain().focus().toggleItalic().run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition ${editor.isActive('italic') ? 'bg-gray-200 dark:bg-slate-700 text-cyan-600 dark:text-cyan-400' : 'text-gray-600 dark:text-slate-400'}`}
+        title="Italique"
+      >
+         <Italic className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        disabled={!editor.can().chain().focus().toggleStrike().run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition ${editor.isActive('strike') ? 'bg-gray-200 dark:bg-slate-700 text-cyan-600 dark:text-cyan-400' : 'text-gray-600 dark:text-slate-400'}`}
+        title="Barré"
+      >
+         <Strikethrough className="w-4 h-4" />
+      </button>
+      <div className="w-px h-6 bg-gray-300 dark:bg-slate-600 mx-1 self-center" />
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleCode().run()}
+        disabled={!editor.can().chain().focus().toggleCode().run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition ${editor.isActive('code') ? 'bg-gray-200 dark:bg-slate-700 text-cyan-600 dark:text-cyan-400' : 'text-gray-600 dark:text-slate-400'}`}
+        title="Code en ligne"
+      >
+         <Code className="w-4 h-4" />
+      </button>
+      <div className="w-px h-6 bg-gray-300 dark:bg-slate-600 mx-1 self-center" />
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition ${editor.isActive('bulletList') ? 'bg-gray-200 dark:bg-slate-700 text-cyan-600 dark:text-cyan-400' : 'text-gray-600 dark:text-slate-400'}`}
+        title="Liste à puces"
+      >
+         <List className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition ${editor.isActive('orderedList') ? 'bg-gray-200 dark:bg-slate-700 text-cyan-600 dark:text-cyan-400' : 'text-gray-600 dark:text-slate-400'}`}
+        title="Liste numérotée"
+      >
+         <ListOrdered className="w-4 h-4" />
+      </button>
+    </div>
+  );
+};
 
 interface MentionUser {
   id: string;
@@ -195,7 +261,7 @@ export function RichTextEditor({ value, onChange, placeholder, disabled = false 
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm sm:prose-base dark:prose-invert focus:outline-none max-w-none min-h-[120px] p-4 bg-white dark:bg-slate-900 dark:text-slate-200 border border-gray-200 dark:border-slate-700 rounded-lg',
+        class: 'prose prose-sm sm:prose-base dark:prose-invert focus:outline-none max-w-none min-h-[120px] p-4 bg-white dark:bg-slate-900 dark:text-slate-200 rounded-b-lg',
       },
     },
   });
@@ -211,8 +277,9 @@ export function RichTextEditor({ value, onChange, placeholder, disabled = false 
   }
 
   return (
-    <div className={`tiptap-editor ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-      <EditorContent editor={editor} />
+    <div className={`tiptap-editor border border-gray-200 dark:border-slate-700 rounded-lg flex flex-col focus-within:ring-2 focus-within:ring-cyan-500/50 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+      <MenuBar editor={editor} />
+      <EditorContent editor={editor} className="flex-1" />
     </div>
   );
 }

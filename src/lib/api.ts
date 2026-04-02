@@ -47,7 +47,15 @@ class ApiClient {
     }
 
     get(endpoint: string, options?: RequestInit) {
-        return this.request(endpoint, { method: 'GET', ...options });
+        return this.request(endpoint, {
+            method: 'GET',
+            ...options,
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache',
+                ...(options?.headers || {})
+            }
+        });
     }
 
     post(endpoint: string, data: any) {

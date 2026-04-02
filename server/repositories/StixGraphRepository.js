@@ -257,31 +257,60 @@ class StixGraphRepository {
      */
     async getLateralMovements(caseId) {
         const cursor = await this.db.query(`
-            FOR src IN stix_objects
-                FILTER src.case_id == @caseId AND src.type == 'infrastructure'
-                FOR v, e, p IN 1..1 OUTBOUND src stix_relationships
-                    FILTER e.relationship_type == 'lateral-movement'
-                    AND v.type == 'infrastructure'
-                    
-                    LET attack_pattern = e.data.x_oris_attack_pattern_ref ? (
-                        FOR obj IN stix_objects
-                            FILTER obj.id == e.data.x_oris_attack_pattern_ref
-                            RETURN obj.data
-                    )[0] : null
+            // 1. Explicit lateral-movement relations
+            LET explicit = (
+                FOR src IN stix_objects
+                    FILTER src.case_id == @caseId AND (src.type == 'infrastructure' OR src.type == 'ipv4-addr' OR src.type == 'domain-name' OR src.type == 'url' OR src.type == 'mac-addr')
+                    FOR v, e IN 1..1 OUTBOUND src stix_relationships
+                        FILTER e.relationship_type == 'lateral-movement'
+                        
+                        LET attack_pattern = e.data.x_oris_attack_pattern_ref ? (
+                            FOR obj IN stix_objects
+                                FILTER obj.id == e.data.x_oris_attack_pattern_ref
+                                RETURN obj.data
+                        )[0] : null
+    
+                        RETURN {
+                            source: { id: src._key, name: src.data.name || src.data.value, type: src.type },
+                            target: { id: v._key, name: v.data.name || v.data.value, type: v.type },
+                            relationship_type: e.relationship_type,
+                            event_datetime: e.data.created,
+                            attack_pattern_name: attack_pattern ? attack_pattern.name : null,
+                            kill_chain_phases: attack_pattern ? attack_pattern.kill_chain_phases : null
+                        }
+            )
 
-                    RETURN {
-                        source: { id: src._key, name: src.data.name, type: src.type },
-                        target: { id: v._key, name: v.data.name, type: v.type },
-                        relationship_type: e.relationship_type,
-                        event_datetime: e.data.created,
-                        attack_pattern_name: attack_pattern ? attack_pattern.name : null,
-                        kill_chain_phases: attack_pattern ? attack_pattern.kill_chain_phases : null
-                    }
+            // 2. Implicit relations from Diamond events (observed-data)
+            LET implicit = (
+                FOR diamond IN stix_objects
+                    FILTER diamond.case_id == @caseId AND diamond.type == 'observed-data' AND HAS(diamond.data, 'x_oris_diamond_axes')
+                    LET axes = diamond.data.x_oris_diamond_axes
+                    FILTER axes != null AND LENGTH(axes.infrastructure) > 0 AND LENGTH(axes.victim) > 0
+                    
+                    FOR src_id IN axes.infrastructure
+                        FOR tgt_id IN axes.victim
+                            LET src = (FOR obj IN stix_objects FILTER obj.id == src_id RETURN obj)[0]
+                            LET tgt = (FOR obj IN stix_objects FILTER obj.id == tgt_id RETURN obj)[0]
+                            FILTER src != null AND tgt != null AND src._key != tgt._key
+                            
+                            RETURN {
+                                source: { id: src._key, name: src.data.name || src.data.value, type: src.type },
+                                target: { id: tgt._key, name: tgt.data.name || tgt.data.value, type: tgt.type },
+                                relationship_type: 'lateral-movement',
+                                event_datetime: diamond.data.first_observed || diamond.data.created,
+                                attack_pattern_name: diamond.data.name,
+                                kill_chain_phases: diamond.data.x_oris_kill_chain ? [{ kill_chain_name: diamond.data.x_oris_kill_chain }] : null
+                            }
+            )
+
+            // Merge and ensure uniqueness
+            LET all_edges = APPEND(explicit, implicit)
+            FOR edge IN all_edges
+                COLLECT src_id = edge.source.id, tgt_id = edge.target.id INTO g = edge
+                RETURN g[0]
         `, { caseId });
 
-        const results = await cursor.all();
-
-        return results;
+        return await cursor.all();
     }
 
     // ─── Sync from Legacy Tables ─────────────────────────────
