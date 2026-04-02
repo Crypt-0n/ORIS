@@ -61,6 +61,15 @@ router.post('/register', registerLimiter, async (req: AuthenticatedRequest, res:
     const ua = req.headers['user-agent'] || 'unknown';
     await AuthService.logConnection(result.user.id, ip, ua, true);
     
+    if (result.session && result.session.access_token) {
+      res.cookie('oris_jwt', result.session.access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 8 * 60 * 60 * 1000 // 8 hours
+      });
+    }
+    
     res.json(result);
   } catch (err: any) {
     if (err.message.includes('Authentication required') || err.message.includes('Invalid token') || err.message.includes('Admin access required')) {
