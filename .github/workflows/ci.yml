@@ -10,6 +10,14 @@ jobs:
   test-backend:
     runs-on: ubuntu-latest
 
+    services:
+      arangodb:
+        image: arangodb:3.12
+        env:
+          ARANGO_ROOT_PASSWORD: oris_secret
+        ports:
+          - 8529:8529
+
     steps:
     - uses: actions/checkout@v4
     
@@ -24,6 +32,12 @@ jobs:
 
     - name: Run Tests
       working-directory: ./server
+      env:
+        ARANGO_URL: http://localhost:8529
+        ARANGO_DB: _system
+        ARANGO_USER: root
+        ARANGO_PASSWORD: oris_secret
+        JWT_SECRET: ci_test_secret
       run: npm test
 
   test-frontend-build:
