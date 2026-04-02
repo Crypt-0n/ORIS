@@ -117,7 +117,34 @@ class StixGraphRepository {
 
     async getObjectsByTaskId(taskId) {
         const cursor = await this.db.query(
-            `FOR d IN stix_objects FILTER d.data.x_oris_task_id == @taskId SORT d.created_at DESC RETURN d.data`,
+            `
+            LET task_objects = (
+                FOR d IN stix_objects
+                FILTER d.data.x_oris_task_id == @taskId
+                RETURN d.data
+            )
+            LET diamond_refs = (
+                FOR d IN task_objects
+                FILTER d.type == 'observed-data' AND HAS(d, 'x_oris_diamond_axes')
+                LET axes = d.x_oris_diamond_axes
+                LET refs = APPEND(
+                    APPEND(axes.adversary || [], axes.infrastructure || []),
+                    APPEND(axes.capability || [], axes.victim || [])
+                )
+                FOR ref IN refs
+                RETURN ref
+            )
+            LET referenced_objects = (
+                FOR ref IN UNIQUE(diamond_refs)
+                FOR o IN stix_objects
+                FILTER o.data.id == ref
+                RETURN o.data
+            )
+            LET all_results = APPEND(task_objects, referenced_objects)
+            FOR r IN UNIQUE(all_results)
+            SORT r.created DESC
+            RETURN r
+            `,
             { taskId }
         );
         return await cursor.all();
