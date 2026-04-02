@@ -48,9 +48,6 @@ const registerUser = async (user) => {
     const res = await request(app).post('/api/auth/register')
         .set('Authorization', `Bearer ${adminToken}`)
         .send(user);
-    if (!res.body.session && res.statusCode !== 200) {
-         console.error('REGISTER FAILED:', res.statusCode, res.body);
-    }
     return res;
 };
 
@@ -78,10 +75,10 @@ async function registerAndLogin(user = TEST_USER) {
         .send({ email: user.email, password: user.password });
         
     if (!loginRes.body.user) {
-        console.error('LOGIN FAILED:', loginRes.statusCode, loginRes.body);
+        throw new Error('Login failed');
     }
     
-    console.log('LOGIN BODY:', loginRes.body); userId = loginRes.body.user.id;
+    userId = loginRes.body.user.id;
     authToken = loginRes.body.session.access_token;
     if (!adminToken) adminToken = authToken;
     return { token: authToken, userId };
