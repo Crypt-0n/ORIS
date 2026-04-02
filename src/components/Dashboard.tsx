@@ -126,8 +126,7 @@ export function Dashboard() {
         variants={containerVariants} 
         initial="hidden" 
         animate="show" 
-        className="flex overflow-x-auto lg:grid lg:grid-cols-5 gap-4 lg:gap-5 pb-4 -mx-4 px-4 lg:px-0 lg:mx-0 snap-x snap-mandatory"
-        style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-5 pb-4"
       >
         <StatCard icon={FolderOpen} label="Dossiers ouverts" value={data.stats.openCases} color="blue" onClick={() => navigate('/cases')} />
         {(data as any).canSeeAlerts !== false && <StatCard icon={AlertTriangle} label="Alertes" value={data.stats.openAlerts || 0} color="rose" onClick={() => navigate('/alerts')} />}
@@ -135,7 +134,7 @@ export function Dashboard() {
         <StatCard icon={UserX} label="Non assignées" value={data.stats.unassignedTasks} color="amber" onClick={() => navigate('/tasks')} />
         
         {/* Taux de résolution Visuel */}
-        <motion.div variants={itemVariants} className="min-w-[260px] lg:min-w-0 snap-center flex-shrink-0 bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 rounded-2xl p-6 shadow-xl shadow-blue-900/20 relative overflow-hidden text-white flex items-center justify-between group">
+        <motion.div variants={itemVariants} className="col-span-2 md:col-span-3 lg:col-span-1 bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 rounded-2xl p-6 shadow-xl shadow-blue-900/20 relative overflow-hidden text-white flex items-center justify-between group">
             <div className="z-10">
                 <Target className="w-5 h-5 text-indigo-200 mb-3 drop-shadow-sm group-hover:scale-110 transition-transform" />
                 <div className="text-3xl font-heading font-bold drop-shadow-md">{closureRate}%</div>
@@ -305,7 +304,7 @@ function StatCard({
       onClick={onClick}
       whileHover={onClick ? { scale: 1.02 } : {}}
       whileTap={onClick ? { scale: 0.98 } : {}}
-      className={`min-w-[160px] lg:min-w-0 snap-center flex-shrink-0 bg-white dark:bg-slate-900 border rounded-2xl p-5 text-left flex flex-col justify-between transition-shadow relative overflow-hidden group ${onClick ? 'cursor-pointer hover:shadow-lg' : 'shadow-sm'} border-gray-200 dark:border-slate-800`}
+      className={`bg-white dark:bg-slate-900 border rounded-2xl p-4 sm:p-5 text-left flex flex-col justify-between transition-shadow relative overflow-hidden group ${onClick ? 'cursor-pointer hover:shadow-lg' : 'shadow-sm'} border-gray-200 dark:border-slate-800`}
     >
       <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full bg-gradient-to-br opacity-50 dark:opacity-20 blur-2xl group-hover:blur-3xl transition-all ${colors[color]}`}></div>
       
