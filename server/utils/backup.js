@@ -197,6 +197,10 @@ async function createFullBackup() {
             archive.on('error', reject);
             archive.on('warning', err => console.warn('[Backup] Warning:', err.message));
         });
+        
+        // Prevent UnhandledPromiseRejection crashes by attaching a dummy catch synchronously.
+        // The error will still be correctly thrown and handled later during 'await done;'.
+        done.catch(() => {});
 
         archive.pipe(output);
         archive.append(jsonStr, { name: 'database.json' });
