@@ -6,7 +6,10 @@ import Mention from '@tiptap/extension-mention';
 import Placeholder from '@tiptap/extension-placeholder';
 import tippy from 'tippy.js';
 import { api } from '../lib/api';
-import { Bold, Italic, Strikethrough, Code, List, ListOrdered } from 'lucide-react';
+import { 
+  Bold, Italic, Strikethrough, Code, List, ListOrdered,
+  Heading1, Heading2, Heading3, Quote, Minus, Undo, Redo
+} from 'lucide-react';
 
 const MenuBar = ({ editor }: { editor: any }) => {
   if (!editor) {
@@ -68,6 +71,70 @@ const MenuBar = ({ editor }: { editor: any }) => {
         title="Liste numérotée"
       >
          <ListOrdered className="w-4 h-4" />
+      </button>
+      
+      <div className="w-px h-6 bg-gray-300 dark:bg-slate-600 mx-1 self-center" />
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition ${editor.isActive('heading', { level: 1 }) ? 'bg-gray-200 dark:bg-slate-700 text-cyan-600 dark:text-cyan-400' : 'text-gray-600 dark:text-slate-400'}`}
+        title="Titre 1"
+      >
+         <Heading1 className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition ${editor.isActive('heading', { level: 2 }) ? 'bg-gray-200 dark:bg-slate-700 text-cyan-600 dark:text-cyan-400' : 'text-gray-600 dark:text-slate-400'}`}
+        title="Titre 2"
+      >
+         <Heading2 className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition ${editor.isActive('heading', { level: 3 }) ? 'bg-gray-200 dark:bg-slate-700 text-cyan-600 dark:text-cyan-400' : 'text-gray-600 dark:text-slate-400'}`}
+        title="Titre 3"
+      >
+         <Heading3 className="w-4 h-4" />
+      </button>
+
+      <div className="w-px h-6 bg-gray-300 dark:bg-slate-600 mx-1 self-center" />
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition ${editor.isActive('blockquote') ? 'bg-gray-200 dark:bg-slate-700 text-cyan-600 dark:text-cyan-400' : 'text-gray-600 dark:text-slate-400'}`}
+        title="Citation"
+      >
+         <Quote className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().setHorizontalRule().run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition text-gray-600 dark:text-slate-400`}
+        title="Séparateur"
+      >
+         <Minus className="w-4 h-4" />
+      </button>
+
+      <div className="w-px h-6 bg-gray-300 dark:bg-slate-600 mx-1 self-center" />
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().undo().run()}
+        disabled={!editor.can().chain().focus().undo().run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition text-gray-600 dark:text-slate-400 disabled:opacity-50`}
+        title="Annuler"
+      >
+         <Undo className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().redo().run()}
+        disabled={!editor.can().chain().focus().redo().run()}
+        className={`p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition text-gray-600 dark:text-slate-400 disabled:opacity-50`}
+        title="Rétablir"
+      >
+         <Redo className="w-4 h-4" />
       </button>
     </div>
   );

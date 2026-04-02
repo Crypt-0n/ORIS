@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ChevronRight, ChevronLeft, Check, Bug, Server, User, Globe, AlertCircle, Calendar, Zap, Link as LinkIcon, Plus, Trash2, ChevronDown } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, Bug, Server, User, Globe, AlertCircle, Calendar, Zap, Link as LinkIcon, Plus, Trash2, ChevronDown } from 'lucide-react';
 import type { StixSDO, StixSDOType } from '../../lib/stix.types';
 import { STIX_TYPE_META, RELATIONSHIP_TYPES } from '../../lib/stix.types';
 import { generateStixId, nowIso } from '../../lib/stixApi';
 import { Tooltip } from '../common/Tooltip';
 import { getKillChainPhases } from '../../lib/killChainDefinitions';
 import { api } from '../../lib/api';
+import { OffCanvas } from '../common/OffCanvas';
 
 interface TaskDiamondWizardProps {
     taskId?: string;
@@ -362,6 +363,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                         name: data.name.trim(),
                         description: data.description.trim() || undefined,
                         object_marking_refs: data.tlp ? [data.tlp] : undefined,
+                        x_oris_task_id: taskId,
                     };
 
                     if (data.sdoType === 'threat-actor') baseStix.sophistication = data.sophistication || undefined;
@@ -449,19 +451,15 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-slate-800">
-                    <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-                        {editingDiamond ? 'Modifier le Diamant' : 'Ajouter un Diamant'}
-                    </h2>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition text-slate-500">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto min-h-0">
-                    <div className="p-6">
+        <OffCanvas
+            isOpen={true}
+            onClose={onClose}
+            title={editingDiamond ? 'Modifier le Diamant' : 'Ajouter un Diamant'}
+            width="lg"
+        >
+            <div className="flex flex-col h-full">
+                <div className="flex-1 p-6 pb-20 bg-white dark:bg-slate-900">
+                    <div className="max-w-full">
                         {/* Progress Tracker */}
                         <div className="flex justify-between mb-8 relative px-2">
                             <div className="absolute top-3 left-0 right-0 h-0.5 bg-gray-200 dark:bg-slate-700 -z-10" />
@@ -819,7 +817,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                     </div>
                 </div>
 
-                <div className="p-4 border-t border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/50 flex justify-between shrink-0">
+                <div className="p-4 border-t border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/90 backdrop-blur-md flex justify-between shrink-0 sticky bottom-0 z-10 w-full">
                     <button
                         onClick={handlePrev}
                         disabled={stepIndex === 0 || loading}
@@ -848,6 +846,6 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                     )}
                 </div>
             </div>
-        </div>
+        </OffCanvas>
     );
 };
