@@ -195,7 +195,7 @@ export function RichTextEditor({ value, onChange, placeholder, disabled = false 
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm sm:prose-base focus:outline-none max-w-none min-h-[120px] p-4 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg',
+        class: 'prose prose-sm sm:prose-base dark:prose-invert focus:outline-none max-w-none min-h-[120px] p-4 bg-white dark:bg-slate-900 dark:text-slate-200 border border-gray-200 dark:border-slate-700 rounded-lg',
       },
     },
   });

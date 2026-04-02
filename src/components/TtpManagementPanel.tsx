@@ -40,6 +40,7 @@ export function TtpManagementPanel() {
   const [expandedTactics, setExpandedTactics] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [dbStatus, setDbStatus] = useState<{ total: number } | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const fetchPatterns = useCallback(async () => {
     setLoading(true);
@@ -106,6 +107,32 @@ export function TtpManagementPanel() {
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           <Shield className="w-4 h-4" />
           <span>{search ? `${filteredTotal} / ` : ''}{dbStatus?.total ?? '...'} techniques</span>
+        </div>
+
+        <div className="ml-auto flex items-center">
+          <button
+            onClick={async () => {
+              if (!window.confirm('Voulez-vous lancer la synchronisation de la base MITRE depuis CTI Github ? Cela peut prendre 1 à 2 minutes en arrière-plan.')) return;
+              setSyncing(true);
+              try {
+                await api.post('/kb/mitre/seed', {});
+                alert('Synchronisation lancée en arrière-plan. Les techniques apparaîtront au fur et à mesure. Rafraîchissez la page plus tard pour mettre à jour le compte.');
+              } catch (err) {
+                console.error(err);
+                alert('Erreur lors du lancement de la synchronisation.');
+              }
+              setSyncing(false);
+            }}
+            disabled={syncing}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors"
+          >
+            {syncing ? (
+              <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Database className="w-3 h-3 text-slate-500" />
+            )}
+            Synchroniser depuis MITRE CTI
+          </button>
         </div>
       </div>
 

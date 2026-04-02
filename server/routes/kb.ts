@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { getDb } from '../db-arango';
 import authenticateToken from '../middleware/auth';
 import { setHttpCache } from '../middleware/cache';
+import { exec } from 'child_process';
+import path from 'path';
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -108,6 +110,23 @@ router.post('/mitre/clone-to-case', async (req: AuthenticatedRequest, res: Respo
         res.status(201).json({ cloned: true, object: cloned });
     } catch (err) {
         console.error('[KB] clone-to-case error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.post('/mitre/seed', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+        const scriptPath = path.join(__dirname, '..', 'scripts', 'seedMitre.js');
+        exec(`node ${scriptPath}`, (error, stdout, stderr) => {
+            if (error) {
+                console.error('[KB] seed error:', error);
+            }
+            console.log('[KB] seed stdout:', stdout);
+        });
+
+        res.status(202).json({ message: 'Synchronisation MITRE lancée en arrière-plan.' });
+    } catch (err) {
+        console.error('[KB] seed route error:', err);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

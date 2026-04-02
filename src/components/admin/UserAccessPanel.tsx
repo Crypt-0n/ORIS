@@ -71,7 +71,7 @@ export function UserAccessPanel() {
 
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      await api.put(`/admin/users/${userId}/status`, { is_active: !currentStatus });
+      await api.put(`/admin/users/${userId}`, { is_active: !currentStatus });
       fetchUsers();
     } catch (error) { console.error('Erreur:', error); }
   };

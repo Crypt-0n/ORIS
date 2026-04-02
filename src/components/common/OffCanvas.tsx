@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 interface OffCanvasProps {
   isOpen: boolean;
@@ -11,6 +12,12 @@ interface OffCanvasProps {
 }
 
 export function OffCanvas({ isOpen, onClose, title, children, width = 'lg' }: OffCanvasProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -30,7 +37,7 @@ export function OffCanvas({ isOpen, onClose, title, children, width = 'lg' }: Of
     full: 'w-full',
   };
 
-  return (
+  const content = (
     <AnimatePresence>
       {isOpen && (
         <>
@@ -66,4 +73,7 @@ export function OffCanvas({ isOpen, onClose, title, children, width = 'lg' }: Of
       )}
     </AnimatePresence>
   );
+
+  if (!mounted) return null;
+  return createPortal(content, document.body);
 }
