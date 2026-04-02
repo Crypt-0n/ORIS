@@ -43,13 +43,17 @@ export function AiConfigPanel() {
   useEffect(() => {
     (async () => {
       try {
-        const [provData, cfgData] = await Promise.all([
-          api.get('/ai/providers'),
-          api.get('/ai/config'),
-        ]);
+        const provData = await api.get('/ai/providers');
         setProviders(provData);
+      } catch (err) {
+        console.error("Failed to load providers", err);
+      }
+      try {
+        const cfgData = await api.get('/ai/config');
         setConfig((prev) => ({ ...prev, ...cfgData }));
-      } catch { /* config not set yet */ }
+      } catch (err) {
+        console.error("Failed to load config", err);
+      }
     })();
   }, []);
 

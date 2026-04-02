@@ -30,10 +30,10 @@ export function OffCanvas({ isOpen, onClose, title, children, width = 'lg' }: Of
   }, [isOpen]);
 
   const widthClasses = {
-    sm: 'w-full sm:w-[400px]',
-    md: 'w-full sm:w-[500px]',
-    lg: 'w-full sm:w-[600px] md:w-[700px]',
-    xl: 'w-full sm:w-[600px] lg:w-[900px]',
+    sm: 'w-full sm:w-[600px]',
+    md: 'w-full sm:w-[750px]',
+    lg: 'w-full sm:w-[600px] md:w-[1050px]',
+    xl: 'w-full sm:w-[600px] lg:w-[1350px]',
     full: 'w-full',
   };
 
