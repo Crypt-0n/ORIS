@@ -9,6 +9,15 @@ export const AI_CONFIG_KEYS = [
   'ai_temperature',
   'ai_max_tokens',
   'ai_system_prompt',
+  'ai_quick_prompts',
+];
+
+export const DEFAULT_QUICK_PROMPTS = [
+  { label: 'Résumer la timeline', prompt: 'Résume cette chronologie en 5 points clés pour le rapport de réponse à incident.' },
+  { label: 'Analyser le Diamant', prompt: 'Analyse le Modèle Diamant de ce dossier. Identifie les axes incomplets, les corrélations entre événements, et les relations adversaire-infrastructure qui pourraient passer inaperçues.' },
+  { label: 'Points aveugles', prompt: 'En tant qu\'expert CTI, quels sont les angles morts de cette investigation ? Quelles pistes l\'analyste n\'a peut-être pas explorées ? Quels événements manquent potentiellement dans la chronologie ?' },
+  { label: 'Suggérer des TTPs', prompt: 'Quels TTPs MITRE ATT&CK correspondent aux activités observées dans ce dossier ? Propose une matrice des techniques identifiées.' },
+  { label: 'Rédiger la synthèse', prompt: 'Rédige une synthèse technique de ce cas au format ANSSI/CERT-FR, incluant : le résumé, la chronologie, les IOCs, et les recommandations.' },
 ];
 
 export const DEFAULT_SYSTEM_PROMPT = `Tu es un analyste CTI (Cyber Threat Intelligence) senior spécialisé en réponse à incident.
@@ -102,11 +111,21 @@ export class AiService {
   static async getStatus() {
     try {
       const db = getDb();
-      const cursor = await db.query(`FOR c IN system_config FILTER c.key == 'ai_enabled' RETURN c`);
+      const cursor = await db.query(`FOR c IN system_config FILTER c.key IN ['ai_enabled', 'ai_quick_prompts'] RETURN { key: c.key, value: c.value }`);
       const rows = await cursor.all();
-      return rows.length > 0 && rows[0].value === 'true';
+      
+      let enabled = false;
+      let quick_prompts = DEFAULT_QUICK_PROMPTS;
+
+      for (const r of rows) {
+        if (r.key === 'ai_enabled') enabled = r.value === 'true';
+        if (r.key === 'ai_quick_prompts' && r.value) {
+          try { quick_prompts = JSON.parse(r.value); } catch(e) {}
+        }
+      }
+      return { enabled, quick_prompts };
     } catch {
-      return false;
+      return { enabled: false, quick_prompts: DEFAULT_QUICK_PROMPTS };
     }
   }
 
@@ -130,6 +149,9 @@ export class AiService {
     const items = await cursor.all();
     const config: any = {};
     for (const item of items) config[item.key] = item.value;
+    if (!config.ai_quick_prompts) {
+      config.ai_quick_prompts = JSON.stringify(DEFAULT_QUICK_PROMPTS);
+    }
     return config;
   }
 

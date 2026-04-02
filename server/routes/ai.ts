@@ -10,10 +10,10 @@ router.use(authenticateToken);
 
 router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
     try {
-        const enabled = await AiService.getStatus();
-        res.json({ enabled });
+        const status = await AiService.getStatus();
+        res.json(status);
     } catch {
-        res.json({ enabled: false });
+        res.json({ enabled: false, quick_prompts: [] });
     }
 });
 

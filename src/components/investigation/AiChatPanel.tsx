@@ -116,13 +116,7 @@ function buildContextString(ctx: TaskContext): string {
   return parts.join('\n');
 }
 
-const QUICK_PROMPTS = [
-  { label: 'Résumer la timeline', prompt: 'Résume cette chronologie en 5 points clés pour le rapport de réponse à incident.' },
-  { label: 'Analyser le Diamant', prompt: 'Analyse le Modèle Diamant de ce dossier. Identifie les axes incomplets, les corrélations entre événements, et les relations adversaire-infrastructure qui pourraient passer inaperçues.' },
-  { label: 'Points aveugles', prompt: 'En tant qu\'expert CTI, quels sont les angles morts de cette investigation ? Quelles pistes l\'analyste n\'a peut-être pas explorées ? Quels événements manquent potentiellement dans la chronologie ?' },
-  { label: 'Suggérer des TTPs', prompt: 'Quels TTPs MITRE ATT&CK correspondent aux activités observées dans ce dossier ? Propose une matrice des techniques identifiées.' },
-  { label: 'Rédiger la synthèse', prompt: 'Rédige une synthèse technique de ce cas au format ANSSI/CERT-FR, incluant : le résumé, la chronologie, les IOCs, et les recommandations.' },
-];
+// QUICK_PROMPTS moved to server configuration
 
 function renderMarkdown(text: string): string {
   marked.setOptions({ breaks: true, gfm: true });
@@ -134,9 +128,23 @@ export function AiChatPanel({ context, onClose }: AiChatPanelProps) {
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quickPrompts, setQuickPrompts] = useState<{label: string, prompt: string}[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    fetch('/api/ai/status', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('oris_token')}` }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.quick_prompts && data.quick_prompts.length > 0) {
+        setQuickPrompts(data.quick_prompts);
+      }
+    })
+    .catch(e => console.error('Failed to parse AI status for prompts', e));
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -281,9 +289,9 @@ export function AiChatPanel({ context, onClose }: AiChatPanelProps) {
               Le contexte du dossier (Diamant, timeline, IOCs) est automatiquement partagé avec l'IA.
             </p>
             <div className="flex flex-wrap gap-2 justify-center">
-              {QUICK_PROMPTS.map((qp) => (
+              {quickPrompts.map((qp, idx) => (
                 <button
-                  key={qp.label}
+                  key={idx}
                   onClick={() => sendMessage(qp.prompt)}
                   className="text-xs px-3 py-1.5 rounded-full border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition"
                 >

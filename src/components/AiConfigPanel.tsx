@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { Bot, Check, AlertTriangle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Bot, Check, AlertTriangle, Loader2, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 
 interface AiProvider {
   id: string;
@@ -20,6 +20,7 @@ interface AiConfig {
   ai_temperature: string;
   ai_max_tokens: string;
   ai_system_prompt: string;
+  ai_quick_prompts?: string;
 }
 
 export function AiConfigPanel() {
@@ -39,6 +40,7 @@ export function AiConfigPanel() {
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [saved, setSaved] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const [quickPrompts, setQuickPrompts] = useState<{ label: string; prompt: string }[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -51,6 +53,11 @@ export function AiConfigPanel() {
       try {
         const cfgData = await api.get('/ai/config');
         setConfig((prev) => ({ ...prev, ...cfgData }));
+        if (cfgData.ai_quick_prompts) {
+          try {
+            setQuickPrompts(JSON.parse(cfgData.ai_quick_prompts));
+          } catch(e) {}
+        }
       } catch (err) {
         console.error("Failed to load config", err);
       }
@@ -75,7 +82,9 @@ export function AiConfigPanel() {
     setSaving(true);
     setSaved(false);
     try {
-      await api.put('/ai/config', config);
+      const payload = { ...config, ai_quick_prompts: JSON.stringify(quickPrompts) };
+      await api.put('/ai/config', payload);
+      setConfig(payload);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch { /* error */ }
@@ -272,6 +281,61 @@ export function AiConfigPanel() {
           placeholder="Tu es un analyste CTI senior..."
           className="w-full border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
         />
+      </div>
+
+      {/* Quick Prompts */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">
+            Boutons d'actions rapides (Quick Prompts)
+          </label>
+          <button
+            onClick={() => setQuickPrompts([...quickPrompts, { label: '', prompt: '' }])}
+            className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
+          >
+            <Plus className="w-3 h-3" />
+            Ajouter un bouton
+          </button>
+        </div>
+        <div className="space-y-3">
+          {quickPrompts.map((qp, idx) => (
+            <div key={idx} className="flex gap-2 items-start bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg border border-gray-200 dark:border-slate-700">
+              <div className="flex-1 space-y-2">
+                <input
+                  type="text"
+                  placeholder="Titre court (ex: Résumer)"
+                  value={qp.label}
+                  onChange={(e) => {
+                    const next = [...quickPrompts];
+                    next[idx].label = e.target.value;
+                    setQuickPrompts(next);
+                  }}
+                  className="w-full border border-gray-300 dark:border-slate-600 rounded-md px-2 py-1.5 text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
+                />
+                <textarea
+                  placeholder="Instruction longue (le prompt complet envoyé à l'IA)"
+                  value={qp.prompt}
+                  onChange={(e) => {
+                    const next = [...quickPrompts];
+                    next[idx].prompt = e.target.value;
+                    setQuickPrompts(next);
+                  }}
+                  rows={2}
+                  className="w-full border border-gray-300 dark:border-slate-600 rounded-md px-2 py-1.5 text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white resize-none"
+                 />
+              </div>
+              <button
+                onClick={() => setQuickPrompts(quickPrompts.filter((_, i) => i !== idx))}
+                className="p-1.5 text-gray-400 hover:text-red-500 rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          {quickPrompts.length === 0 && (
+            <p className="text-sm text-gray-500 dark:text-slate-400 italic">Aucun bouton configuré.</p>
+          )}
+        </div>
       </div>
 
       {/* Actions */}
