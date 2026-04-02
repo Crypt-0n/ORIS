@@ -18,7 +18,7 @@ async function initVapid() {
     }
 
     webpush.setVapidDetails(
-        'mailto:admin@oris.local',
+        'mailto:contact@oris.local',
         publicKey.value,
         privateKey.value
     );

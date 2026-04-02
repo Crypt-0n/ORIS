@@ -869,7 +869,7 @@ describe('RBAC V2 — Permissions', () => {
         // Create a test user with case_analyst + alert_analyst roles
         rbacUserId = crypto.randomUUID();
         const rbacEmail = `rbac-${Date.now()}@test.com`;
-        const hash = await bcrypt.hash('rbac-pass-123', 10);
+        const hash = await bcrypt.hash('Rbac-Pass-123!', 10);
         
         const userRepo = new BaseRepository(getDb(), 'user_profiles');
         await userRepo.create({ id: rbacUserId, email: rbacEmail, password_hash: hash, full_name: 'RBAC Test User', role: '["admin"]', is_active: 1 });
@@ -884,7 +884,7 @@ describe('RBAC V2 — Permissions', () => {
 
         // Log in (needs admin to create case)
         const loginRes = await request(app).post('/api/auth/login')
-            .send({ email: rbacEmail, password: 'rbac-pass-123' });
+            .send({ email: rbacEmail, password: 'Rbac-Pass-123!' });
         rbacToken = loginRes.body.session?.access_token;
 
         // Create a case for this beneficiary
@@ -929,7 +929,7 @@ describe('RBAC V2 — Permissions', () => {
         const bcrypt = require('bcrypt');
         const viewerId = crypto.randomUUID();
         const viewerEmail = `viewer-${Date.now()}@test.com`;
-        const hash = await bcrypt.hash('viewer-pass-123', 10);
+        const hash = await bcrypt.hash('Viewer-Pass-123!', 10);
         
         const userRepo = new BaseRepository(getDb(), 'user_profiles');
         await userRepo.create({ id: viewerId, email: viewerEmail, password_hash: hash, full_name: 'Viewer User', role: '[]', is_active: 1 });
@@ -938,7 +938,7 @@ describe('RBAC V2 — Permissions', () => {
         await memberRepo.create({ id: crypto.randomUUID(), beneficiary_id: rbacBeneficiaryId, user_id: viewerId, role: JSON.stringify(['case_viewer']) });
 
         const loginRes = await request(app).post('/api/auth/login')
-            .send({ email: viewerEmail, password: 'viewer-pass-123' });
+            .send({ email: viewerEmail, password: 'Viewer-Pass-123!' });
         if (loginRes.statusCode !== 200) console.error('RBAC-03 Login Failed:', loginRes.body);
         const viewerToken = loginRes.body.session?.access_token;
 

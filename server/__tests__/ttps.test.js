@@ -14,7 +14,7 @@ let caseId;
 beforeAll(async () => {
     // 1. Create or Login Admin
     const adminEmail = 'admin-kb@oris.local';
-    const adminPass = 'Pass123!';
+    const adminPass = 'ValidPassword123!';
     let res = await request(app).post('/api/auth/register').send({ email: adminEmail, password: adminPass, full_name: 'Admin KB' });
     if (!res.body.session) {
         res = await request(app).post('/api/auth/login').send({ email: adminEmail, password: adminPass });
@@ -28,7 +28,7 @@ beforeAll(async () => {
 
     // 2. Create or Login Normal User
     const userEmail = 'user-kb@oris.local';
-    const userPass = 'Pass123!';
+    const userPass = 'ValidPassword123!';
     let userRes = await request(app).post('/api/auth/register')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ email: userEmail, password: userPass, full_name: 'User KB' });
