@@ -331,15 +331,6 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
           </div>
           <h3 className="text-xl font-heading font-medium text-gray-900 dark:text-white mb-2">{t('cases.noCase')}</h3>
           <p className="text-sm text-gray-500 dark:text-slate-400 max-w-sm mx-auto mb-6">{t('cases.noCaseDesc')}</p>
-          {hasAnyRole(['admin', 'team_leader']) && !showSupervision && (
-            <button
-              onClick={onCreateCase}
-              className="inline-flex items-center gap-2 bg-[rgb(var(--brand-500))] text-white px-5 py-2.5 rounded-lg hover:brightness-110 shadow-soft transition-all duration-300 hover:-translate-y-0.5"
-            >
-              <Plus className="w-4 h-4" />
-              {t('cases.newCase')}
-            </button>
-          )}
         </div>
       ) : groupedCases ? (
         <div className="space-y-4">

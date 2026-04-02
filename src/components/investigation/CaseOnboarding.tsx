@@ -59,7 +59,7 @@ export function CaseOnboarding({ caseId, onNavigate }: CaseOnboardingProps) {
         
         const objects = bundleRes?.objects || [];
         // Count non-relationship, non-marking-definition objects roughly
-        const investigationObjects = objects.filter((o: any) => o.type !== 'relationship' && !o.type.includes('marking'));
+        const investigationObjects = objects.filter((o: any) => o && o.type && o.type !== 'relationship' && !o.type.includes('marking'));
         setObjectCount(investigationObjects.length);
         
         setEventCount(Array.isArray(eventsRes) ? eventsRes.length : 0);
