@@ -114,7 +114,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
   const [savingStatus, setSavingStatus] = useState(false);
 
   const [commentCount, setCommentCount] = useState(0);
-  const [stixRefreshKey] = useState(0);
+  const [stixRefreshKey, setStixRefreshKey] = useState(0);
   const [sectionOpen, setSectionOpen] = useState({ discussion: true, diamond: true, objects: true });
   const toggleSection = (key: 'discussion' | 'diamond' | 'objects') => setSectionOpen(prev => ({ ...prev, [key]: !prev[key] }));
   // Diamond creation state
@@ -685,6 +685,8 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
             setShowDiamondForm(false);
             setEditingDiamond(null);
             fetchTaskDiamonds();
+            fetchCaseStixObjects();
+            setStixRefreshKey(prev => prev + 1);
           }}
           onClose={() => setShowDiamondForm(false)}
         />
