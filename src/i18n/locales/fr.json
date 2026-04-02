@@ -1656,6 +1656,18 @@
             "highlight_removed": "a supprimé un fait marquant",
             "file_added": "a ajouté un fichier",
             "file_removed": "a supprimé un fichier",
+            "stix_object_created": "a ajouté un élément STIX",
+            "stix_object_created_with_changes": "a ajouté un élément STIX",
+            "stix_object_updated": "a modifié un élément STIX",
+            "stix_object_updated_with_changes": "a modifié un élément STIX",
+            "stix_object_deleted": "a supprimé un élément STIX",
+            "stix_object_deleted_with_changes": "a supprimé un élément STIX",
+            "stix_relationship_created": "a lié deux éléments STIX",
+            "stix_relationship_created_with_changes": "a lié deux éléments STIX",
+            "stix_relationship_updated": "a modifié un lien STIX",
+            "stix_relationship_updated_with_changes": "a modifié un lien STIX",
+            "stix_relationship_deleted": "a supprimé un lien STIX",
+            "stix_relationship_deleted_with_changes": "a supprimé un lien STIX",
             "timezone_changed": "a modifié le fuseau horaire"
         }
     }

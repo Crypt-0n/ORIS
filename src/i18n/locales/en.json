@@ -1621,6 +1621,18 @@
             "highlight_removed": "removed a highlight",
             "file_added": "added a file",
             "file_removed": "removed a file",
+            "stix_object_created": "added a STIX element",
+            "stix_object_created_with_changes": "added a STIX element",
+            "stix_object_updated": "updated a STIX element",
+            "stix_object_updated_with_changes": "updated a STIX element",
+            "stix_object_deleted": "deleted a STIX element",
+            "stix_object_deleted_with_changes": "deleted a STIX element",
+            "stix_relationship_created": "linked two STIX elements",
+            "stix_relationship_created_with_changes": "linked two STIX elements",
+            "stix_relationship_updated": "updated a STIX relationship",
+            "stix_relationship_updated_with_changes": "updated a STIX relationship",
+            "stix_relationship_deleted": "deleted a STIX relationship",
+            "stix_relationship_deleted_with_changes": "deleted a STIX relationship",
             "timezone_changed": "changed the timezone"
         }
     }
