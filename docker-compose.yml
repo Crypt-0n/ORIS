@@ -26,7 +26,7 @@ services:
       context: ./server
       dockerfile: Dockerfile
     ports:
-      - "3011:3001"
+      - "3001:3001"
     environment:
       - PORT=3001
       - NODE_ENV=${NODE_ENV:-development}
@@ -57,7 +57,7 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
     ports:
-      - "3457:80"
+      - "8011:80"
     depends_on:
       backend:
         condition: service_healthy
