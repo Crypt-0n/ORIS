@@ -114,7 +114,7 @@ export function BeneficiariesPanel() {
   const removeMemberFromBeneficiary = async (memberId: string) => {
     if (!selectedBeneficiary) return;
     try {
-      await api.delete(`/admin/beneficiaries/${selectedBeneficiary.id}/members/${memberId}`);
+      await api.delete(`/admin/beneficiaries/members/${memberId}`);
       fetchBeneficiaryMembers(selectedBeneficiary.id);
       fetchBeneficiaries();
     } catch (error) { console.error('Erreur:', error); }
@@ -123,7 +123,7 @@ export function BeneficiariesPanel() {
   const toggleTeamLead = async (memberId: string, currentStatus: boolean) => {
     if (!selectedBeneficiary) return;
     try {
-      await api.put(`/admin/beneficiaries/${selectedBeneficiary.id}/members/${memberId}/team-lead`, { is_team_lead: !currentStatus });
+      await api.put(`/admin/beneficiaries/members/${memberId}/team-lead`, { is_team_lead: !currentStatus });
       fetchBeneficiaryMembers(selectedBeneficiary.id);
     } catch (error) { console.error('Erreur:', error); }
   };
@@ -132,7 +132,7 @@ export function BeneficiariesPanel() {
     if (!selectedBeneficiary) return;
     try {
       const newRoles = currentRoles.includes(clickedRole) ? currentRoles.filter(r => r !== clickedRole) : [...currentRoles, clickedRole];
-      await api.put(`/admin/beneficiaries/${selectedBeneficiary.id}/members/${memberId}/role`, { role: JSON.stringify(newRoles) });
+      await api.put(`/admin/beneficiaries/members/${memberId}/role`, { roles: newRoles });
       fetchBeneficiaryMembers(selectedBeneficiary.id);
     } catch (error) { console.error('Erreur:', error); }
   };
