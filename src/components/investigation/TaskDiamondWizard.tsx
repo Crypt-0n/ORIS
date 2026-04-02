@@ -36,12 +36,12 @@ export interface ManualRelation {
     type: string;
 }
 
-const STEPS: { key: StepKey; label: string; icon: any; types: StixSDOType[]; defaultType: StixSDOType | 'relationship'; color: string; desc: string }[] = [
+const STEPS: { key: StepKey; label: string; icon: any; types: string[]; defaultType: StixSDOType | 'relationship'; color: string; desc: string }[] = [
     { key: 'event', label: 'Événement', icon: Zap, types: [], defaultType: 'observed-data', color: 'text-cyan-500', desc: "L'événement central décrit l'action malveillante spécifique (ex: Exfiltration, Chiffrement, Phishing) au moment où elle s'est produite." },
     { key: 'adversary', label: 'Adversaires', icon: User, types: ['threat-actor', 'intrusion-set', 'campaign'], defaultType: 'threat-actor', color: 'text-red-400', desc: "L'axe Socio-Politique : Qui est responsable de l'attaque. Peut inclure le groupe (Intrusion Set), l'opérateur (Threat Actor) ou la campagne." },
     { key: 'capability', label: 'Capacités', icon: Bug, types: ['malware', 'tool', 'attack-pattern'], defaultType: 'malware', color: 'text-purple-400', desc: "Les outils techniques, les modes opératoires (TTPs MITRE ATT&CK) ou les malwares utilisés par l'adversaire pour accomplir l'événement." },
-    { key: 'infrastructure', label: 'Infrastructures', icon: Server, types: ['infrastructure'], defaultType: 'infrastructure', color: 'text-blue-400', desc: "Les éléments matériels ou de communication utilisés pour héberger des capacités, envoyer des commandes (C2) ou lancer l'attaque." },
-    { key: 'victim', label: 'Victimes', icon: Globe, types: ['identity', 'infrastructure'], defaultType: 'identity', color: 'text-green-400', desc: "La cible de l'événement. Cela peut être une entité (Organisation, Secteur, Personne) ou l'infrastructure technique ciblée." },
+    { key: 'infrastructure', label: 'Infrastructures', icon: Server, types: ['infrastructure', 'ipv4-addr', 'domain-name', 'url', 'mac-addr'], defaultType: 'infrastructure', color: 'text-blue-400', desc: "Les éléments matériels ou de communication utilisés pour héberger des capacités, envoyer des commandes (C2) ou lancer l'attaque." },
+    { key: 'victim', label: 'Victimes', icon: Globe, types: ['identity', 'infrastructure', 'user-account', 'ipv4-addr', 'domain-name'], defaultType: 'identity', color: 'text-green-400', desc: "La cible de l'événement. Cela peut être une entité (Organisation, Secteur, Personne) ou l'infrastructure technique ciblée." },
     { key: 'relations', label: 'Liens', icon: LinkIcon, types: [], defaultType: 'relationship', color: 'text-amber-500', desc: "Génération automatique ou manuelle des relations STIX unissant tous les objets sélectionnés au centre de ce Diamant." },
 ];
 
@@ -185,7 +185,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                         let label = id;
                         let sdoType = id.split('--')[0] as StixSDOType;
                         if (existingObj) {
-                           label = ('name' in existingObj) ? (existingObj as any).name : existingObj.type;
+                           label = ('name' in existingObj) ? (existingObj as any).name : ('value' in existingObj) ? (existingObj as any).value : existingObj.type;
                            sdoType = existingObj.type;
                         } else if (typeof val !== 'string' && val.label) {
                            label = val.label;
@@ -249,7 +249,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
             const mitreTtp = !obj ? mitrePatterns.find(p => p && p.id === draftExistingId) : null;
             if (!obj && !mitreTtp) return;
             
-            const label = obj ? (('name' in obj) ? (obj as any).name : obj.type) : `${mitreTtp?.mitre_id} - ${mitreTtp?.name}`;
+            const label = obj ? (('name' in obj) ? (obj as any).name : ('value' in obj) ? (obj as any).value : obj.type) : `${mitreTtp?.mitre_id} - ${mitreTtp?.name}`;
             const sdoType = obj ? obj.type : 'attack-pattern';
             
             // Avoid duplicates
@@ -591,7 +591,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                                                                 options={(() => {
                                                                     const opts = existingObjects.filter(o => o && currentStep.types.includes(o.type)).map(o => ({
                                                                         value: o.id,
-                                                                        label: ('name' in o ? (o as any).name : o.type)
+                                                                        label: ('name' in o ? (o as any).name : ('value' in o ? (o as any).value : o.type))
                                                                     }));
                                                                     if (currentStep.key === 'capability') {
                                                                         const existingIds = new Set(opts.map(o => o.value));
