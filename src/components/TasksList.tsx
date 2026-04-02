@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, ChevronRight, Server, Bug, Radar } from 'lucide-react';
+import { Plus, ChevronRight, Server, Bug, Radar, ClipboardList } from 'lucide-react';
 import { TaskModal } from './TaskModal';
 import { useTranslation } from "react-i18next";
 
@@ -104,9 +104,21 @@ export function TasksList({ caseId, isClosed, onTaskSelect }: TasksListProps) {
       )}
 
       {tasks.length === 0 ? (
-        <p className="text-center text-gray-500 dark:text-slate-400 py-8">{t('auto.aucune_t_che_cr_e')}</p>
+        <div className="glass-panel dark:bg-slate-900/50 rounded-xl p-8 text-center animate-fade-in border border-dashed border-gray-300 dark:border-slate-700 mt-4">
+          <div className="w-16 h-16 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+            <ClipboardList className="w-8 h-8 text-gray-400 dark:text-slate-500" />
+          </div>
+          <h3 className="text-lg font-heading font-medium text-gray-900 dark:text-white mb-1">{t('auto.aucune_t_che_cr_e')}</h3>
+          <p className="text-xs text-gray-500 dark:text-slate-400 max-w-xs mx-auto">{t('auto.no_task_open')}</p>
+        </div>
       ) : filteredTasks.length === 0 ? (
-        <p className="text-center text-gray-500 dark:text-slate-400 py-8">{t('auto.aucune_t_che')}{statusFilter === 'open' ? t('auto.no_task_open') : t('auto.no_task_closed')}</p>
+        <div className="glass-panel dark:bg-slate-900/50 rounded-xl p-8 text-center animate-fade-in border border-dashed border-gray-300 dark:border-slate-700 mt-4">
+          <div className="w-16 h-16 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+            <ClipboardList className="w-8 h-8 text-gray-400 dark:text-slate-500" />
+          </div>
+          <h3 className="text-lg font-heading font-medium text-gray-900 dark:text-white mb-1">{t('auto.aucune_t_che')}</h3>
+          <p className="text-xs text-gray-500 dark:text-slate-400 max-w-xs mx-auto">{statusFilter === 'open' ? t('auto.no_task_open') : t('auto.no_task_closed')}</p>
+        </div>
       ) : (
         <div className="space-y-3">
           {filteredTasks.map((task) => (
@@ -166,7 +178,7 @@ export function TasksList({ caseId, isClosed, onTaskSelect }: TasksListProps) {
                     )}
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400 dark:text-slate-400 ml-4" />
+                <ChevronRight className="w-5 h-5 text-gray-500 dark:text-slate-400 ml-4" />
               </div>
             </button>
           ))}

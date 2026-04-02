@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 interface SharedVertexViewProps {
   nodes: DiamondNode[];
+  allSystems?: { id: string; label: string; type: string }[];
   onSelectNode: (id: string) => void;
   selectedNodeId: string | null;
 }
@@ -79,8 +80,9 @@ function formatDate(dt: string | null): string {
   });
 }
 
-export function SharedVertexView({ nodes, onSelectNode, selectedNodeId }: SharedVertexViewProps) {
+export function SharedVertexView({ nodes, allSystems, onSelectNode, selectedNodeId }: SharedVertexViewProps) {
     const { t } = useTranslation();
+    void allSystems; // Placeholder pour future implémentation
   const vertices = useMemo(() => buildSharedVertices(nodes), [nodes]);
 
   const grouped = useMemo(() => {

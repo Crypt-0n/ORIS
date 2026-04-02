@@ -88,30 +88,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
-    const token = api.getToken();
 
-    if (token) {
-      api.setToken(token);
-      (async () => {
-        try {
-          const profileData = await fetchProfile();
-          if (isMounted) {
-            if (profileData) {
-              setUser({ id: profileData.id, email: profileData.email });
-              setProfile(profileData);
-            } else {
-              api.setToken(null);
-            }
+    // We no longer rely exclusively on the localStorage token, as the HttpOnly cookie holds the session.
+    // Try to fetch the profile directly.
+    (async () => {
+      try {
+        const profileData = await fetchProfile();
+        if (isMounted) {
+          if (profileData) {
+            setUser({ id: profileData.id, email: profileData.email });
+            setProfile(profileData);
+          } else {
+            api.setToken(null);
           }
-        } catch (e) {
-          if (isMounted) api.setToken(null);
-        } finally {
-          if (isMounted) setLoading(false);
         }
-      })();
-    } else {
-      setLoading(false);
-    }
+      } catch (e) {
+        if (isMounted) api.setToken(null);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    })();
 
     return () => {
       isMounted = false;
@@ -180,6 +176,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    try {
+      await api.post('/auth/logout', {});
+    } catch (e) { }
     api.setToken(null);
     setUser(null);
     setProfile(null);

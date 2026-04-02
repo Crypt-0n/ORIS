@@ -140,7 +140,7 @@ export function TwoFactorCard() {
                 className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-800 rounded transition"
                 title="Copier"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-gray-400" />}
+                {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 text-gray-500" />}
               </button>
             </div>
           </div>

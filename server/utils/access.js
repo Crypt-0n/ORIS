@@ -108,7 +108,7 @@ async function isTeamLeadForBeneficiary(userId, beneficiaryId) {
     if (!userId || !beneficiaryId) return false;
     const memRepo = new BaseRepository(getDb(), 'beneficiary_members');
     const row = await memRepo.findFirst({ user_id: userId, beneficiary_id: beneficiaryId });
-    return row?.is_team_lead === 1;
+    return row?.is_team_lead === 1 || row?.is_team_lead === true || row?.is_team_lead === 'true';
 }
 
 async function isTeamLeadForCase(userId, caseId) {
@@ -164,34 +164,30 @@ async function userHasTypeAccess(userId, type, level = 'viewer') {
 // ─── Express Middleware ─────────────────────────────────────────
 
 function requireAdmin(req, res, next) {
-    const userRepo = new BaseRepository(getDb(), 'user_profiles');
-    userRepo.findById(req.user.id)
-        .then(user => {
-            if (!user) return res.status(401).json({ error: 'User not found' });
-            if (!isAdmin(user.role)) return res.status(403).json({ error: 'Admin access required' });
-            next();
-        })
-        .catch(err => {
-            console.error(err);
-            res.status(500).json({ error: 'Internal server error' });
-        });
+    if (!req.user || req.user.role === undefined) {
+        return res.status(401).json({ error: 'Auth context missing' });
+    }
+    
+    if (!isAdmin(req.user.role)) {
+        return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
 }
 
 function requireRole(...requiredRoles) {
     return (req, res, next) => {
-        const userRepo = new BaseRepository(getDb(), 'user_profiles');
-        userRepo.findById(req.user.id)
-            .then(user => {
-                if (!user) return res.status(401).json({ error: 'User not found' });
-                const userRoles = getRoles(user.role);
-                const hasRole = requiredRoles.some(r => userRoles.includes(r));
-                if (!hasRole) return res.status(403).json({ error: 'Insufficient permissions' });
-                next();
-            })
-            .catch(err => {
-                console.error(err);
-                res.status(500).json({ error: 'Internal server error' });
-            });
+        if (!req.user || req.user.role === undefined) {
+            return res.status(401).json({ error: 'Auth context missing' });
+        }
+        
+        const userRoles = getRoles(req.user.role);
+        // Admin overrides all base role checks
+        const hasRole = userRoles.includes('admin') || requiredRoles.some(r => userRoles.includes(r));
+        
+        if (!hasRole) {
+            return res.status(403).json({ error: 'Insufficient permissions' });
+        }
+        next();
     };
 }
 

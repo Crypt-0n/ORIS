@@ -4,6 +4,7 @@ import { deriveEventBehavior } from '../../lib/diamondModelUtils';
 import { getKillChainPhase } from '../../lib/killChainDefinitions';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useTranslation } from "react-i18next";
+import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 
 export function exportActivityThreadAsPng(nodes: DiamondNode[], killChainType: string | null, filename: string) {
 
@@ -174,6 +175,7 @@ interface ActivityThreadProps {
   onSelectNode: (id: string) => void;
   onReorder: (newNodes: DiamondNode[]) => void;
   killChainType: string | null;
+  allSystems?: { id: string; label: string }[];
 }
 
 interface Column {
@@ -252,10 +254,12 @@ function truncateLabel(text: string, max: number) {
 
 
 
-export function ActivityThread({ nodes, selectedNodeId, onSelectNode }: ActivityThreadProps) {
+export function ActivityThread({ nodes, selectedNodeId, onSelectNode, allSystems = [] }: ActivityThreadProps) {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+
+  const { visibleItems: visibleNodes, hasMore, loadMoreRef } = useInfiniteScroll(nodes, 50, 50);
 
   const lineColor = isDark ? '#334155' : '#cbd5e1';
   const colLabelColor = isDark ? '#94a3b8' : '#475569';
@@ -268,7 +272,7 @@ export function ActivityThread({ nodes, selectedNodeId, onSelectNode }: Activity
   const { columns, rows } = useMemo(() => {
     const systemMap = new Map<string, string>();
 
-    nodes.forEach((node) => {
+    visibleNodes.forEach((node) => {
       [...node.axes.infrastructure, ...node.axes.victim].forEach((obj) => {
         if ((obj.type === 'system' || obj.type === 'attacker_infra') && !systemMap.has(obj.id)) {
           systemMap.set(obj.id, obj.label);
@@ -276,12 +280,19 @@ export function ActivityThread({ nodes, selectedNodeId, onSelectNode }: Activity
       });
     });
 
+    // Add all explicitly provided systems to the graph columns
+    allSystems.forEach(sys => {
+      if (!systemMap.has(sys.id)) {
+        systemMap.set(sys.id, sys.label);
+      }
+    });
+
     const cols: Column[] = [];
     systemMap.forEach((label, id) => {
       cols.push({ id, label, isExternal: false });
     });
 
-    const hasExternal = nodes.some((node) => {
+    const hasExternal = visibleNodes.some((node) => {
       const { allIds } = extractSystemsFromNode(node);
       return allIds.length === 0;
     });
@@ -289,7 +300,7 @@ export function ActivityThread({ nodes, selectedNodeId, onSelectNode }: Activity
       cols.push({ id: '__external__', label: 'Externe / Inconnu', isExternal: true });
     }
 
-    const eventRows: EventRow[] = nodes.map((node, index) => {
+    const eventRows: EventRow[] = visibleNodes.map((node, index) => {
       const { sourceId, targetId, allIds } = extractSystemsFromNode(node);
       const beh = deriveEventBehavior(node.killChainPhase, node.axes);
 
@@ -307,7 +318,7 @@ export function ActivityThread({ nodes, selectedNodeId, onSelectNode }: Activity
     });
 
     return { columns: cols, rows: eventRows };
-  }, [nodes]);
+  }, [visibleNodes, allSystems]);
 
   if (nodes.length === 0) {
     return (
@@ -615,8 +626,15 @@ export function ActivityThread({ nodes, selectedNodeId, onSelectNode }: Activity
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded-full bg-blue-400" />
           {t('auto.systeme_victime')}<span className="inline-block w-3 h-3 rounded-full bg-orange-400 ml-2" />
-          {t('auto.pivot_c2_s_source_t_cible')}</span>
+          {t('auto.pivot_c2_s_source_t_cible')}
+        </span>
       </div>
+      
+      {hasMore && (
+        <div ref={loadMoreRef} className="flex items-center justify-center py-4">
+          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
     </div>
   );
 }
@@ -637,10 +655,11 @@ function FallbackVerticalList({
   selectedNodeId: string | null;
   onSelectNode: (id: string) => void;
 }) {
+  const { visibleItems: visibleNodes, hasMore, loadMoreRef } = useInfiniteScroll(nodes, 50, 50);
 
   return (
     <div className="space-y-2 py-2">
-      {nodes.map((node, index) => {
+      {visibleNodes.map((node, index) => {
         const color = node.killChainHexColor;
         const isSelected = selectedNodeId === node.id;
         return (
@@ -676,6 +695,11 @@ function FallbackVerticalList({
           </div>
         );
       })}
+      {hasMore && (
+        <div ref={loadMoreRef} className="flex items-center justify-center py-4">
+          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
     </div>
   );
 }

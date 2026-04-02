@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { History, ChevronDown, ChevronUp, FileText, MessageSquare, Star, Upload, Users, Clock, FolderOpen, AlertTriangle, ExternalLink } from 'lucide-react';
+import { History, FileText, MessageSquare, Star, Upload, Users, Clock, FolderOpen, AlertTriangle, ExternalLink, Database, Network } from 'lucide-react';
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from 'react-router-dom';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 
 interface AuditEntry {
   id: string;
@@ -31,14 +32,20 @@ function formatDateTime(dateStr: string, lng: string): string {
 
 /** Returns icon + color for each audit action type */
 function getActionStyle(action: string) {
-  if (action.includes('highlight')) return { icon: Star, color: 'text-yellow-500 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/20' };
-  if (action.includes('comment')) return { icon: MessageSquare, color: 'text-blue-500 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' };
-  if (action.includes('file')) return { icon: Upload, color: 'text-purple-500 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/20' };
-  if (action.includes('task')) return { icon: FileText, color: 'text-emerald-500 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' };
-  if (action.includes('member') || action.includes('leader')) return { icon: Users, color: 'text-indigo-500 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-900/20' };
-  if (action.includes('timezone')) return { icon: Clock, color: 'text-orange-500 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' };
-  if (action.includes('alert')) return { icon: AlertTriangle, color: 'text-amber-500 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20' };
-  if (action.includes('case')) return { icon: FolderOpen, color: 'text-blue-500 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' };
+  const a = action.toLowerCase();
+  // Destructive actions
+  if (a.includes('delete') || a.includes('remove') || a.includes('clos')) return { icon: AlertTriangle, color: 'text-red-500 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' };
+  
+  if (a.includes('highlight')) return { icon: Star, color: 'text-yellow-500 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/20' };
+  if (a.includes('comment')) return { icon: MessageSquare, color: 'text-blue-500 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' };
+  if (a.includes('file')) return { icon: Upload, color: 'text-purple-500 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-900/20' };
+  if (a.includes('task')) return { icon: FileText, color: 'text-emerald-500 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' };
+  if (a.includes('member') || a.includes('leader')) return { icon: Users, color: 'text-indigo-500 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-900/20' };
+  if (a.includes('timezone')) return { icon: Clock, color: 'text-orange-500 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' };
+  if (a.includes('alert')) return { icon: AlertTriangle, color: 'text-amber-500 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20' };
+  if (a.includes('case')) return { icon: FolderOpen, color: 'text-blue-500 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' };
+  if (a.includes('stix_relationship')) return { icon: Network, color: 'text-cyan-500 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-900/20' };
+  if (a.includes('stix_object')) return { icon: Database, color: 'text-teal-500 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-900/20' };
   return { icon: History, color: 'text-gray-500 dark:text-slate-400', bg: 'bg-gray-50 dark:bg-slate-800' };
 }
 
@@ -47,7 +54,7 @@ export function CaseAuditLog({ caseId }: CaseAuditLogProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
+  const { visibleItems: visibleEntries, hasMore, loadMoreRef } = useInfiniteScroll(entries, 20, 20);
 
   useEffect(() => {
     fetchAuditLog();
@@ -122,7 +129,7 @@ export function CaseAuditLog({ caseId }: CaseAuditLogProps) {
     }
   };
 
-  const visibleEntries = expanded ? entries : entries.slice(0, 10);
+  // No expanded logic; use visibleEntries from hook
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800">
@@ -155,13 +162,13 @@ export function CaseAuditLog({ caseId }: CaseAuditLogProps) {
               <div
                 key={entry.id}
                 onClick={() => isClickable && handleEntryClick(entry)}
-                className={`flex items-start gap-3 py-2.5 border-b border-gray-50 dark:border-slate-800 last:border-0 ${isClickable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50 rounded-lg -mx-2 px-2 transition-colors group' : ''}`}
+                className={`flex items-start gap-3 py-1.5 border-b border-gray-50 dark:border-slate-800 last:border-0 ${isClickable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50 rounded-lg -mx-2 px-2 transition-colors group' : ''}`}
               >
-                <div className={`p-1.5 rounded-md mt-0.5 flex-shrink-0 ${actionStyle.color} ${actionStyle.bg}`}>
+                <div className={`p-1 rounded flex-shrink-0 mt-0.5 ${actionStyle.color} ${actionStyle.bg}`}>
                   <ActionIcon className="w-3.5 h-3.5" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800 dark:text-slate-200">
+                <div className="flex-1 min-w-0 pr-2">
+                  <p className="text-sm text-gray-800 dark:text-slate-200 leading-snug">
                     {String(t(details.changes ? `audit.actions.${entry.action}_with_changes` : `audit.actions.${entry.action}`, {
                       user: performedByName,
                       performed_by_name: performedByName,
@@ -169,31 +176,19 @@ export function CaseAuditLog({ caseId }: CaseAuditLogProps) {
                       changes: details.changes ? details.changes.split(', ').map((c: string) => t(`audit.fields.${c.trim()}`)).join(', ') : ''
                     }))}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{formatDateTime(entry.created_at, i18n.language)}</p>
                 </div>
-                {isClickable && (
-                  <ExternalLink className="w-3.5 h-3.5 text-gray-300 dark:text-slate-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 flex-shrink-0 mt-1.5 transition-colors" />
-                )}
+                <div className="flex items-center gap-1.5 flex-shrink-0 text-xs text-gray-400 dark:text-slate-500 group-hover:text-blue-500 transition-colors">
+                  <span>{formatDateTime(entry.created_at, i18n.language)}</span>
+                  {isClickable && <ExternalLink className="w-3 h-3" />}
+                </div>
               </div>
             );
           })}
 
-          {entries.length > 10 && (
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 pt-2 w-full justify-center"
-            >
-              {expanded ? (
-                <>
-                  <ChevronUp className="w-4 h-4" />
-                  {t('auto.voir_moins')}</>
-              ) : (
-                <>
-                  <ChevronDown className="w-4 h-4" />
-                  {t('auto.voir_tout')}{entries.length})
-                </>
-              )}
-            </button>
+          {hasMore && (
+            <div ref={loadMoreRef} className="flex items-center justify-center py-4">
+              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
           )}
         </div>
       )}

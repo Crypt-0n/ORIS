@@ -21,6 +21,20 @@ export interface StixCore {
     name: string;
     description?: string;
     object_marking_refs?: string[];
+    x_oris_diamond_label?: string;
+    x_oris_graph_position?: { x: number; y: number };
+    x_oris_diamond_axes?: {
+        adversary: LinkedObjectRef[];
+        infrastructure: LinkedObjectRef[];
+        capability: LinkedObjectRef[];
+        victim: LinkedObjectRef[];
+    };
+}
+
+export interface LinkedObjectRef {
+    id: string;
+    label: string;
+    type: string;
 }
 
 // ─── STIX Domain Objects (SDO) ──────────────────────────────────
@@ -85,6 +99,14 @@ export interface ObservedData {
     x_oris_description?: string;
     x_oris_kill_chain?: string | null;
     x_oris_task_id?: string | null;
+    x_oris_diamond_label?: string;
+    x_oris_graph_position?: { x: number; y: number };
+    x_oris_diamond_axes?: {
+        adversary: LinkedObjectRef[];
+        infrastructure: LinkedObjectRef[];
+        capability: LinkedObjectRef[];
+        victim: LinkedObjectRef[];
+    };
 }
 
 // ─── STIX Cyber Observables (SCO) ───────────────────────────────
@@ -155,6 +177,7 @@ export interface Relationship {
     confidence?: number;
     start_time?: string;
     stop_time?: string;
+    x_oris_diamond_edge?: boolean;
 }
 
 // ─── Union Types ────────────────────────────────────────────────
@@ -184,11 +207,22 @@ export const TLP_MARKING_DEFINITIONS = {
 
 export type TlpLevel = keyof typeof TLP_MARKING_DEFINITIONS;
 
+// ─── PAP Marking Definitions (Custom STIX) ──────────────────────
+
+export const PAP_MARKING_DEFINITIONS = {
+    CLEAR: 'marking-definition--00000000-0000-4000-8000-000000000010',
+    GREEN: 'marking-definition--00000000-0000-4000-8000-000000000011',
+    AMBER: 'marking-definition--00000000-0000-4000-8000-000000000012',
+    RED: 'marking-definition--00000000-0000-4000-8000-000000000013',
+} as const;
+
+export type PapLevel = keyof typeof PAP_MARKING_DEFINITIONS;
+
 // ─── STIX Type Metadata (for UI) ────────────────────────────────
 
 export type StixSDOType =
     | 'threat-actor' | 'infrastructure' | 'malware' | 'identity'
-    | 'attack-pattern' | 'tool' | 'indicator' | 'observed-data';
+    | 'attack-pattern' | 'tool' | 'indicator' | 'observed-data' | 'intrusion-set' | 'campaign';
 
 export const STIX_TYPE_META: Record<StixSDOType, { label: string; color: string; icon: string }> = {
     'threat-actor':   { label: 'Adversaire',      color: '#ef4444', icon: '👤' },
@@ -199,6 +233,8 @@ export const STIX_TYPE_META: Record<StixSDOType, { label: string; color: string;
     tool:             { label: 'Outil',            color: '#06b6d4', icon: '🔧' },
     indicator:        { label: 'Indicateur',       color: '#eab308', icon: '🎯' },
     'observed-data':  { label: 'Donnée observée',  color: '#64748b', icon: '📊' },
+    'intrusion-set':  { label: 'Groupe d\'intrusion', color: '#f43f5e', icon: '🥷' },
+    campaign:         { label: 'Campagne',         color: '#fb7185', icon: '🎌' },
 };
 
 export const RELATIONSHIP_TYPES = [

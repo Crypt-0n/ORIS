@@ -177,7 +177,7 @@ function ApiTokensCard() {
 
       <div className="space-y-3">
         {tokens.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-4">{t('profile.apiTokens.noTokens')}</p>
+          <p className="text-xs text-gray-500 text-center py-4">{t('profile.apiTokens.noTokens')}</p>
         ) : (
           tokens.map((token) => (
             <div key={token.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-100 dark:border-slate-700/50">
@@ -190,7 +190,7 @@ function ApiTokensCard() {
               </div>
               <button
                 onClick={() => handleRevoke(token.id)}
-                className="p-2 text-gray-400 hover:text-red-600 transition"
+                className="p-2 text-gray-500 hover:text-red-600 transition"
                 title={t('auto.revoquer')}
               >
                 <Trash2 className="w-4 h-4" />
@@ -227,12 +227,8 @@ function ProfileInfoCard({
     try {
       const formData = new FormData();
       formData.append('avatar', file);
-      const res = await fetch('/api/auth/avatar', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${api.getToken()}` },
-        body: formData,
-      });
-      if (!res.ok) throw new Error('Upload failed');
+      // Uses HttpOnly cookie via credentials: 'include' — no Authorization header needed
+      await api.post('/auth/avatar', formData);
       await refreshProfile();
     } catch (err) {
       console.error(err);
@@ -387,6 +383,7 @@ function LanguageCard() {
     </div>
   );
 }
+
 
 function PinCodeCard() {
   const { t } = useTranslation();

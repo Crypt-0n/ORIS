@@ -97,6 +97,8 @@ export function Topbar() {
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className="sm:hidden flex items-center"
+            aria-label="Menu utilisateur"
+            aria-expanded={userMenuOpen}
           >
             <UserAvatar name={profile?.full_name} avatarUrl={profile?.avatar_url} size="sm" />
           </button>
@@ -143,6 +145,7 @@ export function Topbar() {
               <button
                 onClick={() => { toggleTheme(); }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition"
+                aria-label="Basculer le thème"
               >
                 {theme === 'light' ? (
                   <>
@@ -188,12 +191,12 @@ function NavItem({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${active
-          ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-          : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800'
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${active
+          ? 'bg-slate-100 dark:bg-slate-800 text-gray-900 dark:text-white ring-1 ring-slate-200 dark:ring-slate-700 shadow-sm'
+          : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
         }`}
     >
-      <Icon className="w-4 h-4" />
+      <Icon className={`w-4 h-4 ${active ? 'text-blue-600 dark:text-blue-500' : 'opacity-70'}`} />
       {label}
     </button>
   );

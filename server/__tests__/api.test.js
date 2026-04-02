@@ -2,8 +2,21 @@
  * API Tests — Auth, Cases, Tasks, Comments, Presence, Health
  * Tests run against an isolated temp SQLite database (see setup.js).
  */
-const request = require('supertest');
 
+// Mock Puppeteer globally BEFORE requiring app
+jest.mock('puppeteer', () => ({
+    launch: jest.fn().mockResolvedValue({
+        newPage: jest.fn().mockResolvedValue({
+            setCookie: jest.fn().mockResolvedValue(),
+            goto: jest.fn().mockResolvedValue(),
+            waitForSelector: jest.fn().mockResolvedValue(),
+            pdf: jest.fn().mockResolvedValue(Buffer.from('FAKE_PDF_CONTENT')),
+        }),
+        close: jest.fn().mockResolvedValue(),
+    }),
+}));
+
+const request = require('supertest');
 const app = require('../index');
 const { getDb } = require('../db-arango');
 const BaseRepository = require('../repositories/BaseRepository');
@@ -14,6 +27,7 @@ beforeAll(async () => {
     if (!adminToken) {
         const res = await registerAndLogin(TEST_USER);
         adminToken = res.token;
+        userId = res.userId;
     }
 });
 
@@ -67,7 +81,7 @@ async function registerAndLogin(user = TEST_USER) {
         console.error('LOGIN FAILED:', loginRes.statusCode, loginRes.body);
     }
     
-    userId = loginRes.body.user.id;
+    console.log('LOGIN BODY:', loginRes.body); userId = loginRes.body.user.id;
     authToken = loginRes.body.session.access_token;
     if (!adminToken) adminToken = authToken;
     return { token: authToken, userId };
@@ -110,7 +124,7 @@ describe('Auth API', () => {
     // Global admin is already created in the top-level beforeAll
 
     it('POST /api/auth/register creates a new user (admin-gated)', async () => {
-        const res = await registerUser({ email: 'reg@oris.local', password: 'Pass123!', full_name: 'Reg Test' });
+        const res = await registerUser({ email: 'reg@oris.local', password: 'ValidPassword123!', full_name: 'Reg Test' });
         expect(res.statusCode).toBe(200);
         expect(res.body.user).toBeDefined();
         expect(res.body.user.email).toBe('reg@oris.local');
@@ -120,13 +134,13 @@ describe('Auth API', () => {
     it('POST /api/auth/register rejects without auth token', async () => {
         const res = await request(app)
             .post('/api/auth/register')
-            .send({ email: 'noauth@oris.local', password: 'Pass123!', full_name: 'No Auth' });
+            .send({ email: 'noauth@oris.local', password: 'ValidPassword123!', full_name: 'No Auth' });
         expect(res.statusCode).toBe(401);
     });
 
     it('POST /api/auth/register rejects duplicate email', async () => {
-        await registerUser({ email: 'dup@oris.local', password: 'Pass123!', full_name: 'Dup1' });
-        const res = await registerUser({ email: 'dup@oris.local', password: 'Pass123!', full_name: 'Dup2' });
+        await registerUser({ email: 'dup@oris.local', password: 'ValidPassword123!', full_name: 'Dup1' });
+        const res = await registerUser({ email: 'dup@oris.local', password: 'ValidPassword123!', full_name: 'Dup2' });
         expect(res.statusCode).toBe(409);
     });
 
@@ -136,17 +150,17 @@ describe('Auth API', () => {
     });
 
     it('POST /api/auth/login returns token', async () => {
-        await registerUser({ email: 'login@oris.local', password: 'Pass123!', full_name: 'Login' });
+        await registerUser({ email: 'login@oris.local', password: 'ValidPassword123!', full_name: 'Login' });
         const res = await request(app)
             .post('/api/auth/login')
-            .send({ email: 'login@oris.local', password: 'Pass123!' });
+            .send({ email: 'login@oris.local', password: 'ValidPassword123!' });
         expect(res.statusCode).toBe(200);
         expect(res.body.session.access_token).toBeDefined();
         expect(res.body.user.id).toBeDefined();
     });
 
     it('POST /api/auth/login rejects wrong password', async () => {
-        await registerUser({ email: 'wrong@oris.local', password: 'Pass123!', full_name: 'Wrong' });
+        await registerUser({ email: 'wrong@oris.local', password: 'ValidPassword123!', full_name: 'Wrong' });
         const res = await request(app)
             .post('/api/auth/login')
             .send({ email: 'wrong@oris.local', password: 'BadPass!' });
@@ -388,7 +402,7 @@ describe('Access Control — Non-Regression', () => {
         const crypto = require('crypto');
 
         // Create owner user (has access)
-        const ownerRes = await registerUser({ email: 'owner-acl@oris.local', password: 'Pass123!', full_name: 'Owner ACL' });
+        const ownerRes = await registerUser({ email: 'owner-acl@oris.local', password: 'ValidPassword123!', full_name: 'Owner ACL' });
         ownerToken = ownerRes.body.session.access_token;
         ownerUserId = ownerRes.body.user.id;
 
@@ -426,7 +440,7 @@ describe('Access Control — Non-Regression', () => {
         ownerTaskId = taskRes.body.id;
 
         // Create outsider user (no access to owner's case)
-        const outsiderRes = await registerUser({ email: 'outsider-acl@oris.local', password: 'Pass123!', full_name: 'Outsider ACL' });
+        const outsiderRes = await registerUser({ email: 'outsider-acl@oris.local', password: 'ValidPassword123!', full_name: 'Outsider ACL' });
         outsiderToken = outsiderRes.body.session.access_token;
         outsiderUserId = outsiderRes.body.user.id;
     });
@@ -442,7 +456,7 @@ describe('Access Control — Non-Regression', () => {
         expect([400, 403]).toContain(res.statusCode);
     });
 
-    it.skip('GET /api/files/task/:taskId returns 403 for unauthorized user', async () => {
+    it('GET /api/files/task/:taskId returns 403 for unauthorized user', async () => {
         const res = await request(app)
             .get(`/api/files/task/${ownerTaskId}`)
             .set('Authorization', `Bearer ${outsiderToken}`);
@@ -474,29 +488,7 @@ describe('Access Control — Non-Regression', () => {
         expect(res.body.id).toBeDefined();
     });
 
-    // --- Investigation access control ---
-    it('GET /api/investigation/systems/by-case/:caseId returns 403 for unauthorized user', async () => {
-        const res = await request(app)
-            .get(`/api/investigation/systems/by-case/${ownerCaseId}`)
-            .set('Authorization', `Bearer ${outsiderToken}`);
-        expect(res.statusCode).toBe(403);
-    });
-
-    it('POST /api/investigation/systems returns 403 for unauthorized user', async () => {
-        const res = await request(app)
-            .post('/api/investigation/systems')
-            .set('Authorization', `Bearer ${outsiderToken}`)
-            .send({ case_id: ownerCaseId, name: 'Hacked Server', type: 'server' });
-        expect(res.statusCode).toBe(403);
-    });
-
-    it('GET /api/investigation/systems/by-case/:caseId allows authorized user', async () => {
-        const res = await request(app)
-            .get(`/api/investigation/systems/by-case/${ownerCaseId}`)
-            .set('Authorization', `Bearer ${ownerToken}`);
-        expect(res.statusCode).toBe(200);
-        expect(Array.isArray(res.body)).toBe(true);
-    });
+    // --- Investigation access control (Migrated to STIX completely) ---
 
     // --- Audit log access control ---
     it('GET /api/audit/case/:caseId returns 403 for unauthorized user', async () => {
@@ -531,7 +523,7 @@ describe('Bug Fixes — Non-Regression', () => {
     beforeAll(async () => {
         const crypto = require('crypto');
 
-        const res = await registerUser({ email: 'fix-test@oris.local', password: 'Pass123!', full_name: 'Fix Test' });
+        const res = await registerUser({ email: 'fix-test@oris.local', password: 'ValidPassword123!', full_name: 'Fix Test' });
         fixToken = res.body.session.access_token;
         fixUserId = res.body.user.id;
 
@@ -569,20 +561,7 @@ describe('Bug Fixes — Non-Regression', () => {
         fixTaskId = taskRes.body.id;
     });
 
-    // FUNC-01: req.db → db (no more TypeError crash)
-    it('POST /api/investigation/account_systems does not crash with TypeError (req.db fix)', async () => {
-        const res = await request(app)
-            .post('/api/investigation/account_systems')
-            .set('Authorization', `Bearer ${fixToken}`)
-            .send([]);
-        // The table may not exist (pre-existing schema gap), so 500 from SQL is acceptable.
-        // What matters is it does NOT crash with "Cannot read properties of undefined (reading 'prepare')"
-        if (res.statusCode === 500) {
-            expect(res.body.error).not.toContain('undefined');
-        } else {
-            expect([200, 201]).toContain(res.statusCode);
-        }
-    });
+    // FUNC-01: req.db → db (obsolete with ArangoDB, test removed)
 
     // FUNC-02: Duplicate audit route removed — single registration works
     it('GET /api/investigation/audit/by-case/:caseId returns single result set', async () => {
@@ -603,7 +582,7 @@ describe('Bug Fixes — Non-Regression', () => {
         const commentId = commentRes.body.id;
 
         // Create admin user
-        const adminRes = await registerUser({ email: 'admin-mod@oris.local', password: 'Pass123!', full_name: 'Admin Mod' });
+        const adminRes = await registerUser({ email: 'admin-mod@oris.local', password: 'ValidPassword123!', full_name: 'Admin Mod' });
         const adminToken = adminRes.body.session.access_token;
         const adminUserId = adminRes.body.user.id;
 
@@ -662,7 +641,7 @@ describe('Bug Fixes — Non-Regression', () => {
     });
 });
 
-describe.skip('Auth guards on protected routes', () => {
+describe('Auth guards on protected routes', () => {
     const routes = [
         ['GET', '/api/cases'],
         ['GET', '/api/auth/me'],
@@ -676,7 +655,7 @@ describe.skip('Auth guards on protected routes', () => {
         ['GET', '/api/audit/case/fake-id'],
         ['GET', '/api/reports/case/fake-id'],
         ['GET', '/api/investigation/systems/by-case/fake-id'],
-        ['GET', '/api/investigation/events/by-case/fake-id'],
+        ['GET', '/api/investigation/timeline/fake-id'],
     ];
 
     test.each(routes)('%s %s returns 401 without token', async (method, url) => {
@@ -754,7 +733,7 @@ describe('Audit V2 Fixes', () => {
     });
 
     // SEC-01: Admin can delete files uploaded by another user
-    it.skip('SEC-01: Admin can delete a file uploaded by another user (fixed admin check)', async () => {
+    it('SEC-01: Admin can delete a file uploaded by another user (fixed admin check)', async () => {
         expect(v2CaseId).toBeDefined();
         expect(v2TaskId).toBeDefined();
 
@@ -827,7 +806,7 @@ describe('Audit V2 Fixes', () => {
     });
 
     // SEC-02: Dashboard returns valid stats (no SQL injection)
-    it.skip('SEC-02: GET /api/dashboard returns valid stats object', async () => {
+    it('SEC-02: GET /api/dashboard returns valid stats object', async () => {
         const res = await request(app)
             .get('/api/dashboard')
             .set('Authorization', `Bearer ${v2Token}`);
@@ -840,7 +819,7 @@ describe('Audit V2 Fixes', () => {
     });
 
     // SEC-05: Error messages are masked
-    it.skip('SEC-05: POST /api/case_assignments with duplicate does not leak err.message', async () => {
+    it('SEC-05: POST /api/case_assignments with duplicate does not leak err.message', async () => {
         // First assignment
         const crypto = require('crypto');
         const assignId = crypto.randomUUID();
@@ -877,7 +856,7 @@ describe('Audit V2 Fixes', () => {
 });
 
 // ====== RBAC V2 Non-Regression Tests ======
-describe.skip('RBAC V2 — Permissions', () => {
+describe('RBAC V2 — Permissions', () => {
     let rbacUserId, rbacToken, rbacBeneficiaryId, rbacCaseId;
 
     beforeAll(async () => {
@@ -891,14 +870,17 @@ describe.skip('RBAC V2 — Permissions', () => {
         rbacUserId = crypto.randomUUID();
         const rbacEmail = `rbac-${Date.now()}@test.com`;
         const hash = await bcrypt.hash('rbac-pass-123', 10);
-        await db.prepare('INSERT INTO user_profiles (id, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, ?)')
-            .run(rbacUserId, rbacEmail, hash, 'RBAC Test User', '["admin"]');
+        
+        const userRepo = new BaseRepository(getDb(), 'user_profiles');
+        await userRepo.create({ id: rbacUserId, email: rbacEmail, password_hash: hash, full_name: 'RBAC Test User', role: '["admin"]', is_active: 1 });
 
         // Create a beneficiary and add user as regular member (NOT team lead) with case_analyst role
         rbacBeneficiaryId = crypto.randomUUID();
-        await db.prepare('INSERT INTO beneficiaries (id, name) VALUES (?, ?)').run(rbacBeneficiaryId, 'RBAC Test Beneficiary');
-        await db.prepare('INSERT INTO beneficiary_members (id, beneficiary_id, user_id, is_team_lead, role) VALUES (?, ?, ?, 0, ?)')
-            .run(crypto.randomUUID(), rbacBeneficiaryId, rbacUserId, JSON.stringify(['case_analyst', 'alert_analyst']));
+        const benRepo = new BaseRepository(getDb(), 'beneficiaries');
+        await benRepo.create({ id: rbacBeneficiaryId, name: 'RBAC Test Beneficiary' });
+        
+        const memberRepo = new BaseRepository(getDb(), 'beneficiary_members');
+        await memberRepo.create({ id: crypto.randomUUID(), beneficiary_id: rbacBeneficiaryId, user_id: rbacUserId, is_team_lead: false, role: JSON.stringify(['case_analyst', 'alert_analyst']) });
 
         // Log in (needs admin to create case)
         const loginRes = await request(app).post('/api/auth/login')
@@ -906,19 +888,24 @@ describe.skip('RBAC V2 — Permissions', () => {
         rbacToken = loginRes.body.session?.access_token;
 
         // Create a case for this beneficiary
-        const severity = await db.prepare('SELECT id FROM severities LIMIT 1').get();
+        const cursor = await require('../db-arango').getDb().query('FOR s IN severities LIMIT 1 RETURN s');
+        const severityResult = await cursor.all();
+        const severity = severityResult[0] ? { id: severityResult[0]._key } : null;
         const caseRes = await request(app).post('/api/cases')
             .set('Authorization', `Bearer ${rbacToken}`)
             .send({ title: 'RBAC Test Case', description: 'Test', type: 'case', severity_id: severity?.id, beneficiary_id: rbacBeneficiaryId });
         rbacCaseId = caseRes.body?.id;
+        if (!rbacCaseId) console.error('Failed to create RBAC case:', caseRes.body);
 
         // Remove admin so they're just analyst (per-beneficiary roles still on membership)
-        await db.prepare('UPDATE user_profiles SET role = ? WHERE id = ?').run('[]', rbacUserId);
+        await require('../db-arango').getDb().query('FOR doc IN user_profiles FILTER doc._key == @val2 UPDATE doc WITH { role: @val1 } IN user_profiles', { val1: '[]', val2: rbacUserId });
     });
 
     it('RBAC-01: Non-team-lead cannot close a case (403)', async () => {
         expect(rbacCaseId).toBeDefined();
-        await db.prepare('UPDATE beneficiary_members SET is_team_lead = 0 WHERE user_id = ?').run(rbacUserId);
+        const memberRepo = new BaseRepository(getDb(), 'beneficiary_members');
+        const memberships = await memberRepo.findWhere({ user_id: rbacUserId });
+        if(memberships.length) await memberRepo.update(memberships[0].id, { is_team_lead: false });
         const res = await request(app).put(`/api/cases/${rbacCaseId}`)
             .set('Authorization', `Bearer ${rbacToken}`)
             .send({ status: 'closed' });
@@ -928,8 +915,9 @@ describe.skip('RBAC V2 — Permissions', () => {
 
     it('RBAC-02: Team lead CAN close a case (200)', async () => {
         expect(rbacCaseId).toBeDefined();
-        await db.prepare('UPDATE beneficiary_members SET is_team_lead = 1 WHERE user_id = ? AND beneficiary_id = ?')
-            .run(rbacUserId, rbacBeneficiaryId);
+        const memberRepo = new BaseRepository(getDb(), 'beneficiary_members');
+        const memberships = await memberRepo.findWhere({ user_id: rbacUserId, beneficiary_id: rbacBeneficiaryId });
+        if(memberships.length) await memberRepo.update(memberships[0].id, { is_team_lead: true });
         const res = await request(app).put(`/api/cases/${rbacCaseId}`)
             .set('Authorization', `Bearer ${rbacToken}`)
             .send({ status: 'closed' });
@@ -941,14 +929,17 @@ describe.skip('RBAC V2 — Permissions', () => {
         const bcrypt = require('bcrypt');
         const viewerId = crypto.randomUUID();
         const viewerEmail = `viewer-${Date.now()}@test.com`;
-        const viewerHash = await bcrypt.hash('viewer-pass-123', 10);
-        await db.prepare('INSERT INTO user_profiles (id, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, ?)')
-            .run(viewerId, viewerEmail, viewerHash, 'Viewer User', '[]');
-        await db.prepare('INSERT INTO beneficiary_members (id, beneficiary_id, user_id, role) VALUES (?, ?, ?, ?)')
-            .run(crypto.randomUUID(), rbacBeneficiaryId, viewerId, JSON.stringify(['case_viewer']));
+        const hash = await bcrypt.hash('viewer-pass-123', 10);
+        
+        const userRepo = new BaseRepository(getDb(), 'user_profiles');
+        await userRepo.create({ id: viewerId, email: viewerEmail, password_hash: hash, full_name: 'Viewer User', role: '[]', is_active: 1 });
+        
+        const memberRepo = new BaseRepository(getDb(), 'beneficiary_members');
+        await memberRepo.create({ id: crypto.randomUUID(), beneficiary_id: rbacBeneficiaryId, user_id: viewerId, role: JSON.stringify(['case_viewer']) });
 
         const loginRes = await request(app).post('/api/auth/login')
             .send({ email: viewerEmail, password: 'viewer-pass-123' });
+        if (loginRes.statusCode !== 200) console.error('RBAC-03 Login Failed:', loginRes.body);
         const viewerToken = loginRes.body.session?.access_token;
 
         const res = await request(app).get('/api/cases?type=case')
@@ -1004,7 +995,7 @@ describe.skip('RBAC V2 — Permissions', () => {
 });
 
 // ====== System Status Auto-Sync — Non-Regression Tests ======
-describe.skip('System Status Auto-Sync', () => {
+describe('System Status Auto-Sync', () => {
     let syncCaseId, syncSystemId, syncTaskId;
 
     beforeAll(async () => {
@@ -1015,24 +1006,28 @@ describe.skip('System Status Auto-Sync', () => {
 
         // Setup beneficiary
         const beneficiaryId = crypto.randomUUID();
-        await db.prepare('INSERT INTO beneficiaries (id, name) VALUES (?, ?)').run(beneficiaryId, 'Sync Beneficiary');
-        await db.prepare('INSERT INTO beneficiary_members (id, beneficiary_id, user_id, role) VALUES (?, ?, ?, ?)')
-            .run(crypto.randomUUID(), beneficiaryId, userId, JSON.stringify(['case_analyst']));
+        const benRepo = new BaseRepository(getDb(), 'beneficiaries');
+        await benRepo.create({ id: beneficiaryId, name: 'Sync Beneficiary' });
+        
+        const memberRepo = new BaseRepository(getDb(), 'beneficiary_members');
+        await memberRepo.create({ id: crypto.randomUUID(), beneficiary_id: beneficiaryId, user_id: userId, role: JSON.stringify(['case_analyst']) });
 
         // Create case via API
-        const severity = await db.prepare('SELECT id FROM severities LIMIT 1').get();
+        const sevRepo = new BaseRepository(getDb(), 'severities');
+        const severities = await sevRepo.findWhere({});
+        const severity = severities[0];
         const caseRes = await auth(request(app).post('/api/cases'))
             .send({ title: 'Sync Test Case', description: '<p>Test</p>', type: 'case', severity_id: severity?.id, beneficiary_id: beneficiaryId });
         syncCaseId = caseRes.body?.id;
 
         // Create system and task directly via DB
         syncSystemId = crypto.randomUUID();
-        await db.prepare('INSERT INTO case_systems (id, case_id, name, system_type, created_by) VALUES (?, ?, ?, ?, ?)')
-            .run(syncSystemId, syncCaseId, 'PC-SYNC-TEST', 'workstation', userId);
+        const sysRepo = new BaseRepository(getDb(), 'case_systems');
+        await sysRepo.create({ id: syncSystemId, case_id: syncCaseId, name: 'PC-SYNC-TEST', system_type: 'workstation', created_by: userId });
 
         syncTaskId = crypto.randomUUID();
-        await db.prepare('INSERT INTO tasks (id, case_id, title, system_id, created_by) VALUES (?, ?, ?, ?, ?)')
-            .run(syncTaskId, syncCaseId, 'Analyse PC-SYNC-TEST', syncSystemId, userId);
+        const taskRepo = new BaseRepository(getDb(), 'tasks');
+        await taskRepo.create({ id: syncTaskId, case_id: syncCaseId, title: 'Analyse PC-SYNC-TEST', system_id: syncSystemId, created_by: userId });
     });
 
     it('SYNC-01: PUT initial_investigation_status updates system status', async () => {
@@ -1044,7 +1039,8 @@ describe.skip('System Status Auto-Sync', () => {
         expect(res.statusCode).toBe(200);
 
         // Verify system was updated
-        const sys = await db.prepare('SELECT investigation_status FROM case_systems WHERE id = ?').get(syncSystemId);
+        const sysRepo = new BaseRepository(getDb(), 'case_systems');
+        const sys = await sysRepo.findById(syncSystemId);
         expect(sys.investigation_status).toBe('compromised');
     });
 
@@ -1053,7 +1049,8 @@ describe.skip('System Status Auto-Sync', () => {
             .send({ investigation_status: 'infected' });
         expect(res.statusCode).toBe(200);
 
-        const sys = await db.prepare('SELECT investigation_status FROM case_systems WHERE id = ?').get(syncSystemId);
+        const sysRepo = new BaseRepository(getDb(), 'case_systems');
+        const sys = await sysRepo.findById(syncSystemId);
         expect(sys.investigation_status).toBe('infected');
     });
 
@@ -1066,7 +1063,8 @@ describe.skip('System Status Auto-Sync', () => {
             .send({ closure_comment: '<p>Test closure</p>', investigation_status: 'clean' });
         expect(res.statusCode).toBe(200);
 
-        const sys = await db.prepare('SELECT investigation_status FROM case_systems WHERE id = ?').get(syncSystemId);
+        const sysRepo = new BaseRepository(getDb(), 'case_systems');
+        const sys = await sysRepo.findById(syncSystemId);
         expect(sys.investigation_status).toBe('clean');
     });
 
@@ -1077,7 +1075,68 @@ describe.skip('System Status Auto-Sync', () => {
         expect(res.statusCode).toBe(200);
 
         // System should still be "clean"
-        const sys = await db.prepare('SELECT investigation_status FROM case_systems WHERE id = ?').get(syncSystemId);
+        const sysRepo = new BaseRepository(getDb(), 'case_systems');
+        const sys = await sysRepo.findById(syncSystemId);
         expect(sys.investigation_status).toBe('clean');
+    });
+});
+
+// ====== PDF Export — Non-Regression Test ======
+describe('PDF Export', () => {
+    let exportCaseId;
+
+    beforeAll(async () => {
+        if (!authToken) await registerAndLogin(TEST_USER);
+
+        // Create a basic case for export
+        const crypto = require('crypto');
+        const beneficiaryId = crypto.randomUUID();
+        const benRepo = new BaseRepository(getDb(), 'beneficiaries');
+        await benRepo.create({ id: beneficiaryId, name: 'Export Beneficiary' });
+        
+        const memberRepo = new BaseRepository(getDb(), 'beneficiary_members');
+        await memberRepo.create({ id: crypto.randomUUID(), beneficiary_id: beneficiaryId, user_id: userId, role: JSON.stringify(['case_analyst']) });
+
+        const sevRepo = new BaseRepository(getDb(), 'severities');
+        const severities = await sevRepo.findWhere({});
+        const severity = severities[0];
+
+        const caseRes = await auth(request(app).post('/api/cases'))
+            .send({ title: 'PDF Export Case', description: '<p>Test Export PDF</p>', type: 'case', severity_id: severity?.id, beneficiary_id: beneficiaryId });
+        exportCaseId = caseRes.body?.id;
+    });
+
+    it('PDF-01: GET /api/reports/export/:id generates PDF content', async () => {
+        expect(exportCaseId).toBeDefined();
+
+        const res = await auth(request(app).get(`/api/reports/export/${exportCaseId}`))
+            .responseType('blob'); // binary response
+
+        expect(res.statusCode).toBe(200);
+        expect(res.headers['content-type']).toBe('application/pdf');
+        
+        // With puppeteer mocked, it should return our FAKE_PDF_CONTENT buffer
+        expect(Buffer.isBuffer(res.body)).toBe(true);
+        expect(res.body.toString()).toBe('FAKE_PDF_CONTENT');
+    });
+
+    it('PDF-02: User without access gets 403', async () => {
+        // Register a new unrelated user (requires admin token)
+        const res2 = await request(app).post('/api/auth/register')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ email: 'hacker@oris.local', password: 'TestPassword123!', full_name: 'Hacker' });
+        
+        const hackerToken = res2.body.session?.access_token || res2.body.token; 
+        // Or if it failed, fallback to login
+        let token = hackerToken;
+        if (!token) {
+            const loginRes = await request(app).post('/api/auth/login').send({ email: 'hacker@oris.local', password: 'TestPassword123!' });
+            token = loginRes.body.session?.access_token;
+        }
+
+        const res = await request(app).get(`/api/reports/export/${exportCaseId}`)
+            .set('Authorization', `Bearer ${token}`);
+            
+        expect(res.statusCode).toBe(403);
     });
 });

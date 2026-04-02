@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, User, UserX, Loader2, FolderOpen, ChevronRight, ChevronLeft, Monitor, Bug } from 'lucide-react';
+import { ClipboardList, User, UserX, Loader2, FolderOpen, ChevronRight, ChevronLeft, Monitor, Bug, Layers, ChevronDown, ChevronUp, Filter } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from "react-i18next";
+import { Helmet } from 'react-helmet-async';
 
 /** Darken a hex color for WCAG-compliant text contrast on light backgrounds */
 function darkenColor(hex: string, factor = 0.65): string {
@@ -33,6 +34,7 @@ interface TaskWithCase {
     title: string;
     severity: { label: string; color: string } | null;
     status: string;
+    beneficiary?: { id: string; name: string };
   };
   system: { id: string; name: string; system_type: string } | null;
   malware: { id: string; file_name: string; is_malicious: boolean } | null;
@@ -50,6 +52,11 @@ export function MyTasks() {
   const [unassignedTasks, setUnassignedTasks] = useState<TaskWithCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [groupBy, setGroupBy] = useState<'none' | 'case.beneficiary' | 'case.severity' | 'status' | 'assigned_to'>('none');
+  const [filterBeneficiary, setFilterBeneficiary] = useState<string>('all');
+  const [filterSeverity, setFilterSeverity] = useState<string>('all');
+  const [filterAssignedTo, setFilterAssignedTo] = useState<string>('all');
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const ITEMS_PER_PAGE = 25;
 
   useEffect(() => {
@@ -79,29 +86,167 @@ export function MyTasks() {
   ];
 
   const baseTasks = activeTab === 'assigned' ? assignedTasks : unassignedTasks;
+  
+  const resetFilters = () => {
+    setStatusFilter('all');
+    setFilterBeneficiary('all');
+    setFilterSeverity('all');
+    setFilterAssignedTo('all');
+    setCurrentPage(1);
+  };
+
+  const availableBeneficiaries = Array.from(
+    new Map(baseTasks.filter(t => t.case?.beneficiary?.name).map(t => [t.case.beneficiary!.id, t.case.beneficiary!.name]))
+  ).sort((a,b) => String(a[1] || '').localeCompare(String(b[1] || '')));
+
+  const availableSeverities = Array.from(
+    new Map(baseTasks.filter(t => t.case?.severity?.label).map(t => [t.case.severity!.label, t.case.severity!.label]))
+  ).sort((a,b) => String(a[1] || '').localeCompare(String(b[1] || '')));
+
+  const availableAssignedTo = Array.from(
+    new Map(baseTasks.filter(t => t.assigned_to_user?.full_name).map(t => [t.assigned_to_user!.full_name, t.assigned_to_user!.full_name]))
+  ).sort((a,b) => String(a[1] || '').localeCompare(String(b[1] || '')));
+
   const currentTasks = baseTasks.filter(t => {
-    if (statusFilter === 'all') return true;
-    return t.status === statusFilter;
+    if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+    if (filterBeneficiary !== 'all' && t.case.beneficiary?.id !== filterBeneficiary) return false;
+    if (filterSeverity !== 'all' && t.case.severity?.label !== filterSeverity) return false;
+    if (filterAssignedTo !== 'all' && t.assigned_to_user?.full_name !== filterAssignedTo) return false;
+    return true;
   });
+
+  // Grouping Logic
+  let groupedTasks: Record<string, TaskWithCase[]> | null = null;
+  
+  if (groupBy !== 'none') {
+    groupedTasks = currentTasks.reduce((acc, curr) => {
+      let key = 'Inconnu';
+      if (groupBy === 'case.beneficiary') key = (curr.case as any).beneficiary?.name || 'Aucun bénéficiaire';
+      else if (groupBy === 'case.severity') key = curr.case.severity?.label || 'Aucune sévérité';
+      else if (groupBy === 'status') key = curr.status === 'open' ? 'Ouvertes' : 'Clôturées';
+      else if (groupBy === 'assigned_to') key = curr.assigned_to_user?.full_name || 'Non assigné';
+      
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(curr);
+      return acc;
+    }, {} as Record<string, TaskWithCase[]>);
+    
+    // Sort groups alphabetically
+    const sortedKeys = Object.keys(groupedTasks).sort((a, b) => a.localeCompare(b));
+    const sortedGroupedTasks: Record<string, TaskWithCase[]> = {};
+    sortedKeys.forEach(k => sortedGroupedTasks[k] = groupedTasks![k]);
+    groupedTasks = sortedGroupedTasks;
+  }
 
   const totalPages = Math.ceil(currentTasks.length / ITEMS_PER_PAGE);
   const paginatedTasks = currentTasks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
+  const toggleGroup = (group: string) => {
+    setExpandedGroups(prev => ({ ...prev, [group]: prev[group] === undefined ? false : !prev[group] }));
+  };
+
+  const isGroupExpanded = (group: string) => {
+    if (expandedGroups[group] !== undefined) return expandedGroups[group];
+    return true; // Expanded by default
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">{t('tasks.myTasks')}</h1>
-        <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-          {t('tasks.myTasksDesc')}</p>
+      <Helmet>
+        <title>Mes Tâches | ORIS</title>
+        <meta name="description" content="Gestion de vos tâches d'investigation assignées et non-assignées." />
+      </Helmet>
+      
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">{t('tasks.myTasks')}</h1>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Filtres Tous/Ouvert/Fermé */}
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-lg w-max flex-shrink-0">
+            {([
+              { key: 'all' as const, label: t('tasks.allTasks'), count: baseTasks.length },
+              { key: 'open' as const, label: t('tasks.openTasks'), count: baseTasks.filter(t => t.status === 'open').length },
+              { key: 'closed' as const, label: t('tasks.closedTasks'), count: baseTasks.filter(t => t.status === 'closed').length },
+            ]).map((f) => (
+              <button
+                key={f.key}
+                onClick={() => { setStatusFilter(f.key); setCurrentPage(1); }}
+                className={`px-3 py-1.5 rounded-md font-medium transition-all text-xs sm:text-sm ${statusFilter === f.key
+                  ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
+                  : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'
+                  }`}
+              >
+                {f.label} <span className="ml-1 opacity-70 text-[10px] font-mono">({f.count})</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Sélecteur Groupage */}
+          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-1.5 rounded-lg w-max flex-shrink-0">
+            <Layers className="w-4 h-4 text-gray-400 ml-1" />
+            <select
+              value={groupBy}
+              onChange={(e) => setGroupBy(e.target.value as any)}
+              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer"
+            >
+              <option value="none">Ne pas grouper</option>
+              <option value="case.beneficiary">Bénéficiaire du dossier</option>
+              <option value="case.severity">Sévérité du dossier</option>
+              <option value="status">Statut de la tâche</option>
+              <option value="assigned_to">Assigné à</option>
+            </select>
+          </div>
+
+          {/* Filtres croisés */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-1.5 rounded-lg w-max flex-shrink-0">
+            <Filter className="w-4 h-4 text-gray-400 ml-1" />
+            <select
+              value={filterBeneficiary}
+              onChange={(e) => { setFilterBeneficiary(e.target.value); setCurrentPage(1); }}
+              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate"
+            >
+              <option value="all">Bénéficiaire (Tous)</option>
+              {availableBeneficiaries.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+
+            <div className="hidden sm:block w-px h-4 bg-gray-200 dark:bg-slate-700 mx-1"></div>
+            <select
+              value={filterSeverity}
+              onChange={(e) => { setFilterSeverity(e.target.value); setCurrentPage(1); }}
+              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer"
+            >
+              <option value="all">Sévérité (Toutes)</option>
+              {availableSeverities.map(([id, label]) => (
+                <option key={id} value={id}>{label}</option>
+              ))}
+            </select>
+
+            <div className="hidden sm:block w-px h-4 bg-gray-200 dark:bg-slate-700 mx-1"></div>
+            <select
+              value={filterAssignedTo}
+              onChange={(e) => { setFilterAssignedTo(e.target.value); setCurrentPage(1); }}
+              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate"
+            >
+              <option value="all">Assigné à (Tous)</option>
+              {availableAssignedTo.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
-      <div className="flex gap-2 border-b border-gray-200 dark:border-slate-700">
+      <div className="flex gap-2 border-b border-gray-200 dark:border-slate-700 mt-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.key}
-              onClick={() => { setActiveTab(tab.key); setStatusFilter('open'); setCurrentPage(1); }}
+              onClick={() => { setActiveTab(tab.key); resetFilters(); }}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === tab.key
                 ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
                 : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
@@ -120,31 +265,43 @@ export function MyTasks() {
         })}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {([
-          { key: 'all' as const, label: t('tasks.allTasks'), count: baseTasks.length },
-          { key: 'open' as const, label: t('tasks.openTasks'), count: baseTasks.filter(t => t.status === 'open').length },
-          { key: 'closed' as const, label: t('tasks.closedTasks'), count: baseTasks.filter(t => t.status === 'closed').length },
-        ]).map((f) => (
-          <button
-            key={f.key}
-            onClick={() => { setStatusFilter(f.key); setCurrentPage(1); }}
-            className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition whitespace-nowrap flex-shrink-0 text-sm ${statusFilter === f.key
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700'
-              }`}
-          >
-            {f.label} ({f.count})
-          </button>
-        ))}
-      </div>
-
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
         </div>
       ) : currentTasks.length === 0 ? (
         <EmptyState tab={activeTab} />
+      ) : groupedTasks ? (
+        <div className="space-y-4">
+          {Object.entries(groupedTasks).map(([groupName, groupItems]) => (
+            <div key={groupName} className="border border-gray-200 dark:border-slate-800 rounded-xl bg-gray-50 dark:bg-slate-900/30 overflow-hidden shadow-sm">
+              <button 
+                onClick={() => toggleGroup(groupName)}
+                className="w-full flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800 transition -mb-px"
+              >
+                <div className="flex items-center gap-3">
+                  <h3 className="font-semibold text-gray-900 dark:text-white">{groupName}</h3>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border border-gray-200/50 dark:border-slate-700">
+                    {groupItems.length}
+                  </span>
+                </div>
+                {isGroupExpanded(groupName) ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+              </button>
+              
+              {isGroupExpanded(groupName) && (
+                <div className="p-3.5 pt-4 grid gap-3 border-t border-gray-100 dark:border-slate-800">
+                  {groupItems.map(task => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onNavigate={() => navigate(`/cases/${task.case_id}?task=${task.id}`)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="space-y-3">
           {paginatedTasks.map((task) => (
@@ -158,7 +315,7 @@ export function MyTasks() {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {totalPages > 1 && groupBy === 'none' && (
         <div className="flex items-center justify-between pt-2">
           <span className="text-sm text-gray-500 dark:text-slate-400">
             {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, currentTasks.length)} sur {currentTasks.length}

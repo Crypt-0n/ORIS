@@ -5,11 +5,10 @@ import {
   ListTodo,
   Users,
   Lock,
-  GitBranch,
-  BarChart3,
-  FileBarChart,
   Diamond,
   Pin,
+  Search,
+  BarChart3,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -18,11 +17,9 @@ export type CaseSection =
   | 'closure'
   | 'tasks'
   | 'team'
+  | 'stix_workspace'
   | 'diamond_model'
-  | 'visual_timeline'
-  | 'lateral_movement'
-  | 'attacker_infra'
-  | 'activity_plot'
+  | 'visualizations'
   | 'reports';
 
 interface SidebarGroupDef {
@@ -44,10 +41,9 @@ const CASE_MANAGEMENT_DEF: SidebarGroupDef = {
 const REPORTING_DEF: SidebarGroupDef = {
   labelKey: 'sidebar.reporting',
   items: [
+    { id: 'stix_workspace', labelKey: 'sidebar.stixWorkspace', icon: Search },
     { id: 'diamond_model', labelKey: 'sidebar.diamondModel', icon: Diamond },
-    { id: 'visual_timeline', labelKey: 'sidebar.visualTimeline', icon: GitBranch },
-    { id: 'lateral_movement', labelKey: 'sidebar.lateralMovement', icon: BarChart3 },
-    { id: 'activity_plot', labelKey: 'sidebar.activityPlot', icon: FileBarChart },
+    { id: 'visualizations', labelKey: 'sidebar.visualizations', icon: BarChart3 },
     { id: 'reports', labelKey: 'sidebar.reports', icon: FileText },
   ],
 };
@@ -89,8 +85,8 @@ export function CaseSidebar({ activeSection, onSectionChange, isClosed, showInve
     <aside
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className={`hidden lg:block flex-shrink-0 self-start sticky top-[72px] border-r border-gray-200 dark:border-slate-800 pr-2 transition-all duration-200 ${
-        expanded ? 'w-56' : 'w-14'
+      className={`hidden lg:block flex-shrink-0 self-start sticky top-[72px] bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl py-4 px-2 shadow-sm transition-all duration-200 ${
+        expanded ? 'w-60' : 'w-16'
       }`}
     >
       <div className="max-h-[calc(100vh-80px)] overflow-y-auto">
@@ -125,14 +121,15 @@ export function CaseSidebar({ activeSection, onSectionChange, isClosed, showInve
                     <button
                       key={item.id}
                       onClick={() => onSectionChange(item.id)}
-                      title={!expanded ? t(item.labelKey) : undefined}
+                      title={t(item.labelKey)}
+                      aria-label={t(item.labelKey)}
                       className={`w-full text-left px-3 py-1.5 rounded text-sm transition-colors flex items-center gap-2 whitespace-nowrap overflow-hidden ${
                         isActive
-                          ? 'bg-blue-50 dark:bg-blue-900/25 text-blue-700 dark:text-blue-400 font-medium'
-                          : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800/50'
+                          ? 'bg-slate-100 dark:bg-slate-800 text-gray-900 dark:text-white font-medium ring-1 ring-slate-200 dark:ring-slate-700 shadow-sm'
+                          : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50'
                       }`}
                     >
-                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-blue-600 dark:text-blue-500' : 'opacity-70'}`} aria-hidden="true" />
                       {expanded && <span>{t(item.labelKey)}</span>}
                     </button>
                   );

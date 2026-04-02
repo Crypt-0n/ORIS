@@ -7,22 +7,16 @@ import {
   X,
   ChevronRight,
   ChevronLeft,
-  Save,
   AlertCircle,
   User,
   Server,
   Bug,
   Shield,
-  Plus,
-  Monitor,
-  Globe,
-  KeyRound,
-  DatabaseZap,
   ExternalLink,
-  Skull,
 } from 'lucide-react';
+import { Tooltip } from '../common/Tooltip';
 import { getKillChainLabel } from '../../lib/diamondModelUtils';
-import type { DiamondNode, DiamondAxes } from '../../lib/diamondModelUtils';
+import { DiamondNode, getIsolatedSystems } from '../../lib/diamondModelUtils';
 import type { LinkedObject, LinkedObjectType } from './LinkedObjectTag';
 import { LinkedObjectTag } from './LinkedObjectTag';
 import { ActivityThread } from './ActivityThread';
@@ -33,26 +27,13 @@ import { ActivitySwimlaneView } from './ActivitySwimlaneView';
 import { CorrelationMatrixView } from './CorrelationMatrixView';
 import { DiamondKillChainMatrix } from './DiamondKillChainMatrix';
 import { useTranslation } from "react-i18next";
+import type { StixSDO } from '../../lib/stix.types';
+import { fetchStixObjects } from '../../lib/stixApi';
 
 interface DiamondModelProps {
   caseId: string;
   killChainType: string | null;
   isClosed: boolean;
-}
-
-interface NodeOverride {
-  axes?: DiamondAxes;
-  notes?: string;
-  label?: string;
-}
-
-interface CaseObjects {
-  systems: { id: string; name: string; system_type?: string }[];
-  malware: { id: string; file_name: string }[];
-  accounts: { id: string; account_name: string; domain: string }[];
-  networkIndicators: { id: string; ip: string | null; domain_name: string | null; url: string | null }[];
-  exfiltrations: { id: string; file_name: string | null }[];
-  attackerInfra: { id: string; name: string; infra_type: string }[];
 }
 
 const AXIS_KEYS = [
@@ -62,16 +43,6 @@ const AXIS_KEYS = [
   { key: 'victim' as const, icon: Shield, hexColor: '#22c55e', allowedTypes: ['system', 'account'] as LinkedObjectType[] },
 ];
 
-const CATEGORY_ICONS: Record<string, React.ElementType> = {
-  system: Monitor,
-  malware: Bug,
-  account: KeyRound,
-  network: Globe,
-  exfiltration: DatabaseZap,
-  ttp: Shield,
-  attacker_infra: Skull,
-};
-
 interface TtpOption {
   id: string;
   ttp_id: string;
@@ -80,325 +51,95 @@ interface TtpOption {
   phase_value: string;
 }
 
-function getPickerOptions(axisKey: keyof DiamondAxes, objects: CaseObjects, currentValues: LinkedObject[], availableTtps?: TtpOption[]): LinkedObject[] {
-  const existing = new Set(currentValues.map(v => v.id));
-  const options: LinkedObject[] = [];
-
-  if (axisKey === 'adversary' || axisKey === 'victim') {
-    objects.accounts.forEach(a => {
-      if (!existing.has(a.id)) {
-        const label = a.domain ? `${a.domain}\\${a.account_name}` : a.account_name;
-        options.push({ id: a.id, label, type: 'account' });
-      }
-    });
-  }
-  if (axisKey === 'infrastructure' || axisKey === 'victim') {
-    objects.systems.forEach(s => {
-      if (!existing.has(s.id)) {
-        options.push({ id: s.id, label: s.name, type: 'system' });
-      }
-    });
-  }
-  if (axisKey === 'infrastructure') {
-    objects.networkIndicators.forEach(ni => {
-      if (!existing.has(ni.id)) {
-        const val = ni.ip || ni.domain_name || ni.url || 'Indicateur';
-        options.push({ id: ni.id, label: val, type: 'network' });
-      }
-    });
-    objects.attackerInfra.forEach(ai => {
-      if (!existing.has(ai.id)) {
-        options.push({ id: ai.id, label: ai.name, type: 'attacker_infra' });
-      }
-    });
-  }
-  if (axisKey === 'capability') {
-    objects.malware.forEach(m => {
-      if (!existing.has(m.id)) {
-        options.push({ id: m.id, label: m.file_name, type: 'malware' });
-      }
-    });
-    objects.exfiltrations.forEach(e => {
-      if (!existing.has(e.id)) {
-        options.push({ id: e.id, label: e.file_name || 'Exfiltration', type: 'exfiltration' });
-      }
-    });
-    // TTPs for the current phase
-    if (availableTtps) {
-      availableTtps.forEach(ttp => {
-        const ttpLinkedId = `ttp_${ttp.id}`;
-        if (!existing.has(ttpLinkedId)) {
-          options.push({ id: ttpLinkedId, label: `${ttp.ttp_id} — ${ttp.name}`, type: 'ttp' });
-        }
-      });
-    }
-  }
-
-  return options;
-}
-
-function AxesEditor({
-  axisKey,
-  label,
-  values,
-  onChange,
-  icon: Icon,
-  hexColor,
-  objects,
-  availableTtps,
-}: {
-  axisKey: keyof DiamondAxes;
-  label: string;
-  values: LinkedObject[];
-  onChange: (vals: LinkedObject[]) => void;
-  icon: React.ElementType;
-  hexColor: string;
-  objects: CaseObjects;
-  availableTtps?: TtpOption[];
-}) {
-  const { t } = useTranslation();
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [search, setSearch] = useState('');
-
-  const options = getPickerOptions(axisKey, objects, values, availableTtps).filter(o =>
-    !search || o.label.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const add = (obj: LinkedObject) => {
-    onChange([...values, obj]);
-    setSearch('');
-  };
-
-  const remove = (id: string) => {
-    onChange(values.filter(v => v.id !== id));
-  };
-
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <Icon className="w-3.5 h-3.5" style={{ color: hexColor }} />
-          <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">{label}</span>
-        </div>
-        <button
-          type="button"
-          onClick={() => setPickerOpen(!pickerOpen)}
-          className="flex items-center gap-0.5 text-[10px] text-slate-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition"
-        >
-          <Plus className="w-3 h-3" />
-          {t('auto.ajouter')}</button>
-      </div>
-      <div className="flex flex-wrap gap-1 min-h-[24px]">
-        {values.map((v) => (
-          <LinkedObjectTag key={v.id} object={v} onRemove={remove} />
-        ))}
-        {values.length === 0 && (
-          <span className="text-[10px] text-slate-400 dark:text-slate-600 italic">{t('auto.aucun_objet')}</span>
-        )}
-      </div>
-      {pickerOpen && (
-        <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg overflow-hidden shadow-md">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('auto.rechercher')}
-            className="w-full px-2 py-1 text-[10px] bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-600 text-gray-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none"
-          />
-          <div className="max-h-32 overflow-y-auto">
-            {options.length === 0 ? (
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center py-2 italic">{t('auto.aucun_objet_disponible')}</p>
-            ) : (
-              options.slice(0, 15).map(opt => {
-                const CatIcon = CATEGORY_ICONS[opt.type] || Bug;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => { add(opt); setPickerOpen(false); }}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 text-[10px] text-left hover:bg-gray-50 dark:hover:bg-slate-700 transition"
-                  >
-                    <CatIcon className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                    <span className="text-gray-700 dark:text-slate-200 truncate">{opt.label}</span>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: DiamondModelProps) {
+export function DiamondModel({ caseId, killChainType }: DiamondModelProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [nodes, setNodes] = useState<DiamondNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [overrides, setOverrides] = useState<Record<string, NodeOverride>>({});
-  const [, setNodeOrder] = useState<string[]>([]);
-  const [editingAxes, setEditingAxes] = useState(false);
-  const [editLabel, setEditLabel] = useState('');
-  const [editNotes, setEditNotes] = useState('');
-  const [editAxes, setEditAxes] = useState<DiamondAxes>({ adversary: [], infrastructure: [], capability: [], victim: [] });
-  const [saving, setSaving] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'thread' | 'transition' | 'shared' | 'propagation' | 'swimlane' | 'matrix' | 'killchain'>('thread');
   const [analysisSubTab, setAnalysisSubTab] = useState<'propagation' | 'swimlane' | 'matrix'>('propagation');
-  const [caseObjects, setCaseObjects] = useState<CaseObjects>({ systems: [], malware: [], accounts: [], networkIndicators: [], exfiltrations: [], attackerInfra: [] });
 
   const [phaseTtps, setPhaseTtps] = useState<TtpOption[]>([]);
 
-  const loadOverridesFromDB = useCallback(async (): Promise<Record<string, NodeOverride>> => {
-    try {
-      const data = await api.get(`/investigation/diamond-overrides/by-case/${caseId}`);
-      if (!data) return {};
-
-      const result: Record<string, NodeOverride> = {};
-      for (const row of data) {
-        const parseJson = (val: any) => typeof val === 'string' ? JSON.parse(val) : (val || []);
-        result[row.event_id] = {
-          label: row.label,
-          notes: row.notes,
-          axes: {
-            adversary: parseJson(row.adversary),
-            infrastructure: parseJson(row.infrastructure),
-            capability: parseJson(row.capability),
-            victim: parseJson(row.victim),
-          },
-        };
-      }
-      return result;
-    } catch { return {}; }
-  }, [caseId]);
-
-  const loadNodeOrderFromDB = useCallback(async (): Promise<string[]> => {
-    try {
-      const data = await api.get(`/investigation/diamond-node-order/by-case/${caseId}`);
-      if (data && data.length > 0) {
-        const orderAttr = data[0].node_order;
-        return typeof orderAttr === 'string' ? JSON.parse(orderAttr) : (orderAttr || []);
-      }
-      return [];
-    } catch { return []; }
-  }, [caseId]);
-
-  const saveOverrideToDB = useCallback(async (eventId: string, override: NodeOverride) => {
-    try {
-      const prevOverrides = await api.get(`/investigation/diamond-overrides/by-case/${caseId}`);
-      const existing = (prevOverrides || []).find((o: any) => o.event_id === eventId);
-
-      const payload = {
-        case_id: caseId,
-        event_id: eventId,
-        label: override.label || '',
-        notes: override.notes || '',
-        adversary: JSON.stringify(override.axes?.adversary || []),
-        infrastructure: JSON.stringify(override.axes?.infrastructure || []),
-        capability: JSON.stringify(override.axes?.capability || []),
-        victim: JSON.stringify(override.axes?.victim || [])
-      };
-
-      if (existing) {
-        await api.put(`/investigation/diamond-overrides/${existing.id}`, payload);
-      } else {
-        await api.post('/investigation/diamond-overrides', payload);
-      }
-    } catch (err) { console.error(err); }
-  }, [caseId]);
-
-  const deleteOverrideFromDB = useCallback(async (eventId: string) => {
-    try {
-      const prevOverrides = await api.get(`/investigation/diamond-overrides/by-case/${caseId}`);
-      const existing = (prevOverrides || []).find((o: any) => o.event_id === eventId);
-      if (existing) {
-        await api.delete(`/investigation/diamond-overrides/${existing.id}`);
-      }
-    } catch (err) { console.error(err); }
-  }, [caseId]);
-
-  const saveNodeOrderToDB = useCallback(async (order: string[]) => {
-    try {
-      const prevOrders = await api.get(`/investigation/diamond-node-order/by-case/${caseId}`);
-      const existing = (prevOrders || [])[0];
-      const payload = {
-        case_id: caseId,
-        node_order: JSON.stringify(order)
-      };
-      if (existing) {
-        await api.put(`/investigation/diamond-node-order/${existing.id}`, payload);
-      } else {
-        await api.post('/investigation/diamond-node-order', payload);
-      }
-    } catch (err) { console.error(err); }
-  }, [caseId]);
+  // STIX Workspace Data to properly map Task IDs
+  const [stixObjects, setStixObjects] = useState<StixSDO[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
 
     try {
-      const [diamondRes, bundleRes, savedOverrides, orderArr] = await Promise.all([
+      const [diamondRes, bundleRes] = await Promise.all([
         api.get(`/stix/diamond/${caseId}`),
-        api.get(`/stix/bundle/${caseId}`),
-        loadOverridesFromDB(),
-        loadNodeOrderFromDB(),
+        fetchStixObjects(caseId),
       ]);
 
-      const stixObjects = bundleRes?.objects || [];
-      const systems = stixObjects.filter((o: any) => o.type === 'infrastructure').map((o: any) => ({ id: o.id, name: o.name || 'Unknown Infrastructure' }));
-      const malwares = stixObjects.filter((o: any) => o.type === 'malware').map((o: any) => ({ id: o.id, file_name: o.name || 'Unknown Malware' }));
-      const accounts = stixObjects.filter((o: any) => o.type === 'user-account').map((o: any) => ({ id: o.id, account_name: o.user_id || o.display_name || 'Account', domain: '' }));
-      const networkIndicators = stixObjects.filter((o: any) => o.type === 'indicator').map((o: any) => ({ id: o.id, ip: o.name, domain_name: null, url: null }));
-      const exfiltrations: any[] = []; // Exfiltration is tricky in STIX, keep empty for now
-      const attackerInfra = stixObjects.filter((o: any) => o.type === 'infrastructure' && o.infrastructure_types?.includes('c2')).map((o: any) => ({ id: o.id, name: o.name, infra_type: 'c2' }));
+      const objects = bundleRes || [];
+      setStixObjects(objects);
 
-      setCaseObjects({
-        systems,
-        malware: malwares,
-        accounts,
-        networkIndicators,
-        exfiltrations,
-        attackerInfra,
-      });
+      const stixById: Map<string, any> = new Map(objects.map((o: any) => [o.id, o]));
 
       // Format Diamond Nodes from STIX Diamond endpoint
       import('../../lib/killChainDefinitions').then(({ getKillChainPhase, getKillChainPhases }) => {
         const phases = getKillChainPhases(killChainType);
         const phaseOrder = Object.fromEntries(phases.map((p, i) => [p.value, i]));
 
-        // Transform ArangoDB diamond data into DiamondNode format
         const builtNodes: DiamondNode[] = (diamondRes || []).map((d: any, index: number) => {
           const phase = d.kill_chain ? getKillChainPhase(killChainType, d.kill_chain) : undefined;
-          
-          // Map axes from { id, name, type } to { id, label, type }
+          const stixObj = stixById.get(d.event_stix_id);
+
+          // Read axes dynamically returned by backend STIX graph traversal
+          // Also merge explicitly defined axes from x_oris_diamond_axes (e.g. from DiamondWizard)
+          const getObjType = (type: string, defaultType: LinkedObjectType): LinkedObjectType => {
+            if (type === 'infrastructure' || type === 'indicator') return 'system';
+            if (['user-account', 'threat-actor', 'intrusion-set', 'campaign', 'identity'].includes(type)) return 'account';
+            if (['malware', 'tool', 'attack-pattern'].includes(type)) return 'malware';
+            return defaultType;
+          };
+
           const mapAxis = (items: any[], defaultType: LinkedObjectType): LinkedObject[] => 
             (items || []).map(i => ({ 
               id: i.id, 
-              label: i.name || 'Unknown', 
-              type: (i.type === 'infrastructure' || i.type === 'indicator') ? 'system' : 
-                    (i.type === 'user-account' || i.type === 'threat-actor') ? 'account' : 
-                    (i.type === 'malware' || i.type === 'tool') ? 'malware' : defaultType 
+              label: i.name || i.label || 'Unknown', 
+              type: getObjType(i.type, defaultType)
             }));
+
+          const mapAxisRef = (refs: string[], defaultType: LinkedObjectType): LinkedObject[] => {
+            return (refs || []).map(id => stixById.get(id)).filter(Boolean).map(obj => ({
+              id: obj.id,
+              label: obj.name || obj.type || 'Unknown',
+              type: getObjType(obj.type, defaultType)
+            }));
+          };
+
+          const mergeAxis = (arr1: LinkedObject[], arr2: LinkedObject[]) => {
+            const m = new Map<string, LinkedObject>();
+            [...arr1, ...arr2].forEach(x => m.set(x.id, x));
+            return Array.from(m.values());
+          };
+
+          const explicitAxes = stixObj?.x_oris_diamond_axes || stixObj?._axes || {};
+
+          const axes = {
+            adversary: mergeAxis(mapAxis(d.axes.adversary, 'account'), mapAxisRef(explicitAxes.adversary, 'account')),
+            infrastructure: mergeAxis(mapAxis(d.axes.infrastructure, 'system'), mapAxisRef(explicitAxes.infrastructure, 'system')),
+            capability: mergeAxis(mapAxis(d.axes.capability, 'malware'), mapAxisRef(explicitAxes.capability, 'malware')),
+            victim: mergeAxis(mapAxis(d.axes.victim, 'system'), mapAxisRef(explicitAxes.victim, 'system')),
+          };
 
           return {
             id: d.event_stix_id,
             eventId: d.event_stix_id,
-            taskId: null,
-            label: d.event_name || d.event_description || `Event #${index + 1}`,
+            taskId: stixObj?.x_oris_task_id || null, // Ensure we read task_id if present
+            label: stixObj?.name || stixObj?.x_oris_diamond_label || d.event_name || d.event_description || `Event #${index + 1}`,
             killChainPhase: d.kill_chain || null,
             killChainPhaseLabel: phase?.label || 'Non specifie',
             killChainHexColor: phase?.hexColor || '#64748b',
             eventDatetime: d.event_datetime || null,
-            axes: {
-              adversary: mapAxis(d.axes.adversary, 'account'),
-              infrastructure: mapAxis(d.axes.infrastructure, 'system'),
-              capability: mapAxis(d.axes.capability, 'malware'),
-              victim: mapAxis(d.axes.victim, 'system'),
-            },
+            axes,
             order: index,
-            notes: '',
+            notes: stixObj?.description || '',
           };
         }).sort((a: DiamondNode, b: DiamondNode) => {
           const phaseA = a.killChainPhase ? (phaseOrder[a.killChainPhase] ?? 999) : 999;
@@ -407,123 +148,48 @@ export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: Dia
           return new Date(a.eventDatetime || 0).getTime() - new Date(b.eventDatetime || 0).getTime();
         });
 
-        const applyOverrides = (nodeList: DiamondNode[]) =>
-          nodeList.map((n) => {
-            const ov = savedOverrides[n.id];
-            if (!ov) return n;
-            return {
-              ...n,
-              label: ov.label ?? n.label,
-              notes: ov.notes ?? n.notes,
-              axes: ov.axes ?? n.axes,
-            };
-          });
-
-        let finalNodes = applyOverrides(builtNodes);
-
-        if (orderArr.length > 0) {
-          const indexed = new Map(finalNodes.map((n) => [n.id, n]));
-          const ordered = orderArr.map((id) => indexed.get(id)).filter(Boolean) as DiamondNode[];
-          const rest = finalNodes.filter((n) => !orderArr.includes(n.id));
-          finalNodes = [...ordered, ...rest].map((n, i) => ({ ...n, order: i }));
-        }
-
-        setNodes(finalNodes);
-        setOverrides(savedOverrides);
-        setNodeOrder(orderArr);
+        setNodes(builtNodes);
         setLoading(false);
       });
     } catch (err) {
       console.error(err);
       setLoading(false);
     }
-  }, [caseId, killChainType, loadOverridesFromDB, loadNodeOrderFromDB]);
+  }, [caseId, killChainType]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Fetch TTPs for the kill chain type
+  // Fetch MITRE attack patterns for capability suggestions
   useEffect(() => {
-    if (!killChainType) return;
-    api.get(`/config/ttps?kill_chain_type=${killChainType}`)
-      .then(data => setPhaseTtps(data || []))
+    api.get('/kb/mitre/attack-patterns')
+      .then((data: any[]) => {
+        const mapped = (data || []).map(p => ({
+          id: p.id,
+          ttp_id: p.mitre_id || '',
+          name: p.name,
+          description: p.description || '',
+          phase_value: p.kill_chain_phases?.[0]?.phase_name || '',
+        }));
+        setPhaseTtps(mapped);
+      })
       .catch(() => setPhaseTtps([]));
-  }, [killChainType]);
+  }, []);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || null;
 
   const handleSelectNode = (id: string) => {
     if (selectedNodeId === id) {
       setSelectedNodeId(null);
-      setEditingAxes(false);
       return;
     }
     setSelectedNodeId(id);
-    setEditingAxes(false);
-    const node = nodes.find((n) => n.id === id);
-    if (node) {
-      setEditLabel(node.label);
-      setEditNotes(node.notes || '');
-      setEditAxes({
-        adversary: [...node.axes.adversary],
-        infrastructure: [...node.axes.infrastructure],
-        capability: [...node.axes.capability],
-        victim: [...node.axes.victim],
-      });
-    }
-  };
-
-  const handleSaveEdit = async () => {
-    if (!selectedNode) return;
-    setSaving(true);
-
-    const newOverride: NodeOverride = {
-      label: editLabel,
-      notes: editNotes,
-      axes: { ...editAxes },
-    };
-
-    await saveOverrideToDB(selectedNode.id, newOverride);
-
-    const newOverrides = { ...overrides, [selectedNode.id]: newOverride };
-    setOverrides(newOverrides);
-    setNodes((prev) =>
-      prev.map((n) =>
-        n.id === selectedNode.id
-          ? { ...n, label: editLabel, notes: editNotes, axes: { ...editAxes } }
-          : n
-      )
-    );
-    setEditingAxes(false);
-    setSaving(false);
-  };
-
-  const handleCancelEdit = () => {
-    if (!selectedNode) return;
-    setEditLabel(selectedNode.label);
-    setEditNotes(selectedNode.notes || '');
-    setEditAxes({ ...selectedNode.axes });
-    setEditingAxes(false);
   };
 
   const handleReorder = async (reorderedNodes: DiamondNode[]) => {
     setNodes(reorderedNodes);
-    const newOrder = reorderedNodes.map((n) => n.id);
-    setNodeOrder(newOrder);
-    await saveNodeOrderToDB(newOrder);
   };
-
-  const handleResetNode = async () => {
-    if (!selectedNode) return;
-    await deleteOverrideFromDB(selectedNode.id);
-    const newOverrides = { ...overrides };
-    delete newOverrides[selectedNode.id];
-    setOverrides(newOverrides);
-    fetchData();
-    setEditingAxes(false);
-  };
-
 
   const navigateNode = (direction: 'prev' | 'next') => {
     if (nodes.length === 0) return;
@@ -545,12 +211,22 @@ export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: Dia
     );
   }
 
+  const processedAllSystems = getIsolatedSystems(stixObjects).map((o: any) => ({ 
+    id: String(o.id), 
+    label: String(o.name || o.value || 'Unknown'), 
+    type: (o.type === 'infrastructure' ? 'system' : 'network') as 'system' | 'network' 
+  }));
+
   return (
     <div className="space-y-4">
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Diamond className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('auto.modele_diamant')}</h3>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            {t('auto.modele_diamant')}
+            <Tooltip content="Le Modèle Diamant structure l'analyse d'une menace en reliant 4 piliers fondamentaux autour d'un événement : Adversaire, Capacité, Infrastructure et Victime." position="right" iconSize={16} />
+          </h3>
           {nodes.length > 0 && (
             <span className="text-xs text-slate-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
               {nodes.length} {t('auto.diamant')}{nodes.length > 1 ? 's' : ''}
@@ -626,26 +302,29 @@ export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: Dia
               <Diamond className="w-3 h-3" />
               <span>{t('auto.activity_thread')}{killChainType === 'unified_kill_chain' ? 'Unified Kill Chain' : killChainType === 'mitre_attack' ? 'MITRE ATT&CK' : 'Cyber Kill Chain'}</span>
             </div>
-            <ActivityThread
-              nodes={nodes}
-              selectedNodeId={selectedNodeId}
-              onSelectNode={handleSelectNode}
-              onReorder={handleReorder}
-              killChainType={killChainType}
-            />
+            <div className="flex-1 overflow-auto rounded-lg border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-slate-900 shadow-sm custom-scrollbar">
+              <ActivityThread
+                nodes={nodes}
+                allSystems={processedAllSystems}
+                killChainType={killChainType}
+                selectedNodeId={selectedNodeId}
+                onSelectNode={handleSelectNode}
+                onReorder={handleReorder}
+              />
+            </div>
           </div>
         </div>
       )}
 
       {activeTab === 'transition' && (
         <div className="bg-gray-50 dark:bg-slate-900/80 border border-gray-200 dark:border-slate-700 rounded-xl p-4">
-          <RoleTransitionView nodes={nodes} />
+          <RoleTransitionView nodes={nodes} allSystems={processedAllSystems} />
         </div>
       )}
 
       {activeTab === 'shared' && (
         <div className="bg-gray-50 dark:bg-slate-900/80 border border-gray-200 dark:border-slate-700 rounded-xl p-4">
-          <SharedVertexView nodes={nodes} onSelectNode={(id) => { setActiveTab('thread'); handleSelectNode(id); }} selectedNodeId={selectedNodeId} />
+          <SharedVertexView nodes={nodes} allSystems={processedAllSystems} onSelectNode={(id: string) => { setActiveTab('thread'); handleSelectNode(id); }} selectedNodeId={selectedNodeId} />
         </div>
       )}
 
@@ -657,8 +336,9 @@ export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: Dia
           </div>
           <DiamondKillChainMatrix
             nodes={nodes}
+            allSystems={processedAllSystems}
             killChainType={killChainType}
-            onSelectNode={(id) => { handleSelectNode(id); setActiveTab('thread'); }}
+            onSelectNode={(id: string) => { handleSelectNode(id); setActiveTab('thread'); }}
             selectedNodeId={selectedNodeId}
           />
         </div>
@@ -686,9 +366,14 @@ export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: Dia
           </div>
 
           <div className="bg-gray-50 dark:bg-slate-900/80 border border-gray-200 dark:border-slate-700 rounded-xl p-4">
-            {activeTab === 'propagation' && <PropagationGraphView nodes={nodes} />}
-            {activeTab === 'swimlane' && <ActivitySwimlaneView nodes={nodes} />}
-            {activeTab === 'matrix' && <CorrelationMatrixView nodes={nodes} />}
+            {analysisSubTab === 'propagation' && (
+              <PropagationGraphView
+                nodes={nodes}
+                availableSystems={processedAllSystems}
+              />
+            )}
+            {activeTab === 'swimlane' && <ActivitySwimlaneView nodes={nodes} allSystems={processedAllSystems} />}
+            {activeTab === 'matrix' && <CorrelationMatrixView nodes={nodes} allSystems={processedAllSystems} />}
           </div>
         </div>
       )}
@@ -702,16 +387,7 @@ export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: Dia
             <div className="flex items-center gap-3">
               <div>
                 <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{t('auto.diamant_16')}{nodes.findIndex((n) => n.id === selectedNodeId) + 1}</span>
-                {!editingAxes ? (
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{selectedNode.label}</p>
-                ) : (
-                  <input
-                    type="text"
-                    value={editLabel}
-                    onChange={(e) => setEditLabel(e.target.value)}
-                    className="w-full text-sm font-semibold bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded px-2 py-0.5 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-transparent mt-0.5"
-                  />
-                )}
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{selectedNode.label}</p>
               </div>
               <span
                 className="hidden sm:block text-[10px] px-2 py-0.5 rounded-full text-white font-medium"
@@ -732,50 +408,19 @@ export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: Dia
               </span>
             </div>
             <div className="flex items-center gap-2">
-              {!editingAxes ? (
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setEditingAxes(true)}
-                    className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Modifier les axes
-                  </button>
                   {selectedNode.taskId && (
                     <button
                       onClick={() => navigate(`/cases/${caseId}?tab=tasks&task=${selectedNode.taskId}`)}
-                      className="flex items-center gap-1 px-2 py-1 text-xs text-slate-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded transition font-medium"
                     >
-                      <ExternalLink className="w-3 h-3" />
-                      {t('auto.ouvrir_la_tache')}</button>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Ouvrir la Tâche associée
+                    </button>
                   )}
                 </div>
-              ) : (
-                <>
-                  <button
-                    onClick={handleSaveEdit}
-                    disabled={saving}
-                    className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded transition disabled:opacity-50"
-                  >
-                    <Save className="w-3 h-3" />
-                    {saving ? t('diamond.saving') : t('diamond.save')}
-                  </button>
-                  <button
-                    onClick={handleCancelEdit}
-                    className="flex items-center gap-1 px-2 py-1 text-xs text-slate-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition"
-                  >
-                    <X className="w-3 h-3" />
-                    {t('auto.annuler')}</button>
-                  <button
-                    onClick={handleResetNode}
-                    className="flex items-center gap-1 px-2 py-1 text-xs text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition"
-                  >
-                    <RefreshCw className="w-3 h-3" />
-                    {t('auto.reinitialiser')}</button>
-                </>
-              )}
               <button
-                onClick={() => { setSelectedNodeId(null); setEditingAxes(false); }}
+                onClick={() => setSelectedNodeId(null)}
                 className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition"
               >
                 <X className="w-4 h-4" />
@@ -792,7 +437,7 @@ export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: Dia
                 victim: { label: t('diamond.victim'), desc: t('diamond.victimDesc') },
               };
               const { label, desc } = axisLabels[key] || { label: key, desc: '' };
-              const values = editingAxes ? editAxes[key] : selectedNode.axes[key];
+              const values = selectedNode.axes[key];
               return (
                 <div key={key} className="p-3 space-y-2">
                   <div className="flex items-center gap-1.5">
@@ -807,18 +452,6 @@ export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: Dia
                       <p className="text-[9px] text-slate-400 dark:text-slate-600">{desc}</p>
                     </div>
                   </div>
-                  {editingAxes ? (
-                    <AxesEditor
-                      axisKey={key}
-                      label={label}
-                      values={editAxes[key]}
-                      onChange={(vals) => setEditAxes((prev) => ({ ...prev, [key]: vals }))}
-                      icon={Icon}
-                      hexColor={hexColor}
-                      objects={caseObjects}
-                      availableTtps={key === 'capability' && selectedNode?.killChainPhase ? phaseTtps.filter(t => t.phase_value === selectedNode.killChainPhase) : undefined}
-                    />
-                  ) : (
                     <div className="space-y-1 min-h-[24px]">
                       {values.length === 0 ? (
                         <span className="text-[10px] text-slate-400 dark:text-slate-600 italic">{t('auto.non_renseigne')}</span>
@@ -830,7 +463,6 @@ export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: Dia
                         </div>
                       )}
                     </div>
-                  )}
                 </div>
               );
             })}
@@ -863,15 +495,7 @@ export function DiamondModel({ caseId, killChainType, isClosed: _isClosed }: Dia
               <AlertCircle className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
               <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{t('auto.notes_d_analyse')}</span>
             </div>
-            {editingAxes ? (
-              <textarea
-                value={editNotes}
-                onChange={(e) => setEditNotes(e.target.value)}
-                placeholder={t('auto.observations_hypotheses_ttp_mi_17')}
-                rows={3}
-                className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 resize-none"
-              />
-            ) : selectedNode.notes ? (
+            {selectedNode.notes ? (
               <p className="text-xs text-gray-700 dark:text-slate-300 whitespace-pre-wrap">{selectedNode.notes}</p>
             ) : (
               <p className="text-xs text-slate-400 dark:text-slate-600 italic">{t('auto.aucune_note')}</p>

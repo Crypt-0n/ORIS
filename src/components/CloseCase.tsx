@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { sanitizeHtml } from '../lib/sanitize';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -50,7 +51,7 @@ export function CloseCase({ caseId, initialSummary = '', onClose, onSuccess }: C
             <Lock className="w-6 h-6 text-red-600" />
             <h3 className="text-xl font-bold text-gray-800 dark:text-white">{t('closeCase.title')}</h3>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200">
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -58,7 +59,7 @@ export function CloseCase({ caseId, initialSummary = '', onClose, onSuccess }: C
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
           <p
             className="text-sm text-yellow-800 dark:text-yellow-300"
-            dangerouslySetInnerHTML={{ __html: t('closeCase.warning') }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(t('closeCase.warning')) }}
           />
         </div>
 

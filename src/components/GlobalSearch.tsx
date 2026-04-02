@@ -1,34 +1,27 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, FolderOpen, ClipboardList, Server, Globe, X, Bug, UserX, FileOutput, Skull, MessageSquare, Calendar } from 'lucide-react';
+import { Search, FolderOpen, ClipboardList, X, Database, MessageSquare } from 'lucide-react';
 import { api } from '../lib/api';
 import { useTranslation } from 'react-i18next';
-import { KILL_CHAIN_DEFINITIONS } from '../lib/killChainDefinitions';
 
-// Build a flat map: kill chain value → label across all definitions
-const killChainLabelMap: Record<string, string> = {};
-for (const def of Object.values(KILL_CHAIN_DEFINITIONS)) {
-  for (const phase of def.phases) {
-    if (!killChainLabelMap[phase.value]) killChainLabelMap[phase.value] = phase.label;
-  }
-}
-
-const infraTypeLabels: Record<string, string> = {
-  c2_server: 'Serveur C2', proxy: 'Proxy', vpn: 'VPN', hosting: 'Hébergement',
-  domain: 'Domaine', email: 'Email', cdn: 'CDN', dns: 'DNS', other: 'Autre',
+const STIX_TYPE_LABELS: Record<string, string> = {
+  infrastructure: 'Infrastructure',
+  malware: 'Malware',
+  'user-account': 'Compte',
+  'ipv4-addr': 'IPv4',
+  'domain-name': 'Domaine',
+  url: 'URL',
+  file: 'Fichier',
+  indicator: 'Indicateur',
+  'observed-data': 'Observation',
+  'attack-pattern': 'Technique',
 };
 
 interface SearchResults {
   cases: Array<{ id: string; case_number: string; title: string; status: string; severity?: { label: string; color: string } }>;
   tasks: Array<{ id: string; case_id: string; title: string; status: string; case_number: string; case_title: string }>;
-  systems: Array<{ id: string; case_id: string; name: string; system_type: string; case_number: string }>;
-  indicators: Array<{ id: string; case_id: string; value: string; iocType: string; case_number: string }>;
-  malware: Array<{ id: string; case_id: string; file_name: string; file_path: string; is_malicious: boolean; case_number: string; case_title: string }>;
-  accounts: Array<{ id: string; case_id: string; label: string; privileges: string; case_number: string; case_title: string }>;
-  exfiltrations: Array<{ id: string; case_id: string; file_name: string; file_size: string | null; case_number: string; case_title: string }>;
-  attackerInfra: Array<{ id: string; case_id: string; name: string; infra_type: string; case_number: string; case_title: string }>;
+  stixObjects: Array<{ id: string; case_id: string; stix_type: string; name: string; description: string; case_number: string; case_title: string }>;
   comments: Array<{ id: string; case_id: string; task_id: string; content: string; task_title: string; case_number: string; case_title: string; author_name: string }>;
-  events: Array<{ id: string; case_id: string; description: string; event_datetime: string; kill_chain: string; case_number: string; case_title: string }>;
 }
 
 export function GlobalSearch() {
@@ -44,18 +37,13 @@ export function GlobalSearch() {
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const allItems = results ? [
     ...results.cases.map(c => ({ ...c, type: 'case' as const })),
     ...results.tasks.map(t => ({ ...t, type: 'task' as const })),
-    ...results.systems.map(s => ({ ...s, type: 'system' as const })),
-    ...results.indicators.map(i => ({ ...i, type: 'indicator' as const })),
-    ...(results.malware || []).map(m => ({ ...m, type: 'malware' as const })),
-    ...(results.accounts || []).map(a => ({ ...a, type: 'account' as const })),
-    ...(results.exfiltrations || []).map(e => ({ ...e, type: 'exfiltration' as const })),
-    ...(results.attackerInfra || []).map(ai => ({ ...ai, type: 'attackerInfra' as const })),
+    ...(results.stixObjects || []).map(s => ({ ...s, type: 'stix' as const })),
     ...(results.comments || []).map(cm => ({ ...cm, type: 'comment' as const })),
-    ...(results.events || []).map(ev => ({ ...ev, type: 'event' as const })),
   ] : [];
   const totalResults = allItems.length;
 
@@ -90,20 +78,42 @@ export function GlobalSearch() {
   }, []);
 
   const doSearch = useCallback(async (q: string) => {
-    if (q.trim().length < 2) { setResults({ cases: [], tasks: [], systems: [], indicators: [], malware: [], accounts: [], exfiltrations: [], attackerInfra: [], comments: [], events: [] }); return; }
+    if (q.trim().length < 2) { setResults({ cases: [], tasks: [], stixObjects: [], comments: [] }); return; }
+    
+    // Annuler la requête précédente si elle est toujours en cours
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Créer un nouveau contrôleur pour cette requête
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     try {
-      const data = await api.get(`/search?q=${encodeURIComponent(q.trim())}`);
+      const data = await api.get(`/search?q=${encodeURIComponent(q.trim())}`, { signal: controller.signal });
       setResults(data);
       setSelectedIndex(-1);
-    } catch { setResults({ cases: [], tasks: [], systems: [], indicators: [], malware: [], accounts: [], exfiltrations: [], attackerInfra: [], comments: [], events: [] }); }
-    setLoading(false);
+    } catch (error: any) {
+      // Ignorer l'erreur si la requête a été volontairement annulée (Race condition bloquée)
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+        return;
+      }
+      setResults({ cases: [], tasks: [], stixObjects: [], comments: [] });
+    } finally {
+      if (abortControllerRef.current === controller) {
+        setLoading(false);
+      }
+    }
   }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(query), 250);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    debounceRef.current = setTimeout(() => doSearch(query), 350);
+    return () => { 
+      if (debounceRef.current) clearTimeout(debounceRef.current); 
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
   }, [query, doSearch]);
 
   const closeAll = () => { setIsOpen(false); setMobileOpen(false); setQuery(''); setResults(null); };
@@ -113,7 +123,6 @@ export function GlobalSearch() {
     if (item.type === 'case') navigate(`/cases/${item.id}`);
     else if (item.type === 'task') navigate(`/cases/${(item as any).case_id}?section=tasks&task=${item.id}`);
     else if (item.type === 'comment') navigate(`/cases/${(item as any).case_id}?section=tasks&task=${(item as any).task_id}`);
-    else if (item.type === 'event') navigate(`/cases/${(item as any).case_id}?section=diamond_model`);
     else navigate(`/cases/${(item as any).case_id}`);
   };
 
@@ -168,82 +177,18 @@ export function GlobalSearch() {
                 ))}
               </ResultSection>
             )}
-            {results.systems.length > 0 && (
-              <ResultSection icon={Server} label="Systèmes" color="text-teal-500">
-                {results.systems.map((sys) => (
-                  <ResultItem key={sys.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'system' && a.id === sys.id)} onClick={() => navigateTo({ ...sys, type: 'system' })}>
-                    <div className="min-w-0">
-                      <span className="text-sm text-gray-800 dark:text-white truncate font-medium block">{sys.name}</span>
-                      <span className="text-xs text-gray-500 dark:text-slate-400">{sys.case_number} · {sys.system_type}</span>
-                    </div>
-                  </ResultItem>
-                ))}
-              </ResultSection>
-            )}
-            {results.indicators.length > 0 && (
-              <ResultSection icon={Globe} label="IOCs" color="text-red-500">
-                {results.indicators.map((ioc) => (
-                  <ResultItem key={ioc.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'indicator' && a.id === ioc.id)} onClick={() => navigateTo({ ...ioc, type: 'indicator' })}>
+            {(results.stixObjects || []).length > 0 && (
+              <ResultSection icon={Database} label="Objets STIX" color="text-purple-500">
+                {results.stixObjects.map((obj) => (
+                  <ResultItem key={obj.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'stix' && a.id === obj.id)} onClick={() => navigateTo({ ...obj, type: 'stix' })}>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-mono font-bold">{ioc.iocType}</span>
-                        <span className="text-sm text-gray-800 dark:text-white truncate font-mono">{ioc.value}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-bold">
+                          {STIX_TYPE_LABELS[obj.stix_type] || obj.stix_type}
+                        </span>
+                        <span className="text-sm text-gray-800 dark:text-white truncate font-medium">{obj.name}</span>
                       </div>
-                      <span className="text-xs text-gray-500 dark:text-slate-400">{ioc.case_number}</span>
-                    </div>
-                  </ResultItem>
-                ))}
-              </ResultSection>
-            )}
-            {(results.malware || []).length > 0 && (
-              <ResultSection icon={Bug} label="Malware / Outils" color="text-orange-500">
-                {results.malware.map((mal) => (
-                  <ResultItem key={mal.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'malware' && a.id === mal.id)} onClick={() => navigateTo({ ...mal, type: 'malware' })}>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        {mal.is_malicious && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold">Malveillant</span>}
-                        <span className="text-sm text-gray-800 dark:text-white truncate font-medium">{mal.file_name}</span>
-                      </div>
-                      <span className="text-xs text-gray-500 dark:text-slate-400">{mal.case_number}{mal.file_path ? ` · ${mal.file_path}` : ''}</span>
-                    </div>
-                  </ResultItem>
-                ))}
-              </ResultSection>
-            )}
-            {(results.accounts || []).length > 0 && (
-              <ResultSection icon={UserX} label="Comptes compromis" color="text-purple-500">
-                {results.accounts.map((acc) => (
-                  <ResultItem key={acc.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'account' && a.id === acc.id)} onClick={() => navigateTo({ ...acc, type: 'account' })}>
-                    <div className="min-w-0">
-                      <span className="text-sm text-gray-800 dark:text-white truncate font-medium font-mono block">{acc.label}</span>
-                      <span className="text-xs text-gray-500 dark:text-slate-400">{acc.case_number}{acc.privileges ? ` · ${acc.privileges}` : ''}</span>
-                    </div>
-                  </ResultItem>
-                ))}
-              </ResultSection>
-            )}
-            {(results.exfiltrations || []).length > 0 && (
-              <ResultSection icon={FileOutput} label="Exfiltrations" color="text-yellow-500">
-                {results.exfiltrations.map((exf) => (
-                  <ResultItem key={exf.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'exfiltration' && a.id === exf.id)} onClick={() => navigateTo({ ...exf, type: 'exfiltration' })}>
-                    <div className="min-w-0">
-                      <span className="text-sm text-gray-800 dark:text-white truncate font-medium block">{exf.file_name || 'Exfiltration'}</span>
-                      <span className="text-xs text-gray-500 dark:text-slate-400">{exf.case_number}{exf.file_size ? ` · ${exf.file_size}` : ''}</span>
-                    </div>
-                  </ResultItem>
-                ))}
-              </ResultSection>
-            )}
-            {(results.attackerInfra || []).length > 0 && (
-              <ResultSection icon={Skull} label="Infra. attaquant" color="text-rose-500">
-                {results.attackerInfra.map((ai) => (
-                  <ResultItem key={ai.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'attackerInfra' && a.id === ai.id)} onClick={() => navigateTo({ ...ai, type: 'attackerInfra' })}>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 font-bold">{infraTypeLabels[ai.infra_type] || ai.infra_type}</span>
-                        <span className="text-sm text-gray-800 dark:text-white truncate font-medium">{ai.name}</span>
-                      </div>
-                      <span className="text-xs text-gray-500 dark:text-slate-400">{ai.case_number}</span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">{obj.case_number} — {obj.case_title}</span>
                     </div>
                   </ResultItem>
                 ))}
@@ -256,18 +201,6 @@ export function GlobalSearch() {
                     <div className="min-w-0">
                       <span className="text-sm text-gray-800 dark:text-white truncate block">{cm.content || '...'}</span>
                       <span className="text-xs text-gray-500 dark:text-slate-400">{cm.case_number} · {cm.task_title} · {cm.author_name}</span>
-                    </div>
-                  </ResultItem>
-                ))}
-              </ResultSection>
-            )}
-            {(results.events || []).length > 0 && (
-              <ResultSection icon={Calendar} label="Événements" color="text-indigo-500">
-                {results.events.map((ev) => (
-                  <ResultItem key={ev.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'event' && a.id === ev.id)} onClick={() => navigateTo({ ...ev, type: 'event' })}>
-                    <div className="min-w-0">
-                      <span className="text-sm text-gray-800 dark:text-white truncate block">{ev.description || killChainLabelMap[ev.kill_chain] || ev.kill_chain || '...'}</span>
-                      <span className="text-xs text-gray-500 dark:text-slate-400">{ev.case_number} · {ev.event_datetime}</span>
                     </div>
                   </ResultItem>
                 ))}
@@ -300,13 +233,13 @@ export function GlobalSearch() {
         <div className="lg:hidden fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onClick={closeAll}>
           <div className="p-4 pt-3" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 shadow-xl">
-              <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <Search className="w-4 h-4 text-gray-500 flex-shrink-0" />
               <input ref={mobileInputRef} type="text" value={query}
                 onChange={e => setQuery(e.target.value)} onKeyDown={handleKeyDown}
                 placeholder={`${t('auto.rechercher')}...`}
                 aria-label={t('auto.rechercher')}
                 className="flex-1 bg-transparent text-sm text-gray-700 dark:text-slate-300 placeholder-gray-400 outline-none" autoFocus />
-              <button onClick={closeAll} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+              <button onClick={closeAll} aria-label="Fermer la recherche" className="text-gray-500 hover:text-gray-600"><X className="w-4 h-4" /></button>
             </div>
             {renderResults('mobile')}
           </div>
@@ -328,7 +261,7 @@ export function GlobalSearch() {
             aria-label={t('auto.rechercher')}
             className="flex-1 bg-transparent text-sm text-gray-700 dark:text-slate-300 placeholder-gray-400 outline-none min-w-0" />
           {query && (
-            <button onClick={() => { setQuery(''); setResults(null); }} className="text-gray-400 hover:text-gray-600">
+            <button onClick={() => { setQuery(''); setResults(null); }} aria-label="Effacer la recherche" className="text-gray-500 hover:text-gray-600">
               <X className="w-3.5 h-3.5" />
             </button>
           )}

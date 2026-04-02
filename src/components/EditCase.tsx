@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
-import { X, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { OffCanvas } from './common/OffCanvas';
 import { RichTextEditor } from './RichTextEditor';
 
 interface Severity {
@@ -150,17 +151,13 @@ export function EditCase({ caseId, initialData, onClose, onSuccess }: EditCasePr
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-lg max-w-2xl w-full p-4 sm:p-6 my-8 max-h-[calc(100vh-4rem)] overflow-y-auto shadow dark:shadow-slate-800/50">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{t('editCase.title')}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 transition"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+    <OffCanvas 
+      isOpen={true} 
+      onClose={onClose} 
+      title={t('editCase.title')}
+      width="lg"
+    >
+      <div className="p-6">
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -304,13 +301,13 @@ export function EditCase({ caseId, initialData, onClose, onSuccess }: EditCasePr
             <button
               type="submit"
               disabled={updating}
-              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+              className="flex-1 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition disabled:opacity-50 shadow-sm"
             >
               {updating ? t('editCase.saving') : t('editCase.save')}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </OffCanvas>
   );
 }

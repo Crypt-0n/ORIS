@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 interface ActivitySwimlaneViewProps {
   nodes: DiamondNode[];
+  allSystems?: { id: string; label: string; type: string }[];
 }
 
 interface SystemActivity {
@@ -22,8 +23,12 @@ interface SystemActivity {
 
 const GAP_THRESHOLD_MS = 4 * 60 * 60 * 1000;
 
-function buildSwimlaneSystems(nodes: DiamondNode[]): { systems: SystemActivity[]; globalStart: number; globalEnd: number } {
+function buildSwimlaneSystems(nodes: DiamondNode[], allSystems: { id: string; label: string; type: string }[] = []): { systems: SystemActivity[]; globalStart: number; globalEnd: number } {
   const systemMap = new Map<string, { label: string; events: { datetime: string; label: string; killChainColor: string; killChainPhase: string }[]; hasUnknownSource: boolean }>();
+
+  allSystems.forEach(sys => {
+    systemMap.set(sys.id, { label: sys.label, events: [], hasUnknownSource: false });
+  });
 
   for (const node of nodes) {
     if (!node.eventDatetime) continue;
@@ -73,6 +78,22 @@ function buildSwimlaneSystems(nodes: DiamondNode[]): { systems: SystemActivity[]
 
   systemMap.forEach((entry, systemId) => {
     const sorted = [...entry.events].sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+    
+    if (sorted.length === 0) {
+      systems.push({
+        systemId,
+        systemLabel: entry.label,
+        events: [],
+        segments: [],
+        gaps: [],
+        coveragePercent: 0,
+        firstSeen: '',
+        lastSeen: '',
+        hasUnknownSource: false,
+      });
+      return;
+    }
+
     const timestamps = sorted.map((e) => new Date(e.datetime).getTime());
 
     const firstSeen = sorted[0].datetime;
@@ -234,38 +255,44 @@ function SwimlaneRow({ sys, globalStart, globalEnd }: { sys: SystemActivity; glo
       </div>
 
       <div className="ml-40 flex items-center gap-3 mb-3">
-        <div className="flex-1 flex items-center gap-2 flex-wrap">
-          {sys.gaps.filter(g => g.durationMs > GAP_THRESHOLD_MS).map((gap, i) => (
-            <span
-              key={i}
-              className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded border"
-              style={{
-                backgroundColor: gap.durationMs > 24 * 3600000 ? '#f9731620' : (isDark ? '#64748b20' : '#94a3b820'),
-                borderColor: gap.durationMs > 24 * 3600000 ? '#f9731650' : (isDark ? '#64748b50' : '#94a3b850'),
-                color: gap.durationMs > 24 * 3600000 ? '#fb923c' : (isDark ? '#94a3b8' : '#64748b'),
-              }}
-            >
-              <Clock className="w-2.5 h-2.5" />
-              {t('auto.silence_de')}{formatDuration(gap.durationMs)}
+        {sys.events.length === 0 ? (
+          <span className="text-[10px] text-slate-400 dark:text-slate-500 italic">Aucune activité (0 evt)</span>
+        ) : (
+          <>
+            <div className="flex-1 flex items-center gap-2 flex-wrap">
+              {sys.gaps.filter(g => g.durationMs > GAP_THRESHOLD_MS).map((gap, i) => (
+                <span
+                  key={i}
+                  className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded border"
+                  style={{
+                    backgroundColor: gap.durationMs > 24 * 3600000 ? '#f9731620' : (isDark ? '#64748b20' : '#94a3b820'),
+                    borderColor: gap.durationMs > 24 * 3600000 ? '#f9731650' : (isDark ? '#64748b50' : '#94a3b850'),
+                    color: gap.durationMs > 24 * 3600000 ? '#fb923c' : (isDark ? '#94a3b8' : '#64748b'),
+                  }}
+                >
+                  <Clock className="w-2.5 h-2.5" />
+                  {t('auto.silence_de')}{formatDuration(gap.durationMs)}
+                </span>
+              ))}
+              {sys.hasUnknownSource && (
+                <span className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded border bg-red-900/20 border-red-700/40 text-red-400">
+                  <EyeOff className="w-2.5 h-2.5" />
+                  {t('auto.systeme_source_infrastructure_')}</span>
+              )}
+            </div>
+            <span className="text-[9px] text-slate-400 dark:text-slate-600 flex-shrink-0">
+              {formatDate(sys.firstSeen)} → {formatDate(sys.lastSeen)}
             </span>
-          ))}
-          {sys.hasUnknownSource && (
-            <span className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded border bg-red-900/20 border-red-700/40 text-red-400">
-              <EyeOff className="w-2.5 h-2.5" />
-              {t('auto.systeme_source_infrastructure_')}</span>
-          )}
-        </div>
-        <span className="text-[9px] text-slate-400 dark:text-slate-600 flex-shrink-0">
-          {formatDate(sys.firstSeen)} → {formatDate(sys.lastSeen)}
-        </span>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-export function ActivitySwimlaneView({ nodes }: ActivitySwimlaneViewProps) {
+export function ActivitySwimlaneView({ nodes, allSystems }: ActivitySwimlaneViewProps) {
     const { t } = useTranslation();
-  const { systems, globalStart, globalEnd } = useMemo(() => buildSwimlaneSystems(nodes), [nodes]);
+  const { systems, globalStart, globalEnd } = useMemo(() => buildSwimlaneSystems(nodes, allSystems || []), [nodes, allSystems]);
 
   const unknownSourceCount = systems.filter((s) => s.hasUnknownSource).length;
   const significantGapCount = systems.filter((s) => s.gaps.some((g) => g.durationMs > 24 * 3600000)).length;

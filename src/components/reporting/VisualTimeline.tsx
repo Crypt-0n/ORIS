@@ -20,10 +20,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { getKillChainPhases, KILL_CHAIN_DEFINITIONS, type KillChainPhase } from '../../lib/killChainDefinitions';
 
-interface SystemEntry {
-  id: string;
-  name: string;
-}
+
+
 
 interface TimelineEvent {
   id: string;
@@ -137,7 +135,7 @@ const EVENT_CONFIG: Record<string, {
     dotColor: 'bg-gray-500',
     borderColor: 'border-gray-400 dark:border-gray-500',
     bgColor: 'bg-gray-50 dark:bg-gray-950/30',
-    textColor: 'text-gray-700 dark:text-gray-400',
+    textColor: 'text-gray-700 dark:text-gray-500',
   },
 };
 
@@ -147,7 +145,7 @@ const DEFAULT_CONFIG = {
   dotColor: 'bg-gray-500',
   borderColor: 'border-gray-400 dark:border-gray-500',
   bgColor: 'bg-gray-50 dark:bg-gray-950/30',
-  textColor: 'text-gray-700 dark:text-gray-400',
+  textColor: 'text-gray-700 dark:text-gray-500',
 };
 
 function getConfig(type: string) {
@@ -219,11 +217,7 @@ export function VisualTimeline({ caseId, killChainType, isReportView, endDate }:
 
   const fetchData = async () => {
     try {
-      const [eventsRes, systemsRes, overridesRes] = await Promise.all([
-        api.get(`/investigation/events/by-case/${caseId}`),
-        api.get(`/investigation/systems/by-case/${caseId}`),
-        api.get(`/investigation/diamond-overrides/by-case/${caseId}`),
-      ]);
+      const eventsRes = await api.get(`/investigation/timeline/${caseId}`);
 
       const allEventsRaw = (eventsRes || []);
       const eventsFiltered = endDate
@@ -232,42 +226,22 @@ export function VisualTimeline({ caseId, killChainType, isReportView, endDate }:
             return createdAt <= endDate;
           })
         : allEventsRaw;
-      const events = eventsFiltered.sort((a: any, b: any) => new Date(a.event_datetime).getTime() - new Date(b.event_datetime).getTime());
+      // Normalize: API returns `timestamp` but component expects `event_datetime`
+      const normalized = eventsFiltered.map((e: any) => ({
+        ...e,
+        event_datetime: e.event_datetime || e.timestamp || e.first_observed || new Date().toISOString(),
+      }));
+      const events = normalized.sort((a: any, b: any) => new Date(a.event_datetime).getTime() - new Date(b.event_datetime).getTime());
 
-      const sysMap = new Map<string, string>();
-      (systemsRes || []).forEach((s: SystemEntry) => sysMap.set(s.id, s.name));
-
-      const malwareIds = [...new Set(events.map((e: any) => e.malware_id).filter(Boolean))] as string[];
       const malwareMap = new Map<string, string>();
-      if (malwareIds.length > 0) {
-        const malwareData = await api.get(`/investigation/malware/by-case/${caseId}`);
-        const relevantMalware = (malwareData || []).filter((m: any) => malwareIds.includes(m.id));
-        relevantMalware.forEach((m: any) => malwareMap.set(m.id, m.file_name));
-      }
-
-      const overridesList = overridesRes || [];
-      const overridesMap = new Map<string, any>();
-      overridesList.forEach((ov: any) => overridesMap.set(ov.event_id, ov));
 
       const enriched = events.map((e: any) => {
-        const ov = overridesMap.get(e.id);
-        let srcName: string | null = null;
-        let tgtName: string | null = null;
-        if (ov) {
-          try {
-            const infra = JSON.parse(ov.infrastructure || '[]');
-            const vic = JSON.parse(ov.victim || '[]');
-            if (infra[0]?.type === 'system') srcName = sysMap.get(infra[0].id) || null;
-            if (vic[0]?.type === 'system') tgtName = sysMap.get(vic[0].id) || null;
-          } catch (err) { }
-        }
-
         return {
           ...e,
-          sourceName: srcName,
-          targetName: tgtName,
+          sourceName: null,
+          targetName: null,
           malwareName: e.malware_id ? (malwareMap.get(e.malware_id) || null) : null,
-          diamondNotes: ov?.notes || null,
+          diamondNotes: null,
         };
       });
 
@@ -309,7 +283,7 @@ export function VisualTimeline({ caseId, killChainType, isReportView, endDate }:
   const allEvents = groups.flatMap(g => g.events);
   if (allEvents.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-slate-400">
+      <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-slate-400">
         <Clock className="w-10 h-10 mb-3" />
         <p className="text-sm font-medium mb-1">{t('auto.aucun_evenement')}</p>
         <p className="text-xs">{t('auto.ajoutez_des_evenements_dans_la')}</p>
@@ -519,7 +493,7 @@ function KillChainBar({ events, kcCounts, activePhase, onPhaseClick, phases }: K
                 ? phase.textColor
                 : hasEvents
                   ? 'text-gray-700 dark:text-slate-300'
-                  : 'text-gray-400 dark:text-slate-600'
+                  : 'text-gray-500 dark:text-slate-600'
                 }`}>
                 <span className="hidden sm:inline">{phase.label}</span>
                 <span className="sm:hidden">{phase.shortLabel}</span>

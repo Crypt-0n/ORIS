@@ -52,3 +52,8 @@ lighthouse-audit.*
 
 # Backups
 server/backups/
+
+# E2E Tests
+playwright-report/
+test-results/
+

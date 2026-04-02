@@ -60,11 +60,13 @@ const DOCUMENT_COLLECTIONS = [
     'tasks',
     'task_files',
     'task_results',
-    'case_events',
-    'case_diamond_overrides',
-    'case_diamond_node_order',
-    'case_graph_layouts',
+
     'case_assignments',
+    'case_systems',
+    'case_malware_tools',
+    'case_compromised_accounts',
+    'case_compromised_account_systems',
+    'case_exfiltrations',
     'case_audit_log',
     'user_profiles',
     'beneficiaries',
@@ -75,7 +77,7 @@ const DOCUMENT_COLLECTIONS = [
     'comment_attachments',
     'api_tokens',
     'login_history',
-    'kill_chain_ttps',
+    'kb_stix_objects',
     'webhooks',
     'push_subscriptions',
     'system_config',
@@ -145,10 +147,7 @@ async function initArango() {
     await casesCol.ensureIndex({ type: 'persistent', fields: ['case_number'], unique: true }).catch(() => {});
     await casesCol.ensureIndex({ type: 'persistent', fields: ['beneficiary_id'] }).catch(() => {});
     await casesCol.ensureIndex({ type: 'persistent', fields: ['status'] }).catch(() => {});
-
-    const eventsCol = db.collection('case_events');
-    await eventsCol.ensureIndex({ type: 'persistent', fields: ['case_id'] }).catch(() => {});
-    await eventsCol.ensureIndex({ type: 'persistent', fields: ['task_id'] }).catch(() => {});
+    await casesCol.ensureIndex({ type: 'persistent', fields: ['type'] }).catch(() => {});
 
     const tasksCol = db.collection('tasks');
     await tasksCol.ensureIndex({ type: 'persistent', fields: ['case_id'] }).catch(() => {});
@@ -172,6 +171,9 @@ async function initArango() {
 
     const notifCol = db.collection('notifications');
     await notifCol.ensureIndex({ type: 'persistent', fields: ['user_id'] }).catch(() => {});
+
+    const kbCol = db.collection('kb_stix_objects');
+    await kbCol.ensureIndex({ type: 'persistent', fields: ['type'] }).catch(() => {});
 
     const auditCol = db.collection('case_audit_log');
     await auditCol.ensureIndex({ type: 'persistent', fields: ['case_id'] }).catch(() => {});
@@ -222,83 +224,6 @@ async function seedDefaults(db) {
             await trCol.save(r);
         }
         console.log('[ArangoDB] Seeded default task results');
-    }
-
-    const ttpCol = db.collection('kill_chain_ttps');
-    const ttpCount = await ttpCol.count();
-    if (ttpCount.count === 0) {
-        const defaultTtps = [
-            {
-                _key: 'ttp-t1566',
-                kill_chain_type: 'mitre_attack',
-                phase_value: 'att_initial_access',
-                ttp_id: 'T1566',
-                name: 'Phishing',
-                description: 'Adversaries may send phishing messages to gain access to victim systems.',
-                url: 'https://attack.mitre.org/techniques/T1566/',
-                order: 1,
-                created_at: new Date().toISOString()
-            },
-            {
-                _key: 'ttp-t1059',
-                kill_chain_type: 'mitre_attack',
-                phase_value: 'att_execution',
-                ttp_id: 'T1059',
-                name: 'Command and Scripting Interpreter',
-                description: 'Adversaries may abuse command and script interpreters to execute commands, scripts, or binaries.',
-                url: 'https://attack.mitre.org/techniques/T1059/',
-                order: 2,
-                created_at: new Date().toISOString()
-            },
-            {
-                _key: 'ttp-t1053',
-                kill_chain_type: 'mitre_attack',
-                phase_value: 'att_persistence',
-                ttp_id: 'T1053',
-                name: 'Scheduled Task/Job',
-                description: 'Adversaries may abuse task scheduling functionality to facilitate initial or recurring execution of malicious code.',
-                url: 'https://attack.mitre.org/techniques/T1053/',
-                order: 3,
-                created_at: new Date().toISOString()
-            },
-            {
-                _key: 'ttp-ckc-recon',
-                kill_chain_type: 'cyber_kill_chain',
-                phase_value: 'reconnaissance',
-                ttp_id: 'CKC-01',
-                name: 'Active Scanning',
-                description: 'Scanning infrastructure to find vulnerabilities.',
-                url: '',
-                order: 1,
-                created_at: new Date().toISOString()
-            },
-            {
-                _key: 'ttp-ckc-delivery',
-                kill_chain_type: 'cyber_kill_chain',
-                phase_value: 'delivery',
-                ttp_id: 'CKC-03',
-                name: 'Spearphishing Attachment',
-                description: 'Targeted emails with malicious attachments.',
-                url: '',
-                order: 1,
-                created_at: new Date().toISOString()
-            },
-            {
-                _key: 'ttp-ckc-exploit',
-                kill_chain_type: 'cyber_kill_chain',
-                phase_value: 'exploitation',
-                ttp_id: 'CKC-04',
-                name: 'Exploitation for Client Execution',
-                description: 'Exploiting software vulnerabilities to execute code.',
-                url: '',
-                order: 1,
-                created_at: new Date().toISOString()
-            }
-        ];
-        for (const ttp of defaultTtps) {
-            await ttpCol.save(ttp);
-        }
-        console.log('[ArangoDB] Seeded default TTPs');
     }
 }
 

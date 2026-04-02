@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { sanitizeHtml } from '../../lib/sanitize';
 import { Bot, Send, X, Loader2, Sparkles, Trash2, ChevronDown } from 'lucide-react';
 import { marked } from 'marked';
 
@@ -258,13 +259,13 @@ export function AiChatPanel({ context, onClose }: AiChatPanelProps) {
           {messages.length > 0 && (
             <button
               onClick={() => { setMessages([]); setError(null); }}
-              className="p-1.5 text-gray-400 hover:text-red-500 transition rounded"
+              className="p-1.5 text-gray-500 hover:text-red-500 transition rounded"
               title="Effacer la conversation"
             >
               <Trash2 className="w-4 h-4" />
             </button>
           )}
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-white transition rounded">
+          <button onClick={onClose} className="p-1.5 text-gray-500 hover:text-gray-600 dark:hover:text-white transition rounded">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -304,7 +305,7 @@ export function AiChatPanel({ context, onClose }: AiChatPanelProps) {
                 {msg.content ? (
                   <div
                     className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 prose-pre:my-2 prose-code:text-purple-600 dark:prose-code:text-purple-400 prose-code:before:content-none prose-code:after:content-none"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(msg.content)) }}
                   />
                 ) : streaming && i === messages.length - 1 ? (
                   <Loader2 className="w-4 h-4 animate-spin text-purple-400" />

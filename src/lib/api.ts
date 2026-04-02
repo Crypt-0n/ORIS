@@ -1,29 +1,21 @@
 // src/lib/api.ts
+// Security: session is carried exclusively via HttpOnly cookie (oris_jwt).
+// No token is stored in localStorage to prevent XSS-based session theft.
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 class ApiClient {
-    private token: string | null = null;
-
-    setToken(token: string | null) {
-        this.token = token;
-        if (token) {
-            localStorage.setItem('oris_token', token);
-        } else {
-            localStorage.removeItem('oris_token');
-        }
-    }
-
-    getToken() {
-        if (!this.token) {
-            this.token = localStorage.getItem('oris_token');
-        }
-        return this.token;
+    /**
+     * @deprecated Token is now managed by HttpOnly cookie. This method is kept
+     * only for logout (clearing in-memory state). Never store tokens in localStorage.
+     */
+    setToken(_token: string | null) {
+        // No-op: session is managed by HttpOnly cookie set by the backend.
+        // localStorage is intentionally NOT used to prevent XSS token theft.
     }
 
     async request(endpoint: string, options: RequestInit & { isFormData?: boolean } = {}) {
         const url = `${API_URL}${endpoint}`;
-        const token = this.getToken();
 
         const headers: Record<string, string> = {
             ...(options.headers as Record<string, string> || {}),
@@ -33,12 +25,11 @@ class ApiClient {
             headers['Content-Type'] = 'application/json';
         }
 
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
+        // Authentication is handled by the HttpOnly cookie sent automatically
+        // via credentials: 'include'. No Authorization header needed.
         const response = await fetch(url, {
             ...options,
+            credentials: 'include',
             headers,
         });
 
@@ -55,8 +46,8 @@ class ApiClient {
         return response.json();
     }
 
-    get(endpoint: string) {
-        return this.request(endpoint, { method: 'GET' });
+    get(endpoint: string, options?: RequestInit) {
+        return this.request(endpoint, { method: 'GET', ...options });
     }
 
     post(endpoint: string, data: any) {
@@ -79,6 +70,31 @@ class ApiClient {
 
     delete(endpoint: string) {
         return this.request(endpoint, { method: 'DELETE' });
+    }
+
+    patch(endpoint: string, data: any) {
+        return this.request(endpoint, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async download(endpoint: string) {
+        const url = `${API_URL}${endpoint}`;
+        const headers: Record<string, string> = {};
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            credentials: 'include',
+            headers,
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `API Error: ${response.statusText}`);
+        }
+
+        return response.blob();
     }
 }
 

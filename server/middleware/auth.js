@@ -4,12 +4,19 @@ const { getDb } = require('../db-arango');
 const BaseRepository = require('../repositories/BaseRepository');
 try { require('dotenv').config(); } catch (e) { }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_oris_key';
+const JWT_SECRET = process.env.JWT_SECRET || (() => {
+    if (process.env.NODE_ENV === 'production') {
+        console.error('FATAL: JWT_SECRET environment variable is required in production.');
+        process.exit(1);
+    }
+    return 'dev_secret_oris_key';
+})();
 
 async function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
+    const cookieToken = req.cookies && req.cookies.oris_jwt;
     const isFileRoute = req.path.startsWith('/download') || req.path.startsWith('/api/files');
-    const token = (authHeader && authHeader.split(' ')[1]) || (isFileRoute ? req.query.token : null);
+    const token = cookieToken || (authHeader && authHeader.split(' ')[1]) || (isFileRoute ? req.query.token : null);
 
     if (!token) return res.status(401).json({ error: 'Access token missing or invalid' });
 
@@ -26,7 +33,10 @@ async function authenticateToken(req, res, next) {
             const userRepo = new BaseRepository(getDb(), 'user_profiles');
             const dbUser = await userRepo.findById(decoded.id);
             if (!dbUser || !dbUser.is_active) return res.status(403).json({ error: 'Account disabled' });
-            req.user = decoded;
+            
+            // On injecte les données fraîches de la DB (notamment les rôles à jour)
+            // plutôt que de se fier uniquement au token pour éviter une 2e vérif RBAC
+            req.user = { id: dbUser._key || dbUser.id, email: dbUser.email, role: dbUser.role };
             return next();
         } catch (dbErr) {
             console.error('JWT activity check error:', dbErr);

@@ -173,11 +173,11 @@ export function WebhooksPanel() {
                       {testing === wh.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                     </button>
                     <button onClick={() => toggleWebhook(wh)} title={wh.enabled ? 'Désactiver' : 'Activer'}
-                      className="p-1.5 text-gray-400 hover:text-blue-500 transition">
+                      className="p-1.5 text-gray-500 hover:text-blue-500 transition">
                       {wh.enabled ? <ToggleRight className="w-5 h-5 text-blue-500" /> : <ToggleLeft className="w-5 h-5" />}
                     </button>
                     <button onClick={() => openEdit(wh)} title="Modifier"
-                      className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 transition">
+                      className="p-1.5 text-gray-500 hover:text-gray-600 dark:hover:text-slate-300 transition">
                       <Copy className="w-4 h-4" />
                     </button>
                     <button onClick={() => deleteWebhook(wh.id)} title="Supprimer"

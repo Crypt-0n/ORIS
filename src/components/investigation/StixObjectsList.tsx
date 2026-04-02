@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
-import { Trash2, Shield, Server, User, Bug, Globe, AlertTriangle, Plus } from 'lucide-react';
+import { Trash2, Shield, Server, User, Bug, Globe, AlertTriangle, Plus, Pencil, Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { StixDynamicForm } from './StixDynamicForm';
 
 interface StixObject {
   type: string;
@@ -16,10 +17,10 @@ interface StixObject {
 }
 
 interface StixObjectsListProps {
-  taskId: string;
   caseId: string;
+  taskId?: string;
   isClosed: boolean;
-  onAdd: () => void;
+  onAdd?: () => void;
 }
 
 const TYPE_CONFIG: Record<string, { label: string; icon: typeof Server; color: string; bgColor: string; borderColor: string }> = {
@@ -30,7 +31,7 @@ const TYPE_CONFIG: Record<string, { label: string; icon: typeof Server; color: s
   'ipv4-addr': { label: 'IPv4', icon: Globe, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-900/20', borderColor: 'border-blue-200 dark:border-blue-800' },
   'domain-name': { label: 'Domaine', icon: Globe, color: 'text-indigo-600 dark:text-indigo-400', bgColor: 'bg-indigo-50 dark:bg-indigo-900/20', borderColor: 'border-indigo-200 dark:border-indigo-800' },
   'url': { label: 'URL', icon: Globe, color: 'text-violet-600 dark:text-violet-400', bgColor: 'bg-violet-50 dark:bg-violet-900/20', borderColor: 'border-violet-200 dark:border-violet-800' },
-  'file': { label: 'Fichier', icon: Shield, color: 'text-gray-600 dark:text-gray-400', bgColor: 'bg-gray-50 dark:bg-gray-900/20', borderColor: 'border-gray-200 dark:border-gray-800' },
+  'file': { label: 'Fichier', icon: Shield, color: 'text-gray-600 dark:text-gray-500', bgColor: 'bg-gray-50 dark:bg-gray-900/20', borderColor: 'border-gray-200 dark:border-gray-800' },
 };
 
 // Types to display (skip observed-data and relationship)
@@ -40,20 +41,45 @@ function getObjectLabel(obj: StixObject): string {
   return obj.name || obj.value || obj.display_name || obj.user_id || obj.id;
 }
 
-export function StixObjectsList({ taskId, caseId: _caseId, isClosed, onAdd }: StixObjectsListProps) {
+export function StixObjectsList({ taskId, caseId, isClosed, onAdd }: StixObjectsListProps) {
   const { t } = useTranslation();
   const [objects, setObjects] = useState<StixObject[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [editingObject, setEditingObject] = useState<StixObject | null>(null);
+  const [isCreatingInternal, setIsCreatingInternal] = useState(false);
 
   useEffect(() => {
     fetchObjects();
-  }, [taskId]);
+  }, [taskId, caseId]);
 
   const fetchObjects = async () => {
     try {
-      const data = await api.get(`/investigation/stix/by-task/${taskId}`);
-      setObjects((data || []).filter((o: StixObject) => DISPLAY_TYPES.includes(o.type)));
+      setLoading(true);
+      let fetchedObjects: StixObject[] = [];
+      if (taskId) {
+        const data = await api.get(`/investigation/stix/by-task/${taskId}`);
+        fetchedObjects = (data || []).filter((o: StixObject) => DISPLAY_TYPES.includes(o.type));
+      } else {
+        const bundle: any = await api.get(`/stix/bundle/${caseId}`);
+        const allObjects = bundle?.objects || [];
+        fetchedObjects = allObjects.filter((o: StixObject) => DISPLAY_TYPES.includes(o.type));
+      }
+
+      // Sort by type (custom order based on DISPLAY_TYPES to group identical types together)
+      fetchedObjects.sort((a, b) => {
+        const indexA = DISPLAY_TYPES.indexOf(a.type);
+        const indexB = DISPLAY_TYPES.indexOf(b.type);
+        if (indexA === indexB) {
+          // If same type, sort alphabetically by label
+          const labelA = getObjectLabel(a).toLowerCase();
+          const labelB = getObjectLabel(b).toLowerCase();
+          return labelA.localeCompare(labelB);
+        }
+        return indexA - indexB;
+      });
+
+      setObjects(fetchedObjects);
     } catch (err) {
       console.error(err);
     } finally {
@@ -73,6 +99,37 @@ export function StixObjectsList({ taskId, caseId: _caseId, isClosed, onAdd }: St
     setDeleting(null);
   };
 
+  const handleLaunchAnalysis = async (obj: StixObject) => {
+    try {
+      setLoading(true);
+      const label = getObjectLabel(obj);
+      const titleType = obj.type === 'infrastructure' ? 'Système' 
+                      : obj.type === 'ipv4-addr' ? 'IP' 
+                      : obj.type === 'domain-name' ? 'Domaine' 
+                      : obj.type === 'url' ? 'URL' 
+                      : obj.type === 'user-account' ? 'Compte' 
+                      : obj.type === 'malware' ? 'Malware' : obj.type;
+      
+      const title = `Analyse de ${titleType} : ${label}`;
+      const res = await api.post('/tasks', {
+        case_id: caseId,
+        title,
+        description: `Tâche d'investigation générée automatiquement pour l'objet STIX: ${obj.id}`,
+        is_osint: false
+      });
+      
+      if (res && res.id) {
+        // Link object to task
+        await api.put(`/stix/objects/${obj.id}`, { x_oris_task_id: res.id });
+        // Redirect
+        window.location.hash = `#/cases/${caseId}?task=${res.id}`;
+      }
+    } catch (err) {
+      console.error("Erreur lors du lancement de l'analyse", err);
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return <div className="py-4 text-center text-sm text-gray-500 dark:text-slate-400">{t('auto.chargement')}</div>;
   }
@@ -89,9 +146,9 @@ export function StixObjectsList({ taskId, caseId: _caseId, isClosed, onAdd }: St
             {objects.length}
           </span>
         </div>
-        {!isClosed && (
+        {(!isClosed && !!taskId) && (
           <button
-            onClick={onAdd}
+            onClick={onAdd || (() => setIsCreatingInternal(true))}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -104,9 +161,9 @@ export function StixObjectsList({ taskId, caseId: _caseId, isClosed, onAdd }: St
         <div className="text-center py-8 text-gray-500 dark:text-slate-400">
           <Shield className="w-8 h-8 mx-auto mb-2 opacity-30" />
           <p className="text-sm">{t('auto.aucun_element_technique', 'Aucun élément technique')}</p>
-          {!isClosed && (
+          {(!isClosed && !!taskId) && (
             <button
-              onClick={onAdd}
+              onClick={onAdd || (() => setIsCreatingInternal(true))}
               className="mt-3 text-sm text-purple-600 dark:text-purple-400 hover:underline"
             >
               + {t('auto.ajouter_premier_element', 'Ajouter un premier élément')}
@@ -142,19 +199,72 @@ export function StixObjectsList({ taskId, caseId: _caseId, isClosed, onAdd }: St
                   )}
                 </div>
                 {!isClosed && (
-                  <button
-                    onClick={() => handleDelete(obj.id)}
-                    disabled={deleting === obj.id}
-                    className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 flex-shrink-0"
-                    title={t('auto.supprimer')}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => setEditingObject(obj)}
+                      className="p-1.5 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50"
+                      title={t('auto.modifier', 'Modifier')}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    {!taskId && !obj.x_oris_task_id && (
+                      <button
+                        onClick={() => handleLaunchAnalysis(obj)}
+                        className="p-1.5 text-blue-600 hover:text-white dark:text-blue-400 dark:hover:text-white transition rounded-lg hover:bg-blue-600 border border-blue-200 dark:border-blue-800 ml-1 flex items-center gap-1"
+                        title={t('auto.creer_tache', "Créer une tâche d'analyse pour cet élément")}
+                      >
+                        <Play className="w-3 h-3 fill-current" />
+                        <span className="text-[10px] uppercase font-bold tracking-wider">{t('auto.analyser', 'Analyser')}</span>
+                      </button>
+                    )}
+                    {!taskId && obj.x_oris_task_id && (
+                      <a
+                        href={`/cases/${caseId}?section=tasks&task=${obj.x_oris_task_id}`}
+                        className="p-1.5 text-emerald-600 hover:text-white dark:text-emerald-400 dark:hover:text-white transition rounded-lg hover:bg-emerald-600 border border-emerald-200 dark:border-emerald-800 ml-1 flex items-center gap-1"
+                        title={t('auto.voir_tache', "Voir l'investigation associée")}
+                      >
+                        <span className="text-[10px] uppercase font-bold tracking-wider">{t('auto.voir_tache', 'Voir la tâche')}</span>
+                      </a>
+                    )}
+                    <button
+                      onClick={() => handleDelete(obj.id)}
+                      disabled={deleting === obj.id}
+                      className="p-1.5 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
+                      title={t('auto.supprimer')}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 )}
               </div>
             );
           })}
         </div>
+      )}
+
+      {editingObject && (
+        <StixDynamicForm
+          caseId={caseId}
+          taskId={taskId}
+          initialData={editingObject}
+          onClose={() => setEditingObject(null)}
+          onCreated={() => {
+            setEditingObject(null);
+            fetchObjects();
+          }}
+        />
+      )}
+
+      {isCreatingInternal && (
+        <StixDynamicForm
+          caseId={caseId}
+          taskId={taskId}
+          onClose={() => setIsCreatingInternal(false)}
+          onCreated={() => {
+            setIsCreatingInternal(false);
+            fetchObjects();
+          }}
+        />
       )}
     </div>
   );

@@ -9,6 +9,8 @@ import { AppLayout } from './components/layout/AppLayout';
 import { LockScreen } from './components/LockScreen';
 import { api } from './lib/api';
 import { useTranslation } from "react-i18next";
+import { AnimatePresence } from 'framer-motion';
+import { AnimatedPage } from './components/common/AnimatedPage';
 
 // Lazy-loaded pages for code-splitting (reduces initial bundle)
 const AdminPanel = lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
@@ -21,6 +23,7 @@ const AlertsList = lazy(() => import('./components/AlertsList').then(m => ({ def
 const About = lazy(() => import('./components/About').then(m => ({ default: m.About })));
 const ApiDocs = lazy(() => import('./components/ApiDocs').then(m => ({ default: m.ApiDocs })));
 const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const PrintView = lazy(() => import('./components/reporting/PrintView').then(m => ({ default: m.PrintView })));
 
 const ROUTE_STORAGE_KEY = 'oris_last_path';
 
@@ -60,9 +63,9 @@ function CaseDetailsRoute() {
 function PageWrapper({ children }: { children: React.ReactNode }) {
 
   return (
-    <div className="mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-4 sm:py-6 lg:py-8">
+    <AnimatedPage className="mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-4 sm:py-6 lg:py-8">
       {children}
-    </div>
+    </AnimatedPage>
   );
 }
 
@@ -83,10 +86,14 @@ function AlertsListRoute() {
         <CreateCase
           type="alert"
           onClose={() => setShowCreateAlert(false)}
-          onSuccess={() => {
+          onSuccess={(newId) => {
             setShowCreateAlert(false);
-            setRefreshKey(k => k + 1);
-            navigate('/alerts');
+            if (newId) {
+              navigate(`/alerts/${newId}`);
+            } else {
+              setRefreshKey(k => k + 1);
+              navigate('/alerts');
+            }
           }}
         />
       )}
@@ -120,10 +127,14 @@ function CasesListRoute() {
       {showCreateCase && (
         <CreateCase
           onClose={() => setShowCreateCase(false)}
-          onSuccess={() => {
+          onSuccess={(newId) => {
             setShowCreateCase(false);
-            setRefreshKey(k => k + 1);
-            navigate('/');
+            if (newId) {
+              navigate(`/cases/${newId}`);
+            } else {
+              setRefreshKey(k => k + 1);
+              navigate('/');
+            }
           }}
         />
       )}
@@ -184,6 +195,7 @@ function useInactivityLock() {
 
 function AppContent() {
   const { t } = useTranslation();
+  const location = useLocation();
 
   const { user, profile, loading, isLocked, hasRole } = useAuth();
   const [initComplete, setInitComplete] = useState<boolean | null>(null);
@@ -272,21 +284,23 @@ function AppContent() {
             </div>
           }>
             <RouteRestorer>
-              <Routes>
-                <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
-                <Route path="/cases" element={<CasesListRoute />} />
-                <Route path="/cases/:caseId" element={<CaseDetailsRoute />} />
-                <Route path="/alerts" element={<AlertsListRoute />} />
-                <Route path="/alerts/:caseId" element={<AlertDetailsRoute />} />
-                <Route path="/tasks" element={<PageWrapper><MyTasks /></PageWrapper>} />
-                <Route path="/profile" element={<PageWrapper><UserProfile /></PageWrapper>} />
-                {isAdmin && (
-                  <Route path="/admin" element={<PageWrapper><AdminPanel /></PageWrapper>} />
-                )}
-                <Route path="/about" element={<PageWrapper><About /></PageWrapper>} />
-                <Route path="/api-docs" element={<PageWrapper><ApiDocs /></PageWrapper>} />
-                <Route path="*" element={<Navigate to="/" />} />
-              </Routes>
+              <AnimatePresence mode="wait">
+                <Routes location={location} key={location.pathname}>
+                  <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
+                  <Route path="/cases" element={<CasesListRoute />} />
+                  <Route path="/cases/:caseId" element={<AnimatedPage><CaseDetailsRoute /></AnimatedPage>} />
+                  <Route path="/alerts" element={<AlertsListRoute />} />
+                  <Route path="/alerts/:caseId" element={<AnimatedPage><AlertDetailsRoute /></AnimatedPage>} />
+                  <Route path="/tasks" element={<PageWrapper><MyTasks /></PageWrapper>} />
+                  <Route path="/profile" element={<PageWrapper><UserProfile /></PageWrapper>} />
+                  {isAdmin && (
+                    <Route path="/admin" element={<PageWrapper><AdminPanel /></PageWrapper>} />
+                  )}
+                  <Route path="/about" element={<PageWrapper><About /></PageWrapper>} />
+                  <Route path="/api-docs" element={<PageWrapper><ApiDocs /></PageWrapper>} />
+                  <Route path="*" element={<Navigate to="/" />} />
+                </Routes>
+              </AnimatePresence>
             </RouteRestorer>
           </Suspense>
         </AppLayout>
@@ -296,12 +310,19 @@ function AppContent() {
 }
 
 function App() {
-
   return (
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <AppContent />
+          <Routes>
+            {/* The Print Layout shouldn't have headers, sidebar menus or global AppLayout */}
+            <Route path="/print/case/:caseId" element={
+              <Suspense fallback={<div>Loading PDF view...</div>}>
+                <PrintView />
+              </Suspense>
+            } />
+            <Route path="/*" element={<AppContent />} />
+          </Routes>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

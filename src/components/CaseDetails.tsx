@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
+import { sanitizeHtml } from '../lib/sanitize';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserTrigram } from '../lib/userUtils';
 import { ActiveUsers } from './ActiveUsers';
+import { Skeleton } from './common/Skeleton';
 import {
   ArrowLeft,
   Users,
@@ -22,33 +24,27 @@ import {
   AlertTriangle,
   Bot,
   Download,
+  FolderOpen,
+  ClipboardList,
 } from 'lucide-react';
 import { TasksList } from './TasksList';
 import { TaskDetails } from './TaskDetails';
 import { CloseCase } from './CloseCase';
 import { EditCase } from './EditCase';
-import { CaseAuditLog } from './CaseAuditLog';
-import { InvestigationRecommendations } from './investigation/InvestigationRecommendations';
-import { LateralMovementGraph } from './reporting/LateralMovementGraph';
-import { ChronologicalTreeView } from './reporting/ChronologicalTreeView';
-import { VisualTimeline } from './reporting/VisualTimeline';
-import { ActivityPlot } from './reporting/ActivityPlot';
-import { CaseReport } from './reporting/CaseReport';
-import { DiamondModel } from './investigation/DiamondModel';
+import { Breadcrumbs, BreadcrumbItem } from './common/Breadcrumbs';
+import { CaseOnboarding } from './investigation/CaseOnboarding';
 import { CaseSidebar, CaseSectionSelect, type CaseSection } from './CaseSidebar';
 import { AiChatPanel } from './investigation/AiChatPanel';
-import { useTranslation } from "react-i18next";
+import { lazy, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
+const StixWorkspace = lazy(() => import('./investigation/StixWorkspace').then(m => ({ default: m.StixWorkspace })));
+const VisualizationsView = lazy(() => import('./investigation/VisualizationsView').then(m => ({ default: m.VisualizationsView })));
+const CaseReport = lazy(() => import('./reporting/CaseReport').then(m => ({ default: m.CaseReport })));
+const DiamondModel = lazy(() => import('./investigation/DiamondModel').then(m => ({ default: m.DiamondModel })));
+const InvestigationRecommendations = lazy(() => import('./investigation/InvestigationRecommendations').then(m => ({ default: m.InvestigationRecommendations })));
+const CaseAuditLog = lazy(() => import('./CaseAuditLog').then(m => ({ default: m.CaseAuditLog })));
 
-/** Darken a hex color for WCAG-compliant text contrast on light backgrounds */
-function darkenColor(hex: string, factor = 0.65): string {
-  try {
-    const c = hex.replace('#', '');
-    const r = Math.round(parseInt(c.substring(0, 2), 16) * factor);
-    const g = Math.round(parseInt(c.substring(2, 4), 16) * factor);
-    const b = Math.round(parseInt(c.substring(4, 6), 16) * factor);
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-  } catch { return hex; }
-}
+
 
 interface CaseDetailsData {
   id: string;
@@ -103,12 +99,12 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
   const [isAssignedToCase, setIsAssignedToCase] = useState(false);
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
   const [showAiChat, setShowAiChat] = useState(false);
-  const [lateralTab, setLateralTab] = useState<'force' | 'chronological'>('force');
+
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiCaseContext, setAiCaseContext] = useState<any>(null);
   const [activeSection, setActiveSectionRaw] = useState<CaseSection>(() => {
     const param = searchParams.get('section');
-    const valid: string[] = ['description', 'closure', 'tasks', 'team', 'diamond_model', 'visual_timeline', 'lateral_movement', 'attacker_infra', 'activity_plot', 'reports'];
+    const valid: string[] = ['description', 'closure', 'tasks', 'team', 'stix_workspace', 'diamond_model', 'visualizations', 'reports'];
     if (param && valid.includes(param)) return param as CaseSection;
     return 'description';
   });
@@ -133,6 +129,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
   const showReporting = !isAlert;
 
   const selectedTaskId = searchParams.get('task');
+  const [activeTaskTitle, setActiveTaskTitle] = useState('');
 
   useEffect(() => {
     if (selectedTaskId) {
@@ -148,7 +145,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
   const fetchAiCaseContext = useCallback(async () => {
     try {
       const [events, stixObjects] = await Promise.all([
-        api.get(`/investigation/events/by-case/${caseId}`).catch(() => []),
+        api.get(`/investigation/timeline/${caseId}`).catch(() => []),
         api.get(`/investigation/stix/by-case/${caseId}`).catch(() => []),
       ]);
       const evts = Array.isArray(events) ? events : [];
@@ -157,10 +154,10 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
         caseTitle: caseData?.title || '',
         taskTitle: '',
         events: evts.map((e: any) => ({ description: e.notes || e.description || '', event_datetime: e.event_datetime, kill_chain: e.kill_chain })),
-        systems: stix.filter((o: any) => o.type === 'infrastructure').map((s: any) => ({ name: s.name })),
-        malware: stix.filter((o: any) => o.type === 'malware').map((m: any) => ({ file_name: m.name, description: m.description })),
-        accounts: stix.filter((o: any) => o.type === 'user-account').map((a: any) => ({ account_name: a.user_id || a.display_name })),
-        indicators: stix.filter((o: any) => ['ipv4-addr', 'domain-name', 'url'].includes(o.type)).map((i: any) => ({ value: i.value, type: i.type })),
+        systems: stix.filter((o: any) => o && o.type === 'infrastructure').map((s: any) => ({ name: s.name })),
+        malware: stix.filter((o: any) => o && o.type === 'malware').map((m: any) => ({ file_name: m.name, description: m.description })),
+        accounts: stix.filter((o: any) => o && o.type === 'user-account').map((a: any) => ({ account_name: a.user_id || a.display_name })),
+        indicators: stix.filter((o: any) => o && ['ipv4-addr', 'domain-name', 'url'].includes(o.type)).map((i: any) => ({ value: i.value, type: i.type })),
         exfiltrations: [],
         diamondNodes: [],
       });
@@ -213,7 +210,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
 
   useEffect(() => {
     fetchCaseDetails();
-    fetchTeamMembers();
+    // Team members are now extracted from the same fetch in fetchCaseDetails (PERF-01)
   }, [caseId]);
 
   useEffect(() => {
@@ -227,6 +224,12 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
     try {
       const data = await api.get(`/cases/${caseId}`);
       setCaseData(data as unknown as CaseDetailsData);
+      // PERF-01: Reuse the same response for team members instead of a second fetch
+      if (data && data.case_assignments) {
+        setTeamMembers(data.case_assignments as unknown as TeamMember[]);
+        const isAssigned = data.case_assignments.some((member: any) => member.user_id === user?.id || member.user?.id === user?.id) || false;
+        setIsAssignedToCase(isAssigned);
+      }
     } catch (error) {
       console.error('Erreur:', error);
     }
@@ -234,6 +237,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
   };
 
   const fetchTeamMembers = async () => {
+    // Lightweight refresh: re-fetch case data to update team only
     try {
       const data = await api.get(`/cases/${caseId}`);
       if (data && data.case_assignments) {
@@ -314,8 +318,27 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
 
   if (loading || !caseData) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-slate-400">{t('auto.chargement')}</div>
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-3 sm:py-6">
+        <div className="mb-6 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm">
+          <Skeleton type="text" className="w-32 mb-4" />
+          <div className="flex items-center gap-3 mb-2">
+            <Skeleton type="text" className="w-16 h-6" />
+          </div>
+          <Skeleton type="title" className="w-3/4 mb-3" />
+          <div className="flex gap-2">
+            <Skeleton type="text" className="w-24 h-6 rounded-full" />
+            <Skeleton type="text" className="w-32 h-6 rounded-full" />
+            <Skeleton type="text" className="w-20 h-6 rounded-full" />
+          </div>
+        </div>
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="w-full lg:w-64 flex-shrink-0">
+            <Skeleton type="card" className="h-[400px]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <Skeleton type="card" className="h-[600px]" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -428,67 +451,18 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
             <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">{t('auto.description')}</h3>
               <div
-                className="text-gray-700 dark:text-slate-300 rich-text-content"
-                dangerouslySetInnerHTML={{ __html: caseData.description }}
+                className="text-gray-700 dark:text-slate-300 rich-text-content max-w-4xl"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(caseData.description) }}
               />
             </div>
+            
             {!isClosed && !isReadOnly && (
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                {canManageCase && (
-                  <button
-                    onClick={() => setShowEditCase(true)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 w-full sm:w-auto"
-                  >
-                    <Edit className="w-4 h-4" />
-                    {t('auto.modifier')}</button>
-                )}
-                {isAuthor && (
-                  <button
-                    onClick={() => setShowCloseCase(true)}
-                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2 w-full sm:w-auto"
-                  >
-                    <Lock className="w-4 h-4" />
-                    {t('auto.cloturer_le_case')}</button>
-                )}
-                <button
-                  onClick={handleExportStix}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2 w-full sm:w-auto"
-                  title="Exporter au format STIX 2.1 Bundle"
-                >
-                  <Download className="w-4 h-4" />
-                  Export STIX 2.1
-                </button>
-                {isAlert && !isClosed && canManageCase && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        await api.post(`/cases/${caseId}/convert`, {});
-                        fetchCaseDetails();
-                      } catch (error) {
-                        console.error(error);
-                      }
-                    }}
-                    className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition flex items-center justify-center gap-2 w-full sm:w-auto"
-                  >
-                    <ArrowRightLeft className="w-4 h-4" />
-                    Convertir en dossier
-                  </button>
-                )}
-              </div>
-            )}
-            {isClosed && isAdmin && (
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                <button
-                  onClick={() => setShowReopenCase(true)}
-                  className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition flex items-center justify-center gap-2 w-full sm:w-auto"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  {t('auto.reouvrir_le_case')}</button>
-              </div>
+              <CaseOnboarding caseId={caseId} onNavigate={setActiveSection} />
             )}
             {!isClosed && !isReadOnly && (
               <InvestigationRecommendations
                 caseId={caseId}
+                onNavigateToStixWorkspace={() => setActiveSection('stix_workspace')}
               />
             )}
             <div className="mt-6">
@@ -506,7 +480,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
             </div>
             <div
               className="mb-3 text-gray-700 dark:text-slate-300 rich-text-content"
-              dangerouslySetInnerHTML={{ __html: caseData.closure_summary }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(caseData.closure_summary) }}
             />
             <p className="text-sm text-gray-500 dark:text-slate-400">
               {t('auto.cloture_le')}{new Date(caseData.closed_at!).toLocaleDateString('fr-FR')}
@@ -533,6 +507,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
                 isClosed={effectivelyClosed}
                 onBack={() => { const p = new URLSearchParams(searchParams); p.delete('task'); p.delete('tab'); setSearchParams(p); }}
                 onDelete={() => { const p = new URLSearchParams(searchParams); p.delete('task'); p.delete('tab'); setSearchParams(p); }}
+                onTaskLoad={(task) => setActiveTaskTitle(task.title)}
               />
             )}
           </div>
@@ -543,60 +518,30 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
 
 
 
-      case 'visual_timeline':
+      case 'stix_workspace':
         return (
-          <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800">
-            <VisualTimeline caseId={caseId} killChainType={caseData.kill_chain_type ?? null} />
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800 min-h-[600px]">
+            <Suspense fallback={<Skeleton className="w-full h-[600px] rounded-lg" />}>
+              <StixWorkspace caseId={caseId} isClosed={effectivelyClosed} />
+            </Suspense>
           </div>
         );
 
-      case 'lateral_movement':
+      case 'visualizations':
         return (
-          <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border border-transparent dark:border-slate-800">
-            <div className="flex border-b border-gray-200 dark:border-slate-700 px-6 pt-2">
-              <button
-                onClick={() => setLateralTab('force')}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${lateralTab === 'force' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'}`}
-              >
-                {t('auto.graphe_reseau') || 'Graphe réseau'}
-              </button>
-              <button
-                onClick={() => setLateralTab('chronological')}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${lateralTab === 'chronological' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'}`}
-              >
-                {t('auto.vue_chronologique') || 'Vue chronologique'}
-              </button>
-            </div>
-            <div className={lateralTab === 'chronological' ? 'p-0' : 'p-6'}>
-              {lateralTab === 'chronological' ? (
-                <ChronologicalTreeView caseId={caseId} />
-              ) : (
-                <LateralMovementGraph caseId={caseId} layoutMode="force" />
-              )}
-            </div>
-          </div>
-        );
-
-      case 'attacker_infra':
-        return (
-          <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800">
-            <p className="text-sm text-gray-500 dark:text-slate-400">
-              {t('auto.section_migree_stix', 'L\'infrastructure est désormais gérée via les éléments techniques STIX dans chaque tâche.')}
-            </p>
-          </div>
-        );
-
-      case 'activity_plot':
-        return (
-          <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800">
-            <ActivityPlot caseId={caseId} />
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800 min-h-[600px]">
+            <Suspense fallback={<Skeleton className="w-full h-[600px] rounded-lg" />}>
+              <VisualizationsView caseId={caseId} killChainType={caseData.kill_chain_type ?? null} />
+            </Suspense>
           </div>
         );
 
       case 'reports':
         return (
-          <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800">
-            <CaseReport key={reportKey} caseId={caseId} />
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800 min-h-[600px]">
+            <Suspense fallback={<Skeleton className="w-full h-[600px] rounded-lg" />}>
+              <CaseReport key={reportKey} caseId={caseId} />
+            </Suspense>
           </div>
         );
 
@@ -604,43 +549,78 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
 
       case 'diamond_model':
         return (
-          <div className="bg-white dark:bg-slate-950 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-gray-200 dark:border-slate-800">
-            <DiamondModel
-              caseId={caseId}
-              killChainType={caseData.kill_chain_type ?? null}
-              isClosed={effectivelyClosed}
-            />
+          <div className="bg-white dark:bg-slate-950 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-gray-200 dark:border-slate-800 min-h-[300px]">
+            <Suspense fallback={<Skeleton className="w-full h-[300px] rounded-lg" />}>
+              <DiamondModel
+                caseId={caseId}
+                killChainType={caseData.kill_chain_type ?? null}
+                isClosed={effectivelyClosed}
+              />
+            </Suspense>
           </div>
         );
 
 
 
-      default: {
-        const placeholderLabels: Record<string, string> = {
-          visual_timeline: 'Timeline visuelle',
-          lateral_movement: 'Mouvement lateral',
-          activity_plot: 'Graphe d\'activite',
-        };
-        const label = placeholderLabels[activeSection] || activeSection;
+      default:
         return (
           <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800">
-            <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-gray-400 dark:text-slate-400">
+            <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-gray-500 dark:text-slate-400">
               <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center mb-3">
                 <Monitor className="w-7 h-7" />
               </div>
-              <p className="text-base font-medium mb-1">{label}</p>
+              <p className="text-base font-medium mb-1">{activeSection}</p>
               <p className="text-sm">{t('auto.cette_section_sera_disponible_')}</p>
             </div>
           </div>
         );
-      }
     }
   };
 
+  const caseBaseUrl = `/cases/${caseId}`;
+  
+  const breadcrumbsItems: BreadcrumbItem[] = [
+    { label: t('nav.cases', 'Dossiers'), path: '/cases', icon: FolderOpen }
+  ];
+
+  if (caseData) {
+    breadcrumbsItems.push({
+      label: caseData.title || caseData.case_number,
+      path: activeSection === 'description' && !selectedTaskId ? undefined : caseBaseUrl,
+      icon: isAlert ? AlertTriangle : FolderOpen
+    });
+
+    if (activeSection !== 'description') {
+      const SECTION_LABELS: Record<CaseSection, string> = {
+        description: t('auto.resume'),
+        closure: t('auto.synthese_de_cloture'),
+        team: t('auto.equipe'),
+        tasks: t('nav.tasks'),
+        stix_workspace: t('stixWorkspace.title', 'Objets d\'investigation'),
+        diamond_model: t('auto.modele_diamond'),
+        visualizations: t('auto.visualisations'),
+        reports: t('auto.rapports')
+      };
+      
+      breadcrumbsItems.push({
+        label: SECTION_LABELS[activeSection] || activeSection,
+        path: selectedTaskId ? `${caseBaseUrl}?section=${activeSection}` : undefined
+      });
+    }
+
+    if (selectedTaskId && activeSection === 'tasks') {
+      breadcrumbsItems.push({
+        label: activeTaskTitle || t('auto.chargement', 'Chargement...'),
+        icon: ClipboardList
+      });
+    }
+  }
+
   return (
-    <div className="mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-4 sm:py-6">
-      <div className="mb-4 sm:mb-6">
-        <div className="flex items-center gap-4">
+    <div className="mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-3 sm:py-6">
+      <div className="mb-6 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm">
+        <Breadcrumbs items={breadcrumbsItems} className="mb-4" />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <button
             onClick={onBack}
             className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition flex-shrink-0 text-gray-600 dark:text-slate-400"
@@ -676,7 +656,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
                 <>
                   <span
                     className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 flex-shrink-0"
-                    style={{ backgroundColor: `${caseData.severity.color}20`, color: darkenColor(caseData.severity.color) }}
+                    style={{ backgroundColor: `${caseData.severity.color}33`, color: caseData.severity.color }}
                   >
                     <AlertCircle className="w-3 h-3" />
                     {caseData.severity.label}
@@ -734,6 +714,60 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
             </div>
             <ActiveUsers caseId={caseId} />
           </div>
+          
+          <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 mt-2 sm:mt-0 flex-shrink-0">
+            {!isClosed && !isReadOnly && canManageCase && (
+              <button
+                onClick={() => setShowEditCase(true)}
+                className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center gap-1.5 w-full sm:w-auto justify-center"
+              >
+                <Edit className="w-4 h-4" />
+                {t('auto.modifier')}
+              </button>
+            )}
+            {!isClosed && !isReadOnly && isAuthor && (
+              <button
+                onClick={() => setShowCloseCase(true)}
+                className="border border-red-200 dark:border-red-900/50 bg-white dark:bg-slate-800 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition flex items-center gap-1.5 w-full sm:w-auto justify-center shadow-sm"
+              >
+                <Lock className="w-4 h-4" />
+                {t('auto.cloturer_le_case')}
+              </button>
+            )}
+            <button
+              onClick={handleExportStix}
+              className="border border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition flex items-center gap-1.5 w-full sm:w-auto justify-center shadow-sm"
+              title="Exporter au format STIX 2.1 Bundle"
+            >
+              <Download className="w-4 h-4" />
+              Export STIX 2.1
+            </button>
+            {isAlert && !isClosed && canManageCase && (
+              <button
+                onClick={async () => {
+                  try {
+                    await api.post(`/cases/${caseId}/convert`, {});
+                    fetchCaseDetails();
+                  } catch (error) {
+                    console.error(error);
+                  }
+                }}
+                className="border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition flex items-center gap-1.5 w-full sm:w-auto justify-center shadow-sm"
+              >
+                <ArrowRightLeft className="w-4 h-4" />
+                Convertir
+              </button>
+            )}
+            {isClosed && isAdmin && (
+              <button
+                onClick={() => setShowReopenCase(true)}
+                className="border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-amber-50 dark:hover:bg-amber-900/20 transition flex items-center gap-1.5 w-full sm:w-auto justify-center shadow-sm"
+              >
+                <RotateCcw className="w-4 h-4" />
+                {t('auto.reouvrir_le_case')}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -741,7 +775,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
         <CaseSectionSelect activeSection={activeSection} onSectionChange={setActiveSection} isClosed={isClosed} showInvestigation={showInvestigation} showReporting={showReporting} />
       )}
 
-      <div className="flex gap-6">
+      <div className="flex gap-8">
         {!adminOnlyAccess && (
           <CaseSidebar activeSection={activeSection} onSectionChange={setActiveSection} isClosed={isClosed} showInvestigation={showInvestigation} showReporting={showReporting} />
         )}

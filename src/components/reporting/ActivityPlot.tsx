@@ -44,18 +44,18 @@ export function ActivityPlot({ caseId, isReportView, forceTheme, endDate }: Prop
     (async () => {
       try {
         const [eventsRes, caseRes] = await Promise.all([
-          api.get(`/investigation/events/by-case/${caseId}`),
+          api.get(`/investigation/timeline/${caseId}`),
           api.get(`/cases/${caseId}`),
         ]);
 
         if (eventsRes && eventsRes.length > 0) {
           const filtered = endDate
             ? eventsRes.filter((e: any) => {
-                const createdAt = (e.created_at || '').replace(' ', 'T') + (e.created_at?.includes('Z') ? '' : 'Z');
-                return createdAt <= endDate;
+                const ts = e.timestamp || e.created_at || '';
+                return ts <= endDate;
               })
             : eventsRes;
-          setRawDates(filtered.map((e: any) => new Date(e.event_datetime)));
+          setRawDates(filtered.map((e: any) => new Date(e.timestamp || e.event_datetime)));
         }
 
         if (caseRes && caseRes.attacker_utc_offset !== null && caseRes.attacker_utc_offset !== undefined) {
@@ -150,7 +150,7 @@ export function ActivityPlot({ caseId, isReportView, forceTheme, endDate }: Prop
 
   if (total === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-slate-400">
+      <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-slate-400">
         <BarChart3 className="w-10 h-10 mb-3" />
         <p className="text-sm font-medium mb-1">{t('auto.aucun_evenement')}</p>
         <p className="text-xs">{t('auto.ajoutez_des_evenements_dans_la')}</p>

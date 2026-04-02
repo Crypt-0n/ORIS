@@ -32,19 +32,60 @@ class CaseRepository extends BaseRepository {
         return members.map(m => ({ id: m.id, full_name: m.full_name, email: m.email }));
     }
 
+    // ─── CUD operations (ArangoDB) ───
+
     async createWithAssignment(caseData, assignedToId) {
-        const newCase = await this.create(caseData);
+        const newCaseId = await this.create(caseData);
         if (caseData.type === 'alert' && assignedToId) {
+            const crypto = require('crypto');
+            const assignId = crypto.randomUUID();
             const assignRepo = new BaseRepository(this.db, 'case_assignments');
             await assignRepo.create({
-                case_id: newCase.id,
+                id: assignId,
+                case_id: newCaseId,
                 user_id: assignedToId
             });
         }
-        return newCase;
+        return newCaseId;
     }
 
-    async findAllAccessible(userId, hasAdminAccessGlobal, typeFilter, page, limit) {
+    async create(data) {
+        const id = await super.create(data);
+        return id;
+    }
+
+    async update(id, data) {
+        return await super.update(id, data);
+    }
+
+    async delete(id) {
+        return await super.delete(id);
+    }
+
+    // ─── Read operations: ArangoDB only (related tables not yet dual-written) ───
+
+    async getNextCaseNumber(yearStr) {
+        const aql = `
+            FOR c IN cases
+                FILTER STARTS_WITH(c.case_number, @prefix)
+                SORT c.case_number DESC
+                LIMIT 1
+                RETURN c.case_number
+        `;
+        const result = await this.query(aql, { prefix: `${yearStr}-` });
+        let nextSeq = 1;
+        if (result.length > 0 && result[0]) {
+            const parts = result[0].split('-');
+            if (parts.length === 2) {
+                nextSeq = parseInt(parts[1], 10) + 1;
+            }
+        }
+        return `${yearStr}-${String(nextSeq).padStart(5, '0')}`;
+    }
+
+    async findAllAccessible(userId, hasAdminAccessGlobal, typeFilter, page, limit, filters = {}) {
+        const { status, beneficiary_id, severity_id, author_id } = filters;
+        
         const aql = `
             LET userCaseIds = (
                 FOR c IN cases
@@ -62,14 +103,35 @@ class CaseRepository extends BaseRepository {
                     RETURN m.beneficiary_id
             )
 
-            LET accessibleCases = (
+            LET filteredCaseRefs = (
                 FOR c IN cases
-                    FILTER c.type == null OR c.type == @typeFilter OR (c.type == 'case' AND @typeFilter == 'case')
+                    FILTER !c.type || c.type == @typeFilter
                     LET hasAccess = @hasAdminAccessGlobal OR (c._key IN userCaseIds) OR (c._key IN assignedCaseIds) OR (c.beneficiary_id IN userBeneficiaryIds)
                     FILTER hasAccess OR @hasAdminAccessGlobal
                     
-                    SORT c.created_at DESC
                     
+                    FILTER @status == null OR c.status == @status
+                    FILTER @beneficiary_id == null OR c.beneficiary_id == @beneficiary_id
+                    FILTER @severity_id == null OR c.severity_id == @severity_id
+                    FILTER @author_id == null OR c.author_id == @author_id
+                    
+                    LET isMyCase = c.author_id == @userId || (c._key IN assignedCaseIds)
+                    FILTER @supervision == null OR (@supervision == true ? !isMyCase : isMyCase)
+                    
+                    SORT c.created_at DESC
+                    RETURN c
+            )
+
+            LET total = LENGTH(filteredCaseRefs)
+            
+            LET paginatedRefs = (
+                @limit > 0 
+                ? (FOR c IN filteredCaseRefs LIMIT @offset, @limit RETURN c)
+                : filteredCaseRefs
+            )
+            
+            LET rows = (
+                FOR c IN paginatedRefs
                     LET sev = DOCUMENT('severities', c.severity_id)
                     LET auth = DOCUMENT('user_profiles', c.author_id)
                     LET ben = DOCUMENT('beneficiaries', c.beneficiary_id)
@@ -84,6 +146,7 @@ class CaseRepository extends BaseRepository {
                     LET isAssigned = c.author_id == @userId || (LENGTH(FOR ca IN assignments FILTER ca.user_id == @userId RETURN 1) > 0)
                     LET isBeneficiaryMember = c.beneficiary_id IN userBeneficiaryIds
                     LET fullAccess = isAssigned || isBeneficiaryMember
+                    LET totalPages = @limit > 0 ? CEIL(total / @limit) : 1
                     
                     RETURN fullAccess ? {
                         id: c._key,
@@ -129,14 +192,7 @@ class CaseRepository extends BaseRepository {
                     }
             )
             
-            LET total = LENGTH(accessibleCases)
-            LET paginated = (
-                @limit > 0 
-                ? (FOR c IN accessibleCases LIMIT @offset, @limit RETURN c)
-                : accessibleCases
-            )
-            
-            RETURN { total: total, rows: paginated }
+            RETURN { total: total, rows: rows }
         `;
         const offset = Math.max(0, (page - 1) * limit);
         const result = await this.query(aql, {
@@ -144,7 +200,12 @@ class CaseRepository extends BaseRepository {
             hasAdminAccessGlobal: !!hasAdminAccessGlobal,
             typeFilter: typeFilter || 'case',
             offset: offset,
-            limit: limit || 1000
+            limit: limit || 1000,
+            status: status || null,
+            beneficiary_id: beneficiary_id || null,
+            severity_id: severity_id || null,
+            author_id: author_id || null,
+            supervision: filters.supervision !== undefined ? filters.supervision : null
         });
         
         const data = result[0] || { total: 0, rows: [] };
@@ -155,6 +216,65 @@ class CaseRepository extends BaseRepository {
             });
         }
         return data;
+    }
+    async getFiltersMetadata(userId, hasAdminAccessGlobal, typeFilter) {
+        const aql = `
+            LET userCaseIds = (
+                FOR c IN cases
+                    FILTER c.author_id == @userId
+                    RETURN c._key
+            )
+            LET assignedCaseIds = (
+                FOR ca IN case_assignments
+                    FILTER ca.user_id == @userId
+                    RETURN ca.case_id
+            )
+            LET userBeneficiaryIds = (
+                FOR m IN beneficiary_members
+                    FILTER m.user_id == @userId
+                    RETURN m.beneficiary_id
+            )
+
+            LET accessibleCases = (
+                FOR c IN cases
+                    FILTER !c.type || c.type == @typeFilter
+                    LET hasAccess = @hasAdminAccessGlobal OR (c._key IN userCaseIds) OR (c._key IN assignedCaseIds) OR (c.beneficiary_id IN userBeneficiaryIds)
+                    FILTER hasAccess OR @hasAdminAccessGlobal
+                    RETURN c
+            )
+            
+            LET beneficiaryIds = UNIQUE(FOR c IN accessibleCases FILTER c.beneficiary_id != null RETURN c.beneficiary_id)
+            LET authorIds = UNIQUE(FOR c IN accessibleCases FILTER c.author_id != null RETURN c.author_id)
+            LET severityIds = UNIQUE(FOR c IN accessibleCases FILTER c.severity_id != null RETURN c.severity_id)
+            
+            LET beneficiaries = (
+                FOR b IN beneficiaries
+                    FILTER b._key IN beneficiaryIds
+                    RETURN { id: b._key, name: b.name }
+            )
+            
+            LET authors = (
+                FOR u IN user_profiles
+                    FILTER u._key IN authorIds
+                    RETURN { id: u._key, full_name: u.full_name }
+            )
+            
+            LET severities = (
+                FOR s IN severities
+                    FILTER s._key IN severityIds
+                    RETURN { id: s._key, label: s.label, color: s.color }
+            )
+            
+            RETURN { beneficiaries, authors, severities }
+        `;
+        
+        const result = await this.query(aql, {
+            userId,
+            hasAdminAccessGlobal: !!hasAdminAccessGlobal,
+            typeFilter: typeFilter || 'case'
+        });
+        
+        return result[0] || { beneficiaries: [], authors: [], severities: [] };
     }
 
     async findByIdAccessible(id, userId, hasAdminAccessGlobal) {

@@ -44,7 +44,7 @@ export function NotificationPreferencesCard() {
       <h3 className="text-sm font-semibold text-gray-700 dark:text-white mb-4 flex items-center gap-2">
         <Bell className="w-4 h-4 text-blue-500" />
         Préférences de notifications
-        {saving && <Loader2 className="w-3 h-3 animate-spin text-gray-400 ml-auto" />}
+        {saving && <Loader2 className="w-3 h-3 animate-spin text-gray-500 ml-auto" />}
       </h3>
       <div className="space-y-3">
         {PREF_ITEMS.map(item => {

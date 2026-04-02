@@ -1,21 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { sanitizeHtml } from '../lib/sanitize';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { getUserTrigram } from '../lib/userUtils';
-import { ArrowLeft, Edit, Trash2, MessageCircle, User, Share2, Lock, RotateCcw, Pencil, X, Server, ShieldCheck, ShieldAlert, ShieldX, ShieldQuestion, Clock, ArrowRight, Edit3, Radar, Database, Bug, ChevronDown, Columns, LayoutList, List } from 'lucide-react';
+import { MessageCircle, X, ChevronDown, Columns, LayoutList, List, Diamond, Database, RotateCcw, Pencil } from 'lucide-react';
 import { TaskModal } from './TaskModal';
 import { TaskComments } from './TaskComments';
 import { CloseTask } from './CloseTask';
 import { RichTextEditor } from './RichTextEditor';
-import { AddTimelineEvent } from './investigation/AddTimelineEvent';
-import type { TimelineEventData } from './investigation/AddTimelineEvent';
-import { getKillChainPhase } from '../lib/killChainDefinitions';
+import { Skeleton } from './common/Skeleton';
+
 
 import { StixObjectsList } from './investigation/StixObjectsList';
+import { TaskDiamondWizard } from './investigation/TaskDiamondWizard';
 import { StixDynamicForm } from './investigation/StixDynamicForm';
-import { ActiveUsers } from './ActiveUsers';
+
+
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from 'react-router-dom';
+
+import { TaskHeader } from './tasks/TaskHeader';
+import { TaskClosureDetails } from './tasks/TaskClosureDetails';
+import { TaskLinkedStixObject } from './tasks/TaskLinkedStixObject';
+import { TaskParticipants } from './tasks/TaskParticipants';
+import { TaskDiamondEvents } from './tasks/TaskDiamondEvents';
+
 
 interface TaskDetailsData {
   id: string;
@@ -71,32 +78,6 @@ interface TaskDetailsData {
   can_edit_task?: boolean;
 }
 
-const INVESTIGATION_STATUS_MAP: Record<string, { label: string; icon: typeof ShieldCheck; textClass: string; bgClass: string; borderClass: string }> = {
-  unknown: { label: 'Inconnu', icon: ShieldQuestion, textClass: 'text-slate-500 dark:text-slate-400', bgClass: 'bg-slate-100 dark:bg-slate-800', borderClass: 'border-slate-300 dark:border-slate-600' },
-  clean: { label: 'Sain', icon: ShieldCheck, textClass: 'text-green-700 dark:text-green-400', bgClass: 'bg-green-50 dark:bg-green-900/20', borderClass: 'border-green-200 dark:border-green-800' },
-  compromised: { label: 'Compromis / Accede', icon: ShieldAlert, textClass: 'text-amber-700 dark:text-amber-400', bgClass: 'bg-amber-50 dark:bg-amber-900/20', borderClass: 'border-amber-200 dark:border-amber-800' },
-  infected: { label: 'Infecte', icon: ShieldX, textClass: 'text-red-700 dark:text-red-400', bgClass: 'bg-red-50 dark:bg-red-900/20', borderClass: 'border-red-200 dark:border-red-800' },
-};
-
-
-
-interface TaskEvent {
-  id: string;
-  event_datetime: string;
-  notes?: string;
-  direction: string | null;
-  kill_chain: string | null;
-  malware_id: string | null;
-  compromised_account_id: string | null;
-  exfiltration_id: string | null;
-  created_by: string;
-  created_at: string;
-  updated_at: string | null;
-  source_system: { id: string; name: string } | null;
-  target_system: { id: string; name: string } | null;
-  creator_name?: string;
-}
-
 interface Participant {
   id: string;
   full_name: string;
@@ -110,9 +91,10 @@ interface TaskDetailsProps {
   isClosed: boolean;
   onBack: () => void;
   onDelete?: () => void;
+  onTaskLoad?: (task: any) => void;
 }
 
-export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: TaskDetailsProps) {
+export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTaskLoad }: TaskDetailsProps) {
   const { t } = useTranslation();
   const { user, hasAnyRole } = useAuth();
 
@@ -127,22 +109,39 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
   const [savingClosureEdit, setSavingClosureEdit] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [caseAuthorId, setCaseAuthorId] = useState<string | null>(null);
-  const [caseKillChainType, setCaseKillChainType] = useState<string | null>(null);
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
-  const [showTimelineForm, setShowTimelineForm] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<TimelineEventData | null>(null);
-  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
-  const [taskEvents, setTaskEvents] = useState<TaskEvent[]>([]);
-  const [searchParams] = useSearchParams();
-  const targetEventId = searchParams.get('target');
-  const [commentCount, setCommentCount] = useState(0);
-  const [showStixForm, setShowStixForm] = useState(false);
-  const [stixRefreshKey, setStixRefreshKey] = useState(0);
-  const [sectionOpen, setSectionOpen] = useState({ discussion: true, events: true, objects: true });
-  const toggleSection = (key: 'discussion' | 'events' | 'objects') => setSectionOpen(prev => ({ ...prev, [key]: !prev[key] }));
 
+  const [commentCount, setCommentCount] = useState(0);
+  const [stixRefreshKey] = useState(0);
+  const [sectionOpen, setSectionOpen] = useState({ discussion: true, diamond: true, objects: true });
+  const toggleSection = (key: 'discussion' | 'diamond' | 'objects') => setSectionOpen(prev => ({ ...prev, [key]: !prev[key] }));
+  // Diamond creation state
+  const [showDiamondForm, setShowDiamondForm] = useState(false);
+  const [caseKillChainType, setCaseKillChainType] = useState<string | null>(null);
+  const [taskDiamonds, setTaskDiamonds] = useState<any[]>([]);
+  const [editingDiamond, setEditingDiamond] = useState<any | null>(null);
+  const [caseStixObjects, setCaseStixObjects] = useState<any[]>([]);
+  const [editingStixObject, setEditingStixObject] = useState(false);
+
+  const linkedStixObject = useMemo(() => {
+    const secondaryTypes = [
+      'observed-data', 'relationship', 'report', 'note', 'grouping', 'opinion', 'identity', 
+      'course-of-action', 'attack-pattern', 'threat-actor', 'campaign', 'intrusion-set',
+      'indicator', 'ipv4-addr', 'ipv6-addr', 'domain-name', 'url', 'file', 'mac-addr', 
+      'email-addr', 'mutex', 'network-traffic', 'process', 'software', 'windows-registry-key', 'autonomous-system'
+    ];
+    
+    const linked = caseStixObjects.filter(o => o.x_oris_task_id === taskId);
+    
+    // 1. Chercher un objet SDO principal (Infrastructure, Malware, User-Account...)
+    const primary = linked.find(o => !secondaryTypes.includes(o.type));
+    if (primary) return primary;
+    
+    // 2. Si pas de SDO, fallback sur le permier objet valide (hors metadata pure)
+    return linked.find(o => !['observed-data', 'relationship', 'report', 'note', 'grouping', 'opinion', 'identity'].includes(o.type));
+  }, [caseStixObjects, taskId]);
   type ViewMode = 'timeline' | 'split' | 'accordion';
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('oris_task_view_mode');
@@ -154,8 +153,8 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
   const isAssignee = taskData?.assigned_to === user?.id;
   const isCaseTeamLeader = caseAuthorId === user?.id;
   const canEditTask = taskData?.can_edit_task || isCreator || isAssignee || isCaseTeamLeader;
-  // If a user has explicit contextual task editing rights, they are definitively not Read-Only, overriding any lack of global user roles.
   const isReadOnly = !canEditTask && !hasAnyRole(['admin', 'team_leader', 'user', 'case_manager', 'case_user']);
+  const canEditDiamond = hasAnyRole(['admin', 'case_analyst', 'alert_analyst']) && !isClosed;
 
   const handleShareTask = () => {
     const url = `${window.location.origin}/cases/${caseId}?task=${taskId}`;
@@ -184,19 +183,59 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
     }
   };
 
+  const fetchTaskDiamonds = async () => {
+    try {
+      const objects = await api.get(`/stix/objects/by-case/${caseId}`);
+      const diamonds = (objects || []).filter((o: any) => o && o.type === 'observed-data' && o.x_oris_task_id === taskId);
+      const merged = diamonds.map((d: any) => {
+        const axes = d.x_oris_diamond_axes || {};
+        return { ...d, _axes: { adversary: axes.adversary || [], infrastructure: axes.infrastructure || [], capability: axes.capability || [], victim: axes.victim || [] } };
+      });
+      setTaskDiamonds(merged);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => { fetchTaskDiamonds(); }, [taskId, caseId]);
+
+  // Load STIX objects for vertex selection
+  const fetchCaseStixObjects = async () => {
+    try {
+      const bundle = await api.get(`/stix/bundle/${caseId}`);
+      setCaseStixObjects(bundle?.objects || []);
+    } catch (err) { console.error(err); }
+  };
+  useEffect(() => { fetchCaseStixObjects(); }, [caseId]);
+
+
+  const handleDeleteDiamond = async (diamondId: string) => {
+    if (!confirm('Supprimer ce diamant ?')) return;
+    try {
+      await api.delete(`/stix/objects/${diamondId}`);
+      fetchTaskDiamonds();
+    } catch (err) {
+      console.error('Delete diamond error:', err);
+    }
+  };
+
+  const startEditDiamond = (d: any) => {
+    setEditingDiamond(d);
+    setShowDiamondForm(true);
+  };
+
   const fetchTaskData = async () => {
     setLoading(true);
     try {
-      const [taskRes, eventsRes, usersRes, _filesRes, commentsRes] = await Promise.all([
+      const [taskRes, _filesRes, commentsRes] = await Promise.all([
         api.get(`/tasks/${taskId}`),
-        api.get(`/investigation/events/by-case/${caseId}`),
-        api.get('/auth/users'),
         api.get(`/files/task/${taskId}`),
         api.get(`/comments/by-task/${taskId}`),
       ]);
 
       if (taskRes) {
         setTaskData(taskRes);
+        if (onTaskLoad) onTaskLoad(taskRes);
 
         // Participants
         const participantsList: Participant[] = [];
@@ -223,39 +262,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
         setParticipants(participantsList);
       }
 
-      if (eventsRes) {
-        const events = eventsRes.filter((e: any) => e.task_id === taskId);
-        const creatorMap = new Map<string, string>();
-        (usersRes || []).forEach((p: any) => creatorMap.set(p.id, p.full_name));
 
-        // Diamond Overrides
-        const ovRes = await api.get(`/investigation/diamond-overrides/by-case/${caseId}`);
-        const overridesMap = new Map<string, any>();
-        (ovRes || []).forEach((o: any) => overridesMap.set(o.event_id, o));
-
-
-        const enriched = events.map((e: any) => {
-          const ov = overridesMap.get(e.id);
-          return {
-            ...e,
-            source_system: null,
-            target_system: null,
-            notes: ov?.notes || null,
-            creator_name: creatorMap.get(e.created_by) || undefined,
-          };
-        }).sort((a: any, b: any) => new Date(a.event_datetime).getTime() - new Date(b.event_datetime).getTime());
-
-        setTaskEvents(enriched);
-
-        if (targetEventId) {
-          setTimeout(() => {
-            const element = document.getElementById(`event-${targetEventId}`);
-            if (element) {
-              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          }, 150);
-        }
-      }
 
 
 
@@ -273,16 +280,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
 
 
 
-  const handleDeleteEvent = async (eventId: string) => {
-    setDeletingEventId(eventId);
-    try {
-      await api.delete(`/investigation/events/${eventId}`);
-      setTaskEvents(prev => prev.filter(e => e.id !== eventId));
-    } catch (err) {
-      console.error(err);
-    }
-    setDeletingEventId(null);
-  };
+
 
   const handleReopenTask = async () => {
     if (!user) return;
@@ -345,10 +343,37 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
     }
   };
 
-  if (loading || !taskData) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-slate-400">{t('auto.chargement')}</div>
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
+          <Skeleton type="text" className="w-24 mb-4" />
+          <Skeleton type="title" className="w-1/2 mb-2" />
+          <div className="flex gap-4">
+            <Skeleton type="text" className="w-32" />
+            <Skeleton type="text" className="w-48" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton type="card" className="h-64" />
+            <Skeleton type="card" className="h-32" />
+          </div>
+          <div className="space-y-6">
+            <Skeleton type="card" className="h-48" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!taskData) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <div className="text-gray-500 dark:text-slate-400">Cette tâche est introuvable ou a été supprimée.</div>
+        <button onClick={onBack} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors">
+          Retour au dossier
+        </button>
       </div>
     );
   }
@@ -358,616 +383,193 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-start gap-4">
-          <button
-            onClick={onBack}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition flex-shrink-0 mt-0.5"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-white" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-2 flex-wrap">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white flex-1 min-w-0">{taskData.title}</h2>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isTaskClosed
-                  ? 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400'
-                  : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                  }`}>
-                  {isTaskClosed ? t('auto.status_closed') : t('auto.status_open')}
-                </span>
-                <button
-                  onClick={handleShareTask}
-                  className="text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition relative flex-shrink-0"
-                  title={t('auto.partager_le_lien_de_la_t_che')}
-                >
-                  <Share2 className="w-4 h-4" />
-                  {showCopiedMessage && (
-                    <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 dark:bg-slate-700 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-                      {t('auto.lien_copie')}</span>
-                  )}
-                </button>
-                {!isEffectivelyClosed && canEditTask && (
-                  <div className="hidden sm:flex items-center gap-1.5">
-                    {canEditTask && (
-                      <button
-                        onClick={() => setShowEditModal(true)}
-                        className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition flex items-center gap-1.5 text-sm"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                        {t('auto.modifier')}</button>
-                    )}
-                    <button
-                      onClick={() => setShowCloseModal(true)}
-                      className="bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 transition flex items-center gap-1.5 text-sm"
-                    >
-                      <Lock className="w-3.5 h-3.5" />
-                      {t('auto.fermer')}</button>
-                    {canEditTask && (
-                      <button
-                        onClick={handleDelete}
-                        className="bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition flex items-center gap-1.5 text-sm"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        {t('auto.supprimer')}</button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            {taskData.result && (
-              <span
-                className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium inline-block mb-2"
-                style={{
-                  backgroundColor: `${taskData.result.color}20`,
-                  color: taskData.result.color,
-                }}
-              >
-                {taskData.result.label}
-              </span>
-            )}
-            {taskData.system && (
-              <div className="flex flex-wrap items-center gap-2 mt-1">
-                <Server className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 flex-shrink-0" />
-                <span className="text-xs text-teal-700 dark:text-teal-400 font-medium">
-                  {t('auto.investigation')}{taskData.system.name}
-                </span>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {!isEffectivelyClosed && canEditTask && (
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowStatusPicker(v => !v)}
-                        title={t('auto.modifier_le_statut_initial')}
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 border transition hover:opacity-80 ${taskData.initial_investigation_status
-                          ? (() => {
-                            const cfg = INVESTIGATION_STATUS_MAP[taskData.initial_investigation_status];
-                            return cfg ? `${cfg.bgClass} ${cfg.textClass} ${cfg.borderClass}` : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-600';
-                          })()
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-dashed border-slate-300 dark:border-slate-600'
-                          }`}
-                      >
-                        {taskData.initial_investigation_status
-                          ? (() => {
-                            const cfg = INVESTIGATION_STATUS_MAP[taskData.initial_investigation_status];
-                            if (!cfg) return null;
-                            const StatusIcon = cfg.icon;
-                            return <><StatusIcon className="w-3 h-3" />{cfg.label}</>;
-                          })()
-                          : <><Pencil className="w-2.5 h-2.5" />{t('auto.statut_initial')}</>
-                        }
-                      </button>
-                      {showStatusPicker && (
-                        <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg shadow-lg p-2 min-w-[200px]">
-                          <p className="text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-2 px-1">{t('auto.statut_initial')}</p>
-                          {Object.entries(INVESTIGATION_STATUS_MAP).map(([value, cfg]) => {
-                            const StatusIcon = cfg.icon;
-                            const isSelected = taskData.initial_investigation_status === value;
-                            return (
-                              <button
-                                key={value}
-                                disabled={savingStatus}
-                                onClick={() => handleSaveInitialStatus(isSelected ? '' : value)}
-                                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition text-xs ${isSelected ? `${cfg.bgClass} ${cfg.textClass}` : 'hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
-                                  }`}
-                              >
-                                <StatusIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isSelected ? cfg.textClass : 'text-gray-500 dark:text-slate-400'}`} />
-                                {cfg.label}
-                                {isSelected && <span className="ml-auto text-[9px] opacity-60">{t('auto.cliquer_pour_effacer')}</span>}
-                              </button>
-                            );
-                          })}
-                          <button
-                            onClick={() => setShowStatusPicker(false)}
-                            className="mt-1 w-full text-[10px] text-center text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 py-1"
-                          >
-                            {t('auto.annuler')}</button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {isEffectivelyClosed && taskData.initial_investigation_status && (() => {
-                    const cfg = INVESTIGATION_STATUS_MAP[taskData.initial_investigation_status];
-                    if (!cfg) return null;
-                    const StatusIcon = cfg.icon;
-                    return (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 border ${cfg.bgClass} ${cfg.textClass} ${cfg.borderClass}`} title={t('auto.statut_initial')}>
-                        <StatusIcon className="w-3 h-3" />
-                        {cfg.label}
-                      </span>
-                    );
-                  })()}
-                  {taskData.initial_investigation_status && taskData.investigation_status && (
-                    <ArrowRight className="w-3 h-3 text-slate-400 dark:text-slate-500 flex-shrink-0" />
-                  )}
-                  {taskData.investigation_status && (() => {
-                    const cfg = INVESTIGATION_STATUS_MAP[taskData.investigation_status];
-                    if (!cfg) return null;
-                    const StatusIcon = cfg.icon;
-                    return (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 border ${cfg.bgClass} ${cfg.textClass} ${cfg.borderClass}`} title={t('auto.statut_final_fermeture')}>
-                        <StatusIcon className="w-3 h-3" />
-                        {cfg.label}
-                      </span>
-                    );
-                  })()}
-                </div>
-              </div>
-            )}
-            {taskData.malware && (
-              <div className="flex items-center gap-2 mt-1">
-                <Bug className={`w-3.5 h-3.5 ${taskData.malware.is_malicious === true ? 'text-red-600 dark:text-red-400' : taskData.malware.is_malicious === false ? 'text-green-600 dark:text-green-400' : 'text-amber-500 dark:text-amber-400'}`} />
-                <span className={`text-xs font-medium ${taskData.malware.is_malicious === true ? 'text-red-700 dark:text-red-400' : taskData.malware.is_malicious === false ? 'text-green-700 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                  {t('auto.analyse_malware')}{taskData.malware.file_name}
-                </span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${taskData.malware.is_malicious === true
-                  ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800'
-                  : taskData.malware.is_malicious === false
-                    ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800'
-                    : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
-                  }`}>
-                  {taskData.malware.is_malicious === true ? t('auto.malveillant') : taskData.malware.is_malicious === false ? t('auto.non_malveillant') : t('auto.inconnu', 'Inconnu')}
-                </span>
-              </div>
-            )}
-            {taskData.is_osint && (
-              <div className="flex items-center gap-2 mt-1">
-                <Radar className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                <span className="text-xs font-medium text-sky-700 dark:text-sky-400">
-                  {t('auto.tache_osint')}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full border bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800">
-                  {t('auto.open_source_intelligence')}</span>
-              </div>
-            )}
-            <p className="text-gray-600 dark:text-slate-300 text-xs sm:text-sm">
-              {t('auto.cree_le')} {new Date(taskData.created_at).toLocaleDateString('fr-FR')} {t('auto.par')} {taskData.created_by_user.full_name}
-            </p>
-            <ActiveUsers caseId={caseId} taskId={taskId} />
-          </div>
+      <TaskHeader
+        taskData={taskData}
+        caseId={caseId}
+        taskId={taskId}
+        isEffectivelyClosed={isEffectivelyClosed}
+        isTaskClosed={isTaskClosed}
+        canEditTask={canEditTask}
+        onBack={onBack}
+        onEdit={() => setShowEditModal(true)}
+        onClose={() => setShowCloseModal(true)}
+        onDelete={handleDelete}
+        onShare={handleShareTask}
+        showCopiedMessage={showCopiedMessage}
+        showStatusPicker={showStatusPicker}
+        setShowStatusPicker={setShowStatusPicker}
+        savingStatus={savingStatus}
+        onSaveInitialStatus={handleSaveInitialStatus}
+      />
+
+      <TaskClosureDetails
+        taskData={taskData}
+        canEditTask={canEditTask}
+        isClosed={isClosed}
+        onEditClosureComment={() => {
+          setEditClosureComment(taskData.closure_comment || '');
+          setShowEditClosureComment(true);
+        }}
+        onReopenConfirm={() => setShowReopenConfirm(true)}
+      />
+
+      <div className="space-y-6">
+        <TaskLinkedStixObject
+          linkedStixObject={linkedStixObject}
+          caseStixObjects={caseStixObjects}
+          setEditingStixObject={setEditingStixObject}
+        />
+
+        <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">{t('auto.description')}</h3>
+          <div
+            className="text-gray-700 dark:text-slate-300 rich-text-content"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(taskData.description) }}
+          />
         </div>
-        {!isEffectivelyClosed && canEditTask && (
-          <div className="flex sm:hidden flex-col gap-2">
-            {canEditTask && (
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 w-full"
-              >
-                <Edit className="w-4 h-4" />
-                {t('auto.modifier')}</button>
-            )}
+
+        {/* View mode switcher */}
+        <div className="flex items-center justify-end gap-1 mb-2">
+          {[
+            { key: 'timeline', icon: List, label: 'Timeline' },
+            { key: 'split', icon: Columns, label: 'Split' },
+            { key: 'accordion', icon: LayoutList, label: 'Accordéon' },
+          ].map(v => (
             <button
-              onClick={() => setShowCloseModal(true)}
-              className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition flex items-center justify-center gap-2 w-full"
+              key={v.key}
+              onClick={() => changeViewMode(v.key as ViewMode)}
+              title={v.label}
+              className={`p-1.5 rounded-lg transition ${viewMode === v.key
+                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                : 'text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800'
+              }`}
             >
-              <Lock className="w-4 h-4" />
-              {t('auto.fermer')}</button>
-            {canEditTask && (
-              <button
-                onClick={handleDelete}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2 w-full"
-              >
-                <Trash2 className="w-4 h-4" />
-                {t('auto.supprimer')}</button>
-            )}
+              <v.icon className="w-4 h-4" />
+            </button>
+          ))}
+        </div>
+
+        {/* ======================== VIEW A: TIMELINE ======================== */}
+        {viewMode === 'timeline' && (
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-blue-500 p-5">
+              <div className="flex items-center gap-2.5 mb-4">
+                <MessageCircle className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-semibold text-gray-800 dark:text-white">Discussion</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">{commentCount}</span>
+              </div>
+              <TaskParticipants participants={participants} />
+              <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} isReadOnly={isReadOnly} />
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-cyan-500 p-5">
+              <TaskDiamondEvents
+                taskDiamonds={taskDiamonds}
+                caseKillChainType={caseKillChainType}
+                canEditDiamond={canEditDiamond}
+                onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
+                onEditDiamond={startEditDiamond}
+                onDeleteDiamond={handleDeleteDiamond}
+              />
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500 p-5">
+              <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
+            </div>
           </div>
         )}
 
-      </div>
-
-      {isTaskClosed && taskData.closure_comment && (
-        <div className="bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-lg p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Lock className="w-4 h-4 text-gray-500 dark:text-slate-400" />
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">{t('auto.commentaire_de_fermeture_2')}</h3>
-            </div>
-            {canEditTask && !isClosed && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setEditClosureComment(taskData.closure_comment || '');
-                    setShowEditClosureComment(true);
-                  }}
-                  className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                  {t('auto.modifier')}</button>
-                <button
-                  onClick={() => setShowReopenConfirm(true)}
-                  className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 px-2 py-1 rounded hover:bg-amber-50 dark:hover:bg-amber-900/20 transition"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  {t('auto.reouvrir')}</button>
+        {/* ======================== VIEW B: SPLIT ======================== */}
+        {viewMode === 'split' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-blue-500 p-5 min-w-0 overflow-hidden">
+              <div className="flex items-center gap-2.5 mb-4">
+                <MessageCircle className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-semibold text-gray-800 dark:text-white">Discussion</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">{commentCount}</span>
               </div>
-            )}
-          </div>
-          <div
-            className="text-gray-700 dark:text-slate-300 text-sm rich-text-content"
-            dangerouslySetInnerHTML={{ __html: taskData.closure_comment }}
-          />
-          <div className="mt-3 text-xs text-gray-500 dark:text-slate-400">
-            {t('auto.fermee_le')}{taskData.closed_at ? new Date(taskData.closed_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
-            {taskData.closed_by_user && ` par ${taskData.closed_by_user.full_name}`}
-          </div>
-          {taskData.closure_comment_modified_at && taskData.closure_comment_modified_by_user && (
-            <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 italic">
-              {t('auto.modifie_le')}{new Date(taskData.closure_comment_modified_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              {` par ${taskData.closure_comment_modified_by_user.full_name}`}
+              <TaskParticipants participants={participants} />
+              <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} isReadOnly={isReadOnly} />
             </div>
-          )}
-        </div>
-      )}
 
-      <div className="space-y-6">
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">{t('auto.description')}</h3>
-            <div
-              className="text-gray-700 dark:text-slate-300 rich-text-content"
-              dangerouslySetInnerHTML={{ __html: taskData.description }}
-            />
+            <div className="lg:col-span-1 space-y-6 min-w-0 overflow-hidden">
+              <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-cyan-500 p-5">
+                <TaskDiamondEvents
+                  taskDiamonds={taskDiamonds}
+                  caseKillChainType={caseKillChainType}
+                  canEditDiamond={canEditDiamond}
+                  onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
+                  onEditDiamond={startEditDiamond}
+                  onDeleteDiamond={handleDeleteDiamond}
+                />
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500 p-5">
+                <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
+              </div>
+            </div>
           </div>
+        )}
 
-          {/* View mode switcher */}
-          <div className="flex items-center justify-end gap-1 mb-2">
-            {([
-              { key: 'timeline' as ViewMode, icon: List, label: 'Timeline' },
-              { key: 'split' as ViewMode, icon: Columns, label: 'Split' },
-              { key: 'accordion' as ViewMode, icon: LayoutList, label: 'Accordéon' },
-            ]).map(v => (
-              <button
-                key={v.key}
-                onClick={() => changeViewMode(v.key)}
-                title={v.label}
-                className={`p-1.5 rounded-lg transition ${viewMode === v.key
-                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                  : 'text-gray-500 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <v.icon className="w-4 h-4" />
+        {/* ======================== VIEW C: ACCORDION ======================== */}
+        {viewMode === 'accordion' && (
+          <div className="space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-blue-500">
+              <button onClick={() => toggleSection('discussion')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
+                <div className="flex items-center gap-2.5">
+                  <MessageCircle className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm font-semibold text-gray-800 dark:text-white">Discussion</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">{commentCount}</span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${sectionOpen.discussion ? '' : '-rotate-90'}`} />
               </button>
-            ))}
-          </div>
-
-          {/* ======================== VIEW A: TIMELINE ======================== */}
-          {viewMode === 'timeline' && (
-            <div className="space-y-6">
-              {/* Events in chronological order */}
-              {taskEvents.length > 0 && (
-                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-amber-500">
-                  <div className="px-5 py-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <Clock className="w-4 h-4 text-amber-500" />
-                      <span className="text-sm font-semibold text-gray-800 dark:text-white">{t('taskDetails.tabEvents')}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">{taskEvents.length}</span>
-                    </div>
-                    {!isReadOnly && !isEffectivelyClosed && (
-                      <button
-                        onClick={() => { setEditingEvent(null); setShowTimelineForm(true); }}
-                        className="text-xs px-2 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition"
-                      >
-                        + {t('auto.ajouter')}
-                      </button>
-                    )}
-                  </div>
-                  <div className="px-5 pb-5 space-y-3">
-                    {taskEvents.map((event) => {
-                      const kcPhase = event.kill_chain ? getKillChainPhase(caseKillChainType ?? null, event.kill_chain) : null;
-                      const canEdit = !isEffectivelyClosed && event.created_by === user?.id;
-                      return (
-                        <div key={event.id} id={`event-${event.id}`}
-                          className={`border rounded-lg p-3 transition-all duration-500 ${event.id === targetEventId
-                            ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500/50 ring-2 ring-amber-500/30'
-                            : 'border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50'}`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="p-1.5 rounded-lg flex-shrink-0" style={{ backgroundColor: kcPhase ? `${kcPhase.hexColor}20` : undefined, color: kcPhase?.hexColor }}>
-                              <Clock className="w-3.5 h-3.5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2 mb-1">
-                                <span className="text-sm font-bold text-gray-800 dark:text-white">{event.kill_chain ? t(`killChain.${event.kill_chain}`) : t('auto.non_specifie')}</span>
-                                <span className="text-xs text-gray-400 dark:text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(event.event_datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-600 dark:text-slate-300">
-                                <span className="font-medium text-purple-700 dark:text-purple-400">{t('diamond.infrastructure')} : {event.source_system?.name || t('auto.systeme_inconnu')}</span>
-                                {event.target_system && (<><ArrowRight className="w-3 h-3 text-gray-400" /><span className="font-medium text-blue-700 dark:text-blue-400">{t('diamond.victim')} : {event.target_system.name}</span></>)}
-                              </div>
-                              {(event as any).notes && (
-                                <div className="mt-2 p-2 bg-blue-50/50 dark:bg-blue-900/10 border-l-2 border-blue-400 dark:border-blue-500 rounded-r-lg">
-                                  <p className="text-[11px] text-gray-700 dark:text-slate-300 whitespace-pre-wrap italic">{(event as any).notes}</p>
-                                </div>
-                              )}
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 pt-1.5 border-t border-gray-100 dark:border-slate-700/50">
-                                {event.creator_name && <span className="text-[11px] text-gray-500 dark:text-slate-400 flex items-center gap-1"><User className="w-3 h-3" />{event.creator_name}</span>}
-                                <span className="text-[11px] text-gray-500 dark:text-slate-400">{new Date(event.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                              </div>
-                              {canEdit && (
-                                <div className="flex items-center gap-2 mt-2">
-                                  <button onClick={() => { setEditingEvent({ id: event.id, event_datetime: event.event_datetime, kill_chain: event.kill_chain, malware_id: event.malware_id, compromised_account_id: event.compromised_account_id, exfiltration_id: event.exfiltration_id ?? null, source_system_id: event.source_system?.id || null, target_system_id: event.target_system?.id || null }); setShowTimelineForm(true); }} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"><Edit3 className="w-3 h-3" />{t('auto.modifier')}</button>
-                                  <button onClick={() => handleDeleteEvent(event.id)} disabled={deletingEventId === event.id} className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 dark:text-red-400 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition disabled:opacity-50"><Trash2 className="w-3 h-3" />{deletingEventId === event.id ? t('auto.suppression_en_cours') : t('auto.supprimer')}</button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+              {sectionOpen.discussion && (
+                <div className="px-5 pb-5 pt-1">
+                  <TaskParticipants participants={participants} />
+                  <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} isReadOnly={isReadOnly} />
                 </div>
               )}
-
-              {/* Discussion */}
-              <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-blue-500 p-5">
-                <div className="flex items-center gap-2.5 mb-4">
-                  <MessageCircle className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm font-semibold text-gray-800 dark:text-white">Discussion</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">{commentCount}</span>
-                </div>
-                {participants.length > 0 && (
-                  <div className="mb-4 pb-4 border-b border-gray-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2 mb-2"><User className="w-3.5 h-3.5 text-gray-400" /><span className="text-xs font-medium text-gray-500 dark:text-slate-400">{t('taskDetails.tabParticipants')} ({participants.length})</span></div>
-                    <div className="flex flex-wrap gap-2">
-                      {participants.map(p => {
-                        const cm: Record<string, { bg: string; avatar: string }> = { 'Créateur': { bg: 'bg-blue-50 dark:bg-blue-900/20', avatar: 'bg-blue-600' }, 'Assigné': { bg: 'bg-green-50 dark:bg-green-900/20', avatar: 'bg-green-600' }, 'Commentateur': { bg: 'bg-amber-50 dark:bg-amber-900/20', avatar: 'bg-amber-600' } };
-                        const c = cm[p.role] || cm['Commentateur'];
-                        return (<div key={p.id} className={`flex items-center gap-2 px-2.5 py-1.5 ${c.bg} rounded-full`}><div className={`w-6 h-6 ${c.avatar} rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0`}>{getUserTrigram(p.full_name)}</div><span className="text-xs font-medium text-gray-700 dark:text-slate-300 truncate max-w-[120px]">{p.full_name}</span><span className="text-[10px] text-gray-500 dark:text-slate-400">{p.role}</span></div>);
-                      })}
-                    </div>
-                  </div>
-                )}
-                <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} onNewEvent={isReadOnly ? undefined : () => { setEditingEvent(null); setShowTimelineForm(true); }} isReadOnly={isReadOnly} />
-              </div>
-
-              {/* STIX Objects */}
-              <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500 p-5">
-                <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} onAdd={() => setShowStixForm(true)} />
-              </div>
             </div>
-          )}
 
-          {/* ======================== VIEW B: SPLIT ======================== */}
-          {viewMode === 'split' && (
-            <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 items-start">
-              {/* Left column: Discussion */}
-              <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-blue-500 p-5">
-                <div className="flex items-center gap-2.5 mb-4">
-                  <MessageCircle className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm font-semibold text-gray-800 dark:text-white">Discussion</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">{commentCount}</span>
+            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-cyan-500">
+              <button onClick={() => toggleSection('diamond')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
+                <div className="flex items-center gap-2.5">
+                  <Diamond className="w-4 h-4 text-cyan-500" />
+                  <span className="text-sm font-semibold text-gray-800 dark:text-white">Diamants</span>
+                  {taskDiamonds.length > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">{taskDiamonds.length}</span>}
                 </div>
-                {participants.length > 0 && (
-                  <div className="mb-4 pb-4 border-b border-gray-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2 mb-2"><User className="w-3.5 h-3.5 text-gray-400" /><span className="text-xs font-medium text-gray-500 dark:text-slate-400">{t('taskDetails.tabParticipants')} ({participants.length})</span></div>
-                    <div className="flex flex-wrap gap-2">
-                      {participants.map(p => {
-                        const cm: Record<string, { bg: string; avatar: string }> = { 'Créateur': { bg: 'bg-blue-50 dark:bg-blue-900/20', avatar: 'bg-blue-600' }, 'Assigné': { bg: 'bg-green-50 dark:bg-green-900/20', avatar: 'bg-green-600' }, 'Commentateur': { bg: 'bg-amber-50 dark:bg-amber-900/20', avatar: 'bg-amber-600' } };
-                        const c = cm[p.role] || cm['Commentateur'];
-                        return (<div key={p.id} className={`flex items-center gap-2 px-2.5 py-1.5 ${c.bg} rounded-full`}><div className={`w-6 h-6 ${c.avatar} rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0`}>{getUserTrigram(p.full_name)}</div><span className="text-xs font-medium text-gray-700 dark:text-slate-300 truncate max-w-[120px]">{p.full_name}</span><span className="text-[10px] text-gray-500 dark:text-slate-400">{p.role}</span></div>);
-                      })}
-                    </div>
-                  </div>
-                )}
-                <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} onNewEvent={isReadOnly ? undefined : () => { setEditingEvent(null); setShowTimelineForm(true); }} isReadOnly={isReadOnly} />
-              </div>
-
-              {/* Right column: Events + Objects */}
-              <div className="space-y-6">
-                {/* Events */}
-                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-amber-500">
-                  <div className="px-5 py-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <Clock className="w-4 h-4 text-amber-500" />
-                      <span className="text-sm font-semibold text-gray-800 dark:text-white">{t('taskDetails.tabEvents')}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">{taskEvents.length}</span>
-                    </div>
-                    {!isReadOnly && !isEffectivelyClosed && (
-                      <button onClick={() => { setEditingEvent(null); setShowTimelineForm(true); }} className="text-xs px-2 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition">+ {t('auto.ajouter')}</button>
-                    )}
-                  </div>
-                  <div className="px-5 pb-5">
-                    {taskEvents.length === 0 ? (
-                      <p className="text-sm text-gray-500 dark:text-slate-400 text-center py-4">{t('auto.aucun_fait_marquant')}</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {taskEvents.map((event) => {
-                          const kcPhase = event.kill_chain ? getKillChainPhase(caseKillChainType ?? null, event.kill_chain) : null;
-                          const canEdit = !isEffectivelyClosed && event.created_by === user?.id;
-                          return (
-                            <div key={event.id} id={`event-${event.id}`}
-                              className={`border rounded-lg p-3 transition-all duration-500 ${event.id === targetEventId
-                                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500/50 ring-2 ring-amber-500/30'
-                                : 'border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50'}`}
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className="p-1.5 rounded-lg flex-shrink-0" style={{ backgroundColor: kcPhase ? `${kcPhase.hexColor}20` : undefined, color: kcPhase?.hexColor }}>
-                                  <Clock className="w-3.5 h-3.5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                                    <span className="text-sm font-bold text-gray-800 dark:text-white">{event.kill_chain ? t(`killChain.${event.kill_chain}`) : t('auto.non_specifie')}</span>
-                                    <span className="text-xs text-gray-400 dark:text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(event.event_datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-600 dark:text-slate-300">
-                                    <span className="font-medium text-purple-700 dark:text-purple-400">{t('diamond.infrastructure')} : {event.source_system?.name || t('auto.systeme_inconnu')}</span>
-                                    {event.target_system && (<><ArrowRight className="w-3 h-3 text-gray-400" /><span className="font-medium text-blue-700 dark:text-blue-400">{t('diamond.victim')} : {event.target_system.name}</span></>)}
-                                  </div>
-                                  {(event as any).notes && (
-                                    <div className="mt-2 p-2 bg-blue-50/50 dark:bg-blue-900/10 border-l-2 border-blue-400 dark:border-blue-500 rounded-r-lg">
-                                      <p className="text-[11px] text-gray-700 dark:text-slate-300 whitespace-pre-wrap italic">{(event as any).notes}</p>
-                                    </div>
-                                  )}
-                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 pt-1.5 border-t border-gray-100 dark:border-slate-700/50">
-                                    {event.creator_name && <span className="text-[11px] text-gray-500 dark:text-slate-400 flex items-center gap-1"><User className="w-3 h-3" />{event.creator_name}</span>}
-                                    <span className="text-[11px] text-gray-500 dark:text-slate-400">{new Date(event.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                                    {event.updated_at && event.updated_at !== event.created_at && (
-                                      <span className="text-[11px] text-gray-500 dark:text-slate-400 italic">{t('auto.modifie_le_3')}{new Date(event.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })})</span>
-                                    )}
-                                  </div>
-                                  {canEdit && (
-                                    <div className="flex items-center gap-2 mt-2">
-                                      <button onClick={() => { setEditingEvent({ id: event.id, event_datetime: event.event_datetime, kill_chain: event.kill_chain, malware_id: event.malware_id, compromised_account_id: event.compromised_account_id, exfiltration_id: event.exfiltration_id ?? null, source_system_id: event.source_system?.id || null, target_system_id: event.target_system?.id || null }); setShowTimelineForm(true); }} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"><Edit3 className="w-3 h-3" />{t('auto.modifier')}</button>
-                                      <button onClick={() => handleDeleteEvent(event.id)} disabled={deletingEventId === event.id} className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 dark:text-red-400 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition disabled:opacity-50"><Trash2 className="w-3 h-3" />{deletingEventId === event.id ? t('auto.suppression_en_cours') : t('auto.supprimer')}</button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${sectionOpen.diamond ? '' : '-rotate-90'}`} />
+              </button>
+              {sectionOpen.diamond && (
+                <div className="px-5 pb-5 pt-1">
+                  <TaskDiamondEvents
+                    taskDiamonds={taskDiamonds}
+                    caseKillChainType={caseKillChainType}
+                    canEditDiamond={canEditDiamond}
+                    onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
+                    onEditDiamond={startEditDiamond}
+                    onDeleteDiamond={handleDeleteDiamond}
+                  />
                 </div>
-                {/* STIX Objects */}
-                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500 p-5">
-                  <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} onAdd={() => setShowStixForm(true)} />
-                </div>
-              </div>
+              )}
             </div>
-          )}
 
-          {/* ======================== VIEW C: ACCORDION ======================== */}
-          {viewMode === 'accordion' && (
-            <div className="space-y-4">
-              {/* Section 1: Discussion */}
-              <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-blue-500">
-                <button onClick={() => toggleSection('discussion')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
-                  <div className="flex items-center gap-2.5">
-                    <MessageCircle className="w-4 h-4 text-blue-500" />
-                    <span className="text-sm font-semibold text-gray-800 dark:text-white">Discussion</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">{commentCount}</span>
-                  </div>
-                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${sectionOpen.discussion ? '' : '-rotate-90'}`} />
-                </button>
-                {sectionOpen.discussion && (
-                  <div className="px-5 pb-5 pt-1">
-                    {participants.length > 0 && (
-                      <div className="mb-4 pb-4 border-b border-gray-100 dark:border-slate-800">
-                        <div className="flex items-center gap-2 mb-2"><User className="w-3.5 h-3.5 text-gray-400" /><span className="text-xs font-medium text-gray-500 dark:text-slate-400">{t('taskDetails.tabParticipants')} ({participants.length})</span></div>
-                        <div className="flex flex-wrap gap-2">
-                          {participants.map(p => {
-                            const cm: Record<string, { bg: string; avatar: string }> = { 'Créateur': { bg: 'bg-blue-50 dark:bg-blue-900/20', avatar: 'bg-blue-600' }, 'Assigné': { bg: 'bg-green-50 dark:bg-green-900/20', avatar: 'bg-green-600' }, 'Commentateur': { bg: 'bg-amber-50 dark:bg-amber-900/20', avatar: 'bg-amber-600' } };
-                            const c = cm[p.role] || cm['Commentateur'];
-                            return (<div key={p.id} className={`flex items-center gap-2 px-2.5 py-1.5 ${c.bg} rounded-full`}><div className={`w-6 h-6 ${c.avatar} rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0`}>{getUserTrigram(p.full_name)}</div><span className="text-xs font-medium text-gray-700 dark:text-slate-300 truncate max-w-[120px]">{p.full_name}</span><span className="text-[10px] text-gray-500 dark:text-slate-400">{p.role}</span></div>);
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} onNewEvent={isReadOnly ? undefined : () => { setEditingEvent(null); setShowTimelineForm(true); }} isReadOnly={isReadOnly} />
-                  </div>
-                )}
-              </div>
-
-              {/* Section 2: Faits marquants */}
-              <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-amber-500">
-                <button onClick={() => toggleSection('events')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
-                  <div className="flex items-center gap-2.5">
-                    <Clock className="w-4 h-4 text-amber-500" />
-                    <span className="text-sm font-semibold text-gray-800 dark:text-white">{t('taskDetails.tabEvents')}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">{taskEvents.length}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {!isReadOnly && !isEffectivelyClosed && (
-                      <span role="button" onClick={(e) => { e.stopPropagation(); setEditingEvent(null); setShowTimelineForm(true); }} className="text-xs px-2 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition">+ {t('auto.ajouter')}</span>
-                    )}
-                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${sectionOpen.events ? '' : '-rotate-90'}`} />
-                  </div>
-                </button>
-                {sectionOpen.events && (
-                  <div className="px-5 pb-5 pt-1">
-                    {taskEvents.length === 0 ? (
-                      <p className="text-sm text-gray-500 dark:text-slate-400 text-center py-4">{t('auto.aucun_fait_marquant')}</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {taskEvents.map((event) => {
-                          const kcPhase = event.kill_chain ? getKillChainPhase(caseKillChainType ?? null, event.kill_chain) : null;
-                          const canEdit = !isEffectivelyClosed && event.created_by === user?.id;
-                          return (
-                            <div key={event.id} id={`event-${event.id}`}
-                              className={`border rounded-lg p-3 transition-all duration-500 ${event.id === targetEventId
-                                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500/50 ring-2 ring-amber-500/30'
-                                : 'border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50'}`}
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className="p-1.5 rounded-lg flex-shrink-0" style={{ backgroundColor: kcPhase ? `${kcPhase.hexColor}20` : undefined, color: kcPhase?.hexColor }}>
-                                  <Clock className="w-3.5 h-3.5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                                    <span className="text-sm font-bold text-gray-800 dark:text-white">{event.kill_chain ? t(`killChain.${event.kill_chain}`) : t('auto.non_specifie')}</span>
-                                    <span className="text-xs text-gray-400 dark:text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(event.event_datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-600 dark:text-slate-300">
-                                    <span className="font-medium text-purple-700 dark:text-purple-400">{t('diamond.infrastructure')} : {event.source_system?.name || t('auto.systeme_inconnu')}</span>
-                                    {event.target_system && (<><ArrowRight className="w-3 h-3 text-gray-400" /><span className="font-medium text-blue-700 dark:text-blue-400">{t('diamond.victim')} : {event.target_system.name}</span></>)}
-                                  </div>
-                                  {(event as any).notes && (
-                                    <div className="mt-2 p-2 bg-blue-50/50 dark:bg-blue-900/10 border-l-2 border-blue-400 dark:border-blue-500 rounded-r-lg">
-                                      <p className="text-[11px] text-gray-700 dark:text-slate-300 whitespace-pre-wrap italic">{(event as any).notes}</p>
-                                    </div>
-                                  )}
-                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 pt-1.5 border-t border-gray-100 dark:border-slate-700/50">
-                                    {event.creator_name && <span className="text-[11px] text-gray-500 dark:text-slate-400 flex items-center gap-1"><User className="w-3 h-3" />{event.creator_name}</span>}
-                                    <span className="text-[11px] text-gray-500 dark:text-slate-400">{new Date(event.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                                    {event.updated_at && event.updated_at !== event.created_at && (
-                                      <span className="text-[11px] text-gray-500 dark:text-slate-400 italic">{t('auto.modifie_le_3')}{new Date(event.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })})</span>
-                                    )}
-                                  </div>
-                                  {canEdit && (
-                                    <div className="flex items-center gap-2 mt-2">
-                                      <button onClick={() => { setEditingEvent({ id: event.id, event_datetime: event.event_datetime, kill_chain: event.kill_chain, malware_id: event.malware_id, compromised_account_id: event.compromised_account_id, exfiltration_id: event.exfiltration_id ?? null, source_system_id: event.source_system?.id || null, target_system_id: event.target_system?.id || null }); setShowTimelineForm(true); }} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"><Edit3 className="w-3 h-3" />{t('auto.modifier')}</button>
-                                      <button onClick={() => handleDeleteEvent(event.id)} disabled={deletingEventId === event.id} className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 dark:text-red-400 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition disabled:opacity-50"><Trash2 className="w-3 h-3" />{deletingEventId === event.id ? t('auto.suppression_en_cours') : t('auto.supprimer')}</button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Section 3: STIX Objects */}
-              <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500">
-                <button onClick={() => toggleSection('objects')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
-                  <div className="flex items-center gap-2.5">
-                    <Database className="w-4 h-4 text-purple-500" />
-                    <span className="text-sm font-semibold text-gray-800 dark:text-white">{t('auto.elements_techniques', 'Éléments techniques')}</span>
-                  </div>
-                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${sectionOpen.objects ? '' : '-rotate-90'}`} />
-                </button>
-                {sectionOpen.objects && (
-                  <div className="px-5 pb-5 pt-1">
-                    <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} onAdd={() => setShowStixForm(true)} />
-                  </div>
-                )}
-              </div>
+            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500">
+              <button onClick={() => toggleSection('objects')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
+                <div className="flex items-center gap-2.5">
+                  <Database className="w-4 h-4 text-purple-500" />
+                  <span className="text-sm font-semibold text-gray-800 dark:text-white">{t('auto.elements_techniques', 'Éléments techniques')}</span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${sectionOpen.objects ? '' : '-rotate-90'}`} />
+              </button>
+              {sectionOpen.objects && (
+                <div className="px-5 pb-5 pt-1">
+                  <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {showEditModal && (
@@ -991,8 +593,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
         <CloseTask
           taskId={taskId}
           initialComment={taskData.closure_comment || ''}
-          hasSystem={!!taskData.system_id}
-          initialInvestigationStatus={taskData.initial_investigation_status}
+          stixObjects={caseStixObjects.filter(o => o.x_oris_task_id === taskId && !['report', 'observed-data', 'relationship', 'grouping', 'note', 'opinion', 'identity', 'course-of-action', 'attack-pattern', 'threat-actor', 'campaign', 'intrusion-set'].includes(o.type))}
           onClose={() => setShowCloseModal(false)}
           onSuccess={() => {
             setShowCloseModal(false);
@@ -1037,7 +638,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
                 <Pencil className="w-5 h-5 text-blue-600" />
                 <h3 className="text-lg font-bold text-gray-800 dark:text-white">{t('auto.modifier_le_commentaire_de_fer')}</h3>
               </div>
-              <button onClick={() => setShowEditClosureComment(false)} className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200">
+              <button onClick={() => setShowEditClosureComment(false)} className="text-gray-500 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1070,29 +671,44 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete }: Task
         </div>
       )}
 
-      {showTimelineForm && (
-        <AddTimelineEvent
-          caseId={caseId}
-          killChainType={caseKillChainType ?? undefined}
-          preselectedSystemId={taskData.system?.id}
+
+
+
+      {showDiamondForm && (
+        <TaskDiamondWizard
           taskId={taskId}
-          editEvent={editingEvent || undefined}
-          onClose={() => { setShowTimelineForm(false); setEditingEvent(null); }}
+          caseId={caseId}
+          caseKillChainType={caseKillChainType || 'lockheed-martin'}
+          existingObjects={caseStixObjects}
+          editingDiamond={editingDiamond}
           onSuccess={() => {
-            setShowTimelineForm(false);
-            setEditingEvent(null);
-            fetchTaskData();
+            setShowDiamondForm(false);
+            setEditingDiamond(null);
+            fetchTaskDiamonds();
           }}
+          onClose={() => setShowDiamondForm(false)}
         />
       )}
-
-      {showStixForm && (
-        <StixDynamicForm
-          caseId={caseId}
-          taskId={taskId}
-          onClose={() => setShowStixForm(false)}
-          onCreated={() => setStixRefreshKey(k => k + 1)}
-        />
+      {editingStixObject && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setEditingStixObject(false)}
+              className="absolute top-4 right-4 bg-white dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-full p-1 z-10 shadow"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <StixDynamicForm 
+              caseId={caseId}
+              initialData={linkedStixObject}
+              onCreated={() => {
+                setEditingStixObject(false);
+                fetchCaseStixObjects();
+              }}
+              onClose={() => setEditingStixObject(false)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

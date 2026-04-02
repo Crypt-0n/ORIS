@@ -101,6 +101,7 @@ class TaskRepository extends BaseRepository {
                     LET sev = DOCUMENT('severities', case_obj.severity_id)
                     LET sys = DOCUMENT('case_systems', t.system_id)
                     LET mal = DOCUMENT('case_malware_tools', t.malware_id)
+                    LET ben = DOCUMENT('beneficiaries', case_obj.beneficiary_id)
                     
                     RETURN MERGE(t, {
                         id: t._key,
@@ -109,8 +110,12 @@ class TaskRepository extends BaseRepository {
                         created_by_user: { full_name: c.full_name },
                         assigned_to_user: t.assigned_to ? { full_name: a.full_name } : null,
                         case: {
-                            id: case_obj._key, case_number: case_obj.case_number, title: case_obj.title, status: case_obj.status,
-                            severity: sev ? { label: sev.label, color: sev.color } : null
+                            id: case_obj._key, 
+                            case_number: case_obj.case_number, 
+                            title: case_obj.title, 
+                            status: case_obj.status,
+                            severity: sev ? { label: sev.label, color: sev.color } : null,
+                            beneficiary: ben ? { id: ben._key, name: ben.name } : null
                         },
                         system: t.system_id ? { id: t.system_id, name: sys.name, system_type: sys.system_type } : null,
                         malware: t.malware_id ? { id: t.malware_id, file_name: mal.file_name, is_malicious: mal.is_malicious } : null

@@ -114,7 +114,7 @@ export function NotificationBell() {
       case 'task_status': return <GitBranch className="w-4 h-4 text-amber-500" />;
       case 'task_comment': return <MessageSquare className="w-4 h-4 text-purple-500" />;
       case 'case_status': return <GitBranch className="w-4 h-4 text-orange-500" />;
-      default: return <MessageCircle className="w-4 h-4 text-gray-400" />;
+      default: return <MessageCircle className="w-4 h-4 text-gray-500" />;
     }
   };
 
@@ -124,6 +124,8 @@ export function NotificationBell() {
         onClick={toggleOpen}
         className="relative p-2 text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition"
         title={t('notifications.title')}
+        aria-label={t('notifications.title')}
+        aria-expanded={isOpen}
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
@@ -146,6 +148,7 @@ export function NotificationBell() {
                   onClick={handleMarkAllRead}
                   className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition text-gray-500 dark:text-slate-400 hover:text-blue-600"
                   title={t('notifications.markAllRead')}
+                  aria-label={t('notifications.markAllRead')}
                 >
                   <CheckCheck className="w-4 h-4" />
                 </button>
@@ -155,6 +158,7 @@ export function NotificationBell() {
                   onClick={handleDeleteAll}
                   className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition text-gray-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
                   title="Tout supprimer"
+                  aria-label="Tout supprimer"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -162,6 +166,7 @@ export function NotificationBell() {
               <button
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition text-gray-500 dark:text-slate-400"
+                aria-label="Fermer les notifications"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -204,6 +209,7 @@ export function NotificationBell() {
                         onClick={(e) => { e.stopPropagation(); handleMarkRead(n.id); }}
                         className="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition"
                         title={t('notifications.markRead')}
+                        aria-label={t('notifications.markRead')}
                       >
                         <Check className="w-3.5 h-3.5 text-blue-500" />
                       </button>
@@ -212,8 +218,9 @@ export function NotificationBell() {
                       onClick={(e) => { e.stopPropagation(); handleDelete(n.id, !n.is_read); }}
                       className="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition"
                       title={t('notifications.delete')}
+                      aria-label={t('notifications.delete')}
                     >
-                      <Trash2 className="w-3.5 h-3.5 text-gray-400 hover:text-red-500" />
+                      <Trash2 className="w-3.5 h-3.5 text-gray-500 hover:text-red-500" />
                     </button>
                   </div>
                 </div>

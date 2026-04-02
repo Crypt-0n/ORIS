@@ -9,15 +9,9 @@ process.env.NODE_ENV = 'test';
 const fs = require('fs');
 const os = require('os');
 
-// Create a temp database file for this test run
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oris-test-'));
-const testDbPath = path.join(tmpDir, 'test.sqlite');
-
 // Create a unique ArangoDB test database name
 const testArangoDbName = 'oris_test_' + require('crypto').randomUUID().replace(/-/g, '_');
 
-// Set env vars BEFORE any module is loaded
-process.env.DB_PATH = testDbPath;
 process.env.ARANGO_DB = testArangoDbName;
 process.env.ARANGO_URL = process.env.ARANGO_URL || 'http://localhost:8529';
 process.env.ARANGO_USER = process.env.ARANGO_USER || 'root';
@@ -26,5 +20,4 @@ process.env.JWT_SECRET = 'test-secret-key';
 process.env.PORT = '0';
 
 // Store for cleanup in teardown
-global.__TEST_TMP_DIR = tmpDir;
 global.__TEST_ARANGO_DB = testArangoDbName;

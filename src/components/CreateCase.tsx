@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { X, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { OffCanvas } from './common/OffCanvas';
 import { RichTextEditor } from './RichTextEditor';
 
 interface Severity {
@@ -29,7 +30,7 @@ interface PapLevel {
 
 interface CreateCaseProps {
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (caseId?: string) => void;
   type?: 'alert' | 'case';
 }
 
@@ -149,9 +150,9 @@ export function CreateCase({ onClose, onSuccess, type = 'case' }: CreateCaseProp
         insertData.assigned_to = assignedTo;
       }
 
-      await api.post('/cases', insertData);
+      const created = await api.post('/cases', insertData);
 
-      onSuccess();
+      onSuccess(created?.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('createCase.error'));
     } finally {
@@ -160,14 +161,13 @@ export function CreateCase({ onClose, onSuccess, type = 'case' }: CreateCaseProp
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-lg max-w-2xl w-full p-4 sm:p-6 my-8 max-h-[calc(100vh-4rem)] overflow-y-auto shadow dark:shadow-slate-800/50">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-gray-800 dark:text-white">{isAlert ? 'Nouvelle alerte' : t('createCase.title')}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <OffCanvas 
+      isOpen={true} 
+      onClose={onClose} 
+      title={isAlert ? 'Nouvelle alerte' : t('createCase.title')}
+      width="lg"
+    >
+      <div className="p-6">
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -202,7 +202,7 @@ export function CreateCase({ onClose, onSuccess, type = 'case' }: CreateCaseProp
           {isAlert && formData.beneficiary_id && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
-                Responsable <span className="text-gray-400 font-normal">(optionnel)</span>
+                Responsable <span className="text-gray-500 font-normal">(optionnel)</span>
               </label>
               <select
                 value={assignedTo}
@@ -320,13 +320,13 @@ export function CreateCase({ onClose, onSuccess, type = 'case' }: CreateCaseProp
             <button
               type="submit"
               disabled={creating}
-              className={`flex-1 ${isAlert ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'} text-white px-4 py-2 rounded-lg transition disabled:opacity-50`}
+              className={`flex-1 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition disabled:opacity-50 shadow-sm`}
             >
               {creating ? t('createCase.creating') : (isAlert ? 'Créer l\'alerte' : t('createCase.create'))}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </OffCanvas>
   );
 }

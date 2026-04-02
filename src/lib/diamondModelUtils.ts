@@ -260,3 +260,9 @@ export function getKillChainLabel(killChain: string | null): string {
   };
   return labels[killChain] || killChain;
 }
+
+export function getIsolatedSystems(stixObjects: any[]) {
+  // Ne renvoyer que les infrastructures, les observables isolés (IP/Domaine) n'ont pas à être considérés 
+  // comme des "systèmes" à part entière, pour éviter les doublons (PC1 et son IP).
+  return stixObjects.filter(o => o.type === 'infrastructure');
+}

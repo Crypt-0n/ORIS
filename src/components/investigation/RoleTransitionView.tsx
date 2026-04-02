@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 interface RoleTransitionViewProps {
   nodes: DiamondNode[];
+  allSystems?: { id: string; label: string; type: string }[];
 }
 
 interface InfraRef {
@@ -23,8 +24,18 @@ interface SystemRole {
   asInfrastructure: InfraRef[];
 }
 
-function buildRoleTransitions(nodes: DiamondNode[]): SystemRole[] {
+function buildRoleTransitions(nodes: DiamondNode[], allSystems: { id: string; label: string; type: string }[] = []): SystemRole[] {
   const systemMap = new Map<string, SystemRole>();
+
+  // Pre-fill with all known systems, so those with 0 events show up
+  allSystems.forEach(sys => {
+    systemMap.set(sys.id, {
+      systemId: sys.id,
+      systemLabel: sys.label,
+      asVictim: [],
+      asInfrastructure: [],
+    });
+  });
 
   const ensureEntry = (obj: LinkedObject) => {
     if (!systemMap.has(obj.id)) {
@@ -74,7 +85,6 @@ function buildRoleTransitions(nodes: DiamondNode[]): SystemRole[] {
   }
 
   return Array.from(systemMap.values())
-    .filter((s) => s.asVictim.length > 0 || s.asInfrastructure.length > 0)
     .sort((a, b) => {
       const aTransition = a.asVictim.length > 0 && a.asInfrastructure.length > 0 ? 1 : 0;
       const bTransition = b.asVictim.length > 0 && b.asInfrastructure.length > 0 ? 1 : 0;
@@ -105,12 +115,13 @@ function RoleChip({ label, color }: { label: string; color: string }) {
   );
 }
 
-export function RoleTransitionView({ nodes }: RoleTransitionViewProps) {
+export function RoleTransitionView({ nodes, allSystems }: RoleTransitionViewProps) {
   const { t } = useTranslation();
-  const transitions = buildRoleTransitions(nodes);
+  const transitions = buildRoleTransitions(nodes, allSystems || []);
   const transitioned = transitions.filter((s) => s.asVictim.length > 0 && s.asInfrastructure.length > 0);
   const victimOnly = transitions.filter((s) => s.asVictim.length > 0 && s.asInfrastructure.length === 0);
   const infraOnly = transitions.filter((s) => s.asVictim.length === 0 && s.asInfrastructure.length > 0);
+  const noRole = transitions.filter((s) => s.asVictim.length === 0 && s.asInfrastructure.length === 0);
 
   if (nodes.length === 0) {
     return (
@@ -246,6 +257,25 @@ export function RoleTransitionView({ nodes }: RoleTransitionViewProps) {
             </section>
           )}
         </div>
+      )}
+
+      {noRole.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <Monitor className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+            <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-300">{t('auto.aucun_role_defini', 'Aucun rôle défini (systèmes isolés)')}</h4>
+            <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700/50 px-1.5 py-0.5 rounded-full">{noRole.length}</span>
+          </div>
+          <div className="space-y-2">
+            {noRole.map((sys) => (
+              <div key={sys.systemId} className="bg-gray-50 dark:bg-slate-800/40 border border-gray-100 dark:border-slate-700/50 rounded-lg px-3 py-2 flex items-center gap-2">
+                <Monitor className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+                <span className="text-xs text-slate-600 dark:text-slate-400 truncate">{sys.systemLabel}</span>
+                <span className="ml-auto text-[10px] text-slate-400 dark:text-slate-500 flex-shrink-0">0 evt</span>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       <div className="bg-gray-50 dark:bg-slate-900/60 border border-gray-200 dark:border-slate-700/50 rounded-xl p-4">

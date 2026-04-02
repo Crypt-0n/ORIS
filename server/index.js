@@ -9,10 +9,11 @@ const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const path = require('path');
+const logger = require('./utils/logger');
 
 process.on('uncaughtException', (err) => {
     try { fs.appendFileSync(path.join(process.env.LOG_PATH || '/tmp', 'crash.log'), new Date().toISOString() + ' ' + err.stack + '\n'); } catch (e) { }
-    console.error('Uncaught Exception:', err);
+    logger.fatal({ err }, 'Uncaught Exception');
     process.exit(1);
 });
 
@@ -27,7 +28,7 @@ const app = express();
 // CORS : restreindre explicitement en production
 const corsOrigin = process.env.CORS_ORIGIN;
 if (!corsOrigin && process.env.NODE_ENV === 'production') {
-    console.warn('[Security] WARNING: CORS_ORIGIN is not set. Cross-origin requests will be rejected in production. Set CORS_ORIGIN to your frontend domain.');
+    logger.warn('[Security] CORS_ORIGIN is not set. Cross-origin requests will be rejected in production. Set CORS_ORIGIN to your frontend domain.');
 }
 app.use(cors({
     origin: corsOrigin || (process.env.NODE_ENV === 'production' ? false : true),
@@ -100,21 +101,21 @@ async function start() {
 
     // Initialize VAPID keys for push notifications (requires system_config table)
     const { initVapid } = require('./utils/push');
-    await initVapid().catch(e => console.error('[Push] VAPID init error:', e.message));
+    await initVapid().catch(e => logger.error({ err: e }, '[Push] VAPID init error'));
 
     // Start backup scheduler
     const { startScheduler } = require('./utils/backup');
-    await startScheduler().catch(e => console.error('[Backup] Scheduler init error:', e.message));
+    await startScheduler().catch(e => logger.error({ err: e }, '[Backup] Scheduler init error'));
 
     if (require.main === module) {
         app.listen(PORT, () => {
-            console.log(`[Backend] Server listening on port ${PORT}`);
+            logger.info(`[Backend] Server listening on port ${PORT}`);
         });
     }
 }
 
 start().catch(err => {
-    console.error('Fatal startup error:', err);
+    logger.fatal({ err }, 'Fatal startup error');
     process.exit(1);
 });
 

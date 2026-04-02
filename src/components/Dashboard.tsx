@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Helmet } from 'react-helmet-async';
+import { motion, Variants } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
 import {
   FolderOpen, ClipboardList, UserX, AlertTriangle,
-  Activity, ChevronRight, Shield, Loader2, TrendingUp
+  Activity, ChevronRight, Shield, Loader2, Target
 } from 'lucide-react';
 
 interface DashboardData {
@@ -40,36 +42,18 @@ interface DashboardData {
   }>;
 }
 
-const ACTION_LABELS: Record<string, string> = {
-  case_created: 'a créé un dossier',
-  case_closed: 'a fermé un dossier',
-  case_reopened: 'a réouvert un dossier',
-  alert_created: 'a créé une alerte',
-  alert_converted_to_case: 'a converti une alerte en dossier',
-  task_created: 'a créé une tâche',
-  task_closed: 'a fermé une tâche',
-  task_updated: 'a modifié une tâche',
-  task_reopened: 'a réouvert une tâche',
-  comment_added: 'a ajouté un commentaire',
-  comment_updated: 'a modifié un commentaire',
-  comment_removed: 'a supprimé un commentaire',
-  case_updated: 'a modifié un dossier',
-  assignment_added: 'a ajouté un intervenant',
-  assignment_removed: 'a retiré un intervenant',
-  member_added: 'a ajouté un membre',
-  member_removed: 'a retiré un membre',
-  leader_assigned: 'a assigné un Team Leader',
-  leader_removed: 'a retiré un Team Leader',
-  highlight_added: 'a ajouté un fait marquant',
-  highlight_updated: 'a modifié un fait marquant',
-  highlight_removed: 'a supprimé un fait marquant',
-  file_added: 'a ajouté un fichier',
-  file_removed: 'a supprimé un fichier',
-  timezone_changed: 'a modifié le fuseau horaire',
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
 };
 
 export function Dashboard() {
-  useTranslation();
+  const { t } = useTranslation();
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
@@ -107,8 +91,8 @@ export function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+      <div className="flex items-center justify-center h-[70vh]">
+        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
       </div>
     );
   }
@@ -116,210 +100,229 @@ export function Dashboard() {
   if (!data) return null;
 
   const totalCases = data.stats.openCases + data.stats.closedCases;
+  const closureRate = totalCases > 0 ? Math.round((data.stats.closedCases / totalCases) * 100) : 0;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-          Bonjour, {profile?.full_name?.split(' ')[0]} 👋
-        </h1>
-        <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-          Vue d'ensemble de votre activité
-        </p>
-      </div>
-
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard
-          icon={FolderOpen}
-          label="Dossiers ouverts"
-          value={data.stats.openCases}
-          sublabel={`${data.stats.closedCases} fermés`}
-          color="blue"
-          onClick={() => navigate('/cases')}
-        />
-        {(data as any).canSeeAlerts !== false && (
-          <StatCard
-            icon={AlertTriangle}
-            label="Alertes ouvertes"
-            value={data.stats.openAlerts || 0}
-            sublabel={`${data.stats.closedAlerts || 0} fermées`}
-            color="amber"
-            onClick={() => navigate('/alerts')}
-          />
-        )}
-        <StatCard
-          icon={ClipboardList}
-          label="Mes tâches"
-          value={data.stats.myOpenTasks}
-          sublabel="ouvertes"
-          color="emerald"
-          onClick={() => navigate('/tasks')}
-        />
-        <StatCard
-          icon={UserX}
-          label="Non assignées"
-          value={data.stats.unassignedTasks}
-          sublabel="tâches"
-          color="amber"
-          onClick={() => navigate('/tasks')}
-        />
-        <StatCard
-          icon={TrendingUp}
-          label="Taux clôture"
-          value={totalCases > 0 ? Math.round((data.stats.closedCases / totalCases) * 100) : 0}
-          sublabel="%"
-          color="violet"
-        />
-      </div>
-
-      {/* Two-column layout */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Dossiers critiques */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-white mb-4 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-red-500" />
-            Dossiers critiques
-          </h2>
-
-          {data.criticalCases.length === 0 ? (
-            <div className="text-center py-8">
-              <AlertTriangle className="w-8 h-8 text-gray-300 dark:text-slate-600 mx-auto mb-2" />
-              <p className="text-sm text-gray-500 dark:text-slate-400">
-                Aucun dossier critique
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {data.criticalCases.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => navigate(`/cases/${c.id}`)}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left group"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-mono text-gray-500 dark:text-slate-400">
-                        {c.case_number}
-                      </span>
-                      <span
-                        className="px-1.5 py-0.5 rounded text-[10px] font-bold"
-                        style={{
-                          backgroundColor: `${c.severity_color}20`,
-                          color: c.severity_color,
-                        }}
-                      >
-                        {c.severity_label}
-                      </span>
-                    </div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
-                      {c.title}
-                    </p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-300 dark:text-slate-600 group-hover:text-red-500 transition flex-shrink-0" />
-                </button>
-              ))}
-            </div>
-          )}
+    <div className="space-y-6 lg:space-y-8 pb-10 overflow-x-hidden">
+      <Helmet>
+        <title>Tableau de bord | ORIS</title>
+        <meta name="description" content="Aperçu global de votre activité, dossiers, alertes et tâches sur ORIS." />
+      </Helmet>
+      
+      {/* Hero Header */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <h1 className="text-3xl font-heading font-extrabold text-gray-900 dark:text-white tracking-tight">
+            Bonjour, {profile?.full_name?.split(' ')[0]} 👋
+          </h1>
+          <p className="text-gray-500 dark:text-slate-400 mt-2 text-sm lg:text-base max-w-xl leading-relaxed">
+            Voici l'état vital du centre d'investigation. Naviguez rapidement vers vos urgences.
+          </p>
         </div>
+      </motion.div>
 
-        {/* Activité récente */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-white mb-4 flex items-center gap-2">
-            <Activity className="w-4 h-4 text-blue-500" />
-            Activité récente
-          </h2>
-
-          {data.recentActivity.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-slate-400 text-center py-8">
-              Aucune activité récente
-            </p>
-          ) : (
-            <div className="space-y-1">
-              {data.recentActivity.map((item) => {
-                let details: any = {};
-                try { details = JSON.parse(item.details || '{}'); } catch {}
-
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => navigate(`/cases/${item.case_id}`)}
-                    className="w-full flex items-start gap-3 p-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800/50 transition text-left group"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                        {(item.user_name || '?')[0].toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-700 dark:text-slate-300">
-                        <span className="font-medium">{item.user_name}</span>{' '}
-                        <span className="text-gray-500 dark:text-slate-400">
-                          {ACTION_LABELS[item.action] || item.action}
-                        </span>
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-slate-400 truncate mt-0.5">
-                        {item.case_number} — {details.title || details.task_title || item.case_title}
-                      </p>
-                    </div>
-                    <span className="text-xs text-gray-500 dark:text-slate-400 whitespace-nowrap flex-shrink-0 mt-1">
-                      {formatDate(item.created_at)}
-                    </span>
-                  </button>
-                );
-              })}
+      {/* Metrics Row (Horizontal scroll on mobile, Grid on desktop) */}
+      <motion.div 
+        variants={containerVariants} 
+        initial="hidden" 
+        animate="show" 
+        className="flex overflow-x-auto lg:grid lg:grid-cols-5 gap-4 lg:gap-5 pb-4 -mx-4 px-4 lg:px-0 lg:mx-0 snap-x snap-mandatory"
+        style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+      >
+        <StatCard icon={FolderOpen} label="Dossiers ouverts" value={data.stats.openCases} color="blue" onClick={() => navigate('/cases')} />
+        {(data as any).canSeeAlerts !== false && <StatCard icon={AlertTriangle} label="Alertes" value={data.stats.openAlerts || 0} color="rose" onClick={() => navigate('/alerts')} />}
+        <StatCard icon={ClipboardList} label="Mes tâches" value={data.stats.myOpenTasks} color="emerald" onClick={() => navigate('/tasks')} />
+        <StatCard icon={UserX} label="Non assignées" value={data.stats.unassignedTasks} color="amber" onClick={() => navigate('/tasks')} />
+        
+        {/* Taux de résolution Visuel */}
+        <motion.div variants={itemVariants} className="min-w-[260px] lg:min-w-0 snap-center flex-shrink-0 bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 rounded-2xl p-6 shadow-xl shadow-blue-900/20 relative overflow-hidden text-white flex items-center justify-between group">
+            <div className="z-10">
+                <Target className="w-5 h-5 text-indigo-200 mb-3 drop-shadow-sm group-hover:scale-110 transition-transform" />
+                <div className="text-3xl font-heading font-bold drop-shadow-md">{closureRate}%</div>
+                <div className="text-[11px] text-indigo-100 uppercase tracking-widest font-semibold mt-1">Résolution</div>
             </div>
+            
+            <div className="relative w-16 h-16 z-10 drop-shadow-lg">
+                <svg className="w-16 h-16 transform -rotate-90">
+                    <circle cx="32" cy="32" r="28" stroke="rgba(255,255,255,0.15)" strokeWidth="8" fill="none" />
+                    <motion.circle 
+                      initial={{ strokeDashoffset: 175 }} 
+                      animate={{ strokeDashoffset: 175 - (175 * closureRate) / 100 }}
+                      transition={{ duration: 1.5, ease: "easeOut", delay: 0.5 }}
+                      cx="32" cy="32" r="28" stroke="white" strokeWidth="8" fill="none" strokeDasharray="175" strokeLinecap="round" 
+                    />
+                </svg>
+            </div>
+            <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+            <div className="absolute -left-4 -top-4 w-20 h-20 bg-black/10 rounded-full blur-xl"></div>
+        </motion.div>
+      </motion.div>
+
+      {/* Main Content Split */}
+      <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 mt-4">
+        {/* Défense / Urgences */}
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1, transition: { delay: 0.2, type: 'spring' } }}
+            className={`flex flex-col bg-white dark:bg-slate-900 border rounded-2xl shadow-sm overflow-hidden ${data.criticalCases.length > 0 ? 'border-rose-200 dark:border-rose-900/50 relative shadow-rose-900/5' : 'border-gray-200 dark:border-slate-800'}`}
+        >
+          {data.criticalCases.length > 0 && (
+             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 to-orange-500 animate-pulse"></div>
           )}
-        </div>
+          
+          <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/30">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <Shield className={`w-4 h-4 ${data.criticalCases.length > 0 ? 'text-rose-500' : 'text-gray-400'}`} />
+              Dossiers à haut risque
+            </h2>
+          </div>
+
+          <div className="flex-1 p-5 overflow-y-auto max-h-[400px]">
+             {data.criticalCases.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-10 opacity-70">
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-3">
+                        <Shield className="w-5 h-5 text-emerald-500" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">Aucune urgence</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">Le périmètre est sécurisé.</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                {data.criticalCases.map((c, i) => (
+                    <motion.button
+                        key={c.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0, transition: { delay: 0.3 + (i * 0.1) } }}
+                        onClick={() => navigate(`/cases/${c.id}`)}
+                        className="w-full relative group overflow-hidden bg-white dark:bg-slate-800 border border-rose-100 dark:border-rose-900/30 rounded-xl p-4 text-left hover:shadow-md hover:border-rose-300 dark:hover:border-rose-700 transition-all"
+                    >
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div>
+                        <div className="pl-3 flex flex-col gap-1">
+                            <div className="flex justify-between items-start">
+                                <span className="text-xs font-mono text-gray-400 dark:text-slate-500">{c.case_number}</span>
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide" style={{ backgroundColor: `${c.severity_color}15`, color: c.severity_color }}>
+                                    {c.severity_label.toUpperCase()}
+                                </span>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight mt-1 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+                                {c.title}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 flex items-center justify-between">
+                                Créé {formatDate(c.created_at)}
+                                <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all text-rose-500" />
+                            </p>
+                        </div>
+                    </motion.button>
+                ))}
+                </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Historique/Flux d'activité */}
+        <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0, transition: { delay: 0.3, type: 'spring' } }}
+            className="lg:col-span-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col"
+        >
+            <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/30 flex justify-between items-center">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-blue-500" />
+                    Flux d'activité en direct
+                </h2>
+            </div>
+            
+            <div className="p-5 flex-1 max-h-[400px] overflow-y-auto">
+                {data.recentActivity.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-slate-400 text-center py-8">Aucune activité récente</p>
+                ) : (
+                    <div className="space-y-0 relative before:absolute before:inset-0 before:ml-[1.125rem] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-px before:bg-gradient-to-b before:from-gray-200 before:via-gray-200 dark:before:from-slate-700 dark:before:via-slate-700 before:to-transparent">
+                        {data.recentActivity.map((item, i) => {
+                            let details: any = {};
+                            try { details = JSON.parse(item.details || '{}'); } catch {}
+
+                            return (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0, transition: { delay: 0.4 + (i * 0.05) } }}
+                                    key={item.id} 
+                                    className="relative flex items-center justify-between pb-6 last:pb-0 group"
+                                >
+                                    <div className="flex items-center gap-4 w-full">
+                                        <div className="w-9 h-9 rounded-full bg-white dark:bg-slate-900 border-2 border-blue-100 dark:border-slate-700 flex items-center justify-center flex-shrink-0 z-10 shadow-sm group-hover:border-blue-400 dark:group-hover:border-blue-500 transition-colors">
+                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                {(item.user_name || '?')[0].toUpperCase()}
+                                            </span>
+                                        </div>
+                                        
+                                        <button
+                                            onClick={() => navigate(`/cases/${item.case_id}`)}
+                                            className="flex-1 min-w-0 p-3.5 bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-slate-700/80 rounded-xl hover:bg-white dark:hover:bg-slate-800 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-500/50 transition-all text-left"
+                                        >
+                                            <div className="flex justify-between items-start gap-3 mb-1">
+                                                <p className="text-sm text-gray-900 dark:text-slate-100 font-semibold truncate">
+                                                    {item.user_name} <span className="text-gray-500 dark:text-slate-400 font-normal">{t(`dashboard.actions.${item.action}`, { defaultValue: item.action })}</span>
+                                                </p>
+                                                <span className="text-[11px] text-gray-400 dark:text-slate-500 whitespace-nowrap pt-0.5 font-medium uppercase tracking-wider">
+                                                    {formatDate(item.created_at)}
+                                                </span>
+                                            </div>
+                                            <p className="text-[13px] text-gray-600 dark:text-slate-400 truncate flex items-center gap-2">
+                                                <span className="font-mono text-[10px] bg-slate-200/50 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">{item.case_number}</span> 
+                                                {details.title || details.task_title || item.case_title}
+                                            </p>
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        </motion.div>
       </div>
     </div>
   );
 }
 
 function StatCard({
-  icon: Icon,
-  label,
-  value,
-  sublabel,
-  color,
-  onClick,
+  icon: Icon, label, value, color, onClick
 }: {
-  icon: typeof FolderOpen;
-  label: string;
-  value: number;
-  sublabel: string;
-  color: 'blue' | 'emerald' | 'amber' | 'violet';
-  onClick?: () => void;
+  icon: typeof FolderOpen; label: string; value: number; color: 'blue' | 'emerald' | 'amber' | 'rose'; onClick?: () => void;
 }) {
   const colors = {
-    blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-800/50',
-    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/50',
-    amber: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-800/50',
-    violet: 'bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border-violet-100 dark:border-violet-800/50',
+    blue: 'from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/10 border-blue-100 dark:border-blue-800/30 text-blue-600 dark:text-blue-400',
+    emerald: 'from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/10 border-emerald-100 dark:border-emerald-800/30 text-emerald-600 dark:text-emerald-400',
+    amber: 'from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10 border-amber-100 dark:border-amber-800/30 text-amber-600 dark:text-amber-400',
+    rose: 'from-rose-50 to-red-50 dark:from-rose-900/20 dark:to-red-900/10 border-rose-100 dark:border-rose-800/30 text-rose-600 dark:text-rose-400',
   };
 
-  const iconColors = {
-    blue: 'text-blue-500',
-    emerald: 'text-emerald-500',
-    amber: 'text-amber-500',
-    violet: 'text-violet-500',
-  };
-
-  const Wrapper = onClick ? 'button' : 'div';
+  const Wrapper = onClick ? motion.button : motion.div;
 
   return (
     <Wrapper
+      variants={itemVariants}
       onClick={onClick}
-      className={`${colors[color]} border rounded-xl p-4 transition ${onClick ? 'cursor-pointer hover:shadow-md' : ''}`}
+      whileHover={onClick ? { scale: 1.02 } : {}}
+      whileTap={onClick ? { scale: 0.98 } : {}}
+      className={`min-w-[160px] lg:min-w-0 snap-center flex-shrink-0 bg-white dark:bg-slate-900 border rounded-2xl p-5 text-left flex flex-col justify-between transition-shadow relative overflow-hidden group ${onClick ? 'cursor-pointer hover:shadow-lg' : 'shadow-sm'} border-gray-200 dark:border-slate-800`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <Icon className={`w-5 h-5 ${iconColors[color]}`} />
+      <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full bg-gradient-to-br opacity-50 dark:opacity-20 blur-2xl group-hover:blur-3xl transition-all ${colors[color]}`}></div>
+      
+      <div className="flex items-center justify-between mb-4 relative z-10">
+        <div className={`p-2.5 rounded-xl bg-gradient-to-br ${colors[color]}`}>
+          <Icon className="w-5 h-5" />
+        </div>
       </div>
-      <div className="text-2xl font-bold">
-        {value}<span className="text-sm font-normal ml-1 text-gray-500 dark:text-slate-400">{sublabel}</span>
+      
+      <div className="relative z-10">
+        <div className="text-3xl font-heading font-black text-gray-900 dark:text-white tracking-tight mb-1">
+          {value}
+        </div>
+        <div className="text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-widest line-clamp-1">
+          {label}
+        </div>
       </div>
-      <div className="text-xs mt-1 text-gray-600 dark:text-slate-400">{label}</div>
     </Wrapper>
   );
 }

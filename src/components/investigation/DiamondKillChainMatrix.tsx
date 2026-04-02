@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 
 interface DiamondKillChainMatrixProps {
   nodes: DiamondNode[];
+  allSystems: { id: string; label: string; type: string }[];
   killChainType: string | null;
   onSelectNode: (id: string) => void;
   selectedNodeId: string | null;
@@ -93,7 +94,7 @@ function getPrimarySystem(node: DiamondNode): string | null {
   return null;
 }
 
-export function DiamondKillChainMatrix({ nodes, killChainType, onSelectNode, selectedNodeId }: DiamondKillChainMatrixProps) {
+export function DiamondKillChainMatrix({ nodes, allSystems, killChainType, onSelectNode, selectedNodeId }: DiamondKillChainMatrixProps) {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -103,16 +104,9 @@ export function DiamondKillChainMatrix({ nodes, killChainType, onSelectNode, sel
   const [svgSize, setSvgSize] = useState({ w: 800, h: 600 });
 
   const systems = useMemo(() => {
-    const seen = new Map<string, { id: string; name: string }>();
-    nodes.forEach((n) => {
-      [...n.axes.victim, ...n.axes.infrastructure].forEach((obj) => {
-        if ((obj.type === 'system' || obj.type === 'attacker_infra') && !seen.has(obj.id)) {
-          seen.set(obj.id, { id: obj.id, name: obj.label });
-        }
-      });
-    });
-    return Array.from(seen.values());
-  }, [nodes]);
+    // On ignore le calcul basé sur les événements et on utilise tous les systèmes identifiés
+    return allSystems.map(s => ({ id: s.id, name: s.label }));
+  }, [allSystems]);
 
   const cellMap = useMemo(() => {
     const map = new Map<string, DiamondNode[]>();

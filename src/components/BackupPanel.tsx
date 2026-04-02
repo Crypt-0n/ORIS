@@ -126,7 +126,7 @@ export function BackupPanel() {
           </h3>
            <div className="flex flex-wrap gap-2">
             <button onClick={fetchBackups}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 transition">
+              className="p-2 text-gray-500 hover:text-gray-600 dark:hover:text-slate-300 transition">
               <RefreshCw className="w-4 h-4" />
             </button>
             <button onClick={createBackup} disabled={creating}

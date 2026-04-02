@@ -12,7 +12,6 @@ afterAll(async () => {
     const dbName = global.__TEST_ARANGO_DB || process.env.ARANGO_DB;
     if (dbName) {
         try {
-            console.log(`[ArangoDB-Teardown] Truncating collections in test database: ${dbName}`);
             const { getDb } = require('../db-arango');
             const db = getDb();
             const collections = await db.collections();
@@ -22,14 +21,8 @@ afterAll(async () => {
                 }
             }
         } catch (e) {
-            console.error(`[ArangoDB] Failed to truncate collections in ${dbName}:`, e);
+            console.error(`[ArangoDB] Failed to truncate collections in ${dbName}:`, e.message);
         }
     }
 
-    // Remove SQLite temp file (legacy, ignored)
-    const fs = require('fs');
-    const tmpDir = global.__TEST_TMP_DIR;
-    if (tmpDir) {
-        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) { /* ignore */ }
-    }
 });

@@ -69,6 +69,34 @@ class StixGraphRepository {
         return stixObject;
     }
 
+    async updateObject(id, caseId, updateData, userId) {
+        // Fetch existing object
+        const existing = await this.getObjectById(id);
+        if (!existing) throw new Error('Object not found');
+        if (existing.case_id !== caseId) throw new Error('Access denied to this object');
+
+        const now = new Date().toISOString();
+        const updatedStix = {
+            ...existing.data,
+            ...updateData,
+            modified: now
+        };
+
+        const doc = {
+            _key: id,
+            case_id: caseId,
+            type: updatedStix.type,
+            spec_version: updatedStix.spec_version || '2.1',
+            data: updatedStix,
+            created_by_user_id: existing.created_by_user_id, // keep original creator
+            created_at: existing.data.created,
+            updated_at: now
+        };
+
+        await this.objects.update(id, doc);
+        return updatedStix;
+    }
+
     async getObjectById(id) {
         try {
             const doc = await this.objects.document(id);
@@ -438,136 +466,27 @@ class StixGraphRepository {
             }
         }
 
-        // 6. Events → observed-data + relationships
-        const eventsCursor = await this.db.query(`FOR e IN case_events FILTER e.case_id == @caseId RETURN e`, { caseId });
-        const events = await eventsCursor.all();
-        
-        // Collect unique lateral-movement pairs (source→target) to avoid duplicate edges
-        const lateralPairs = new Map(); // "srcId→tgtId" → earliest event data
-        
-        for (const evt of events) {
-            // Build object_refs from SCOs linked to this event's systems
-            const objectRefs = [];
-            if (evt.source_system_id) {
-                const scoRefs = systemScoMap.get(evt.source_system_id) || [];
-                objectRefs.push(...scoRefs);
-            }
-            if (evt.target_system_id) {
-                const scoRefs = systemScoMap.get(evt.target_system_id) || [];
-                objectRefs.push(...scoRefs);
-            }
-            if (evt.compromised_account_id) {
-                objectRefs.push(`user-account--${evt.compromised_account_id}`);
-            }
-            if (evt.malware_id && malwareScoMap.has(evt.malware_id)) {
-                objectRefs.push(malwareScoMap.get(evt.malware_id));
-            }
-
-            await this.createObject(caseId, {
-                type: 'observed-data', id: `observed-data--${evt._key}`, spec_version: '2.1',
-                x_oris_description: evt.description || '',
-                x_oris_kill_chain: evt.kill_chain || null,
-                x_oris_task_id: evt.task_id || null,
-                first_observed: evt.event_datetime || evt.created_at,
-                last_observed: evt.event_datetime || evt.created_at,
-                number_observed: 1,
-                object_refs: objectRefs,
-                created: evt.created_at, modified: evt.created_at,
-            }, 'system');
-            vertexCount++;
-
-            // Create relationships for source and target systems
-            if (evt.source_system_id) {
-                const edgeId = `relationship--${crypto.randomUUID()}`;
-                await this.createRelationship(caseId, {
-                    type: 'relationship', id: edgeId,
-                    relationship_type: 'originates-from',
-                    source_ref: `observed-data--${evt._key}`,
-                    target_ref: `infrastructure--${evt.source_system_id}`,
-                    created: evt.created_at, modified: evt.created_at,
-                }, 'system');
-                edgeCount++;
-            }
-
-            if (evt.target_system_id) {
-                const edgeId = `relationship--${crypto.randomUUID()}`;
-                await this.createRelationship(caseId, {
-                    type: 'relationship', id: edgeId,
-                    relationship_type: 'targets',
-                    source_ref: `observed-data--${evt._key}`,
-                    target_ref: `infrastructure--${evt.target_system_id}`,
-                    created: evt.created_at, modified: evt.created_at,
-                }, 'system');
-                edgeCount++;
-                
-                // Collect lateral-movement pairs (one edge per unique source→target pair)
-                if (evt.source_system_id && evt.source_system_id !== evt.target_system_id) {
-                    const pairKey = `${evt.source_system_id}→${evt.target_system_id}`;
-                    if (!lateralPairs.has(pairKey)) {
-                        lateralPairs.set(pairKey, {
-                            source_system_id: evt.source_system_id,
-                            target_system_id: evt.target_system_id,
-                            kill_chain: evt.kill_chain || null,
-                            event_datetime: evt.event_datetime || evt.created_at,
-                        });
-                    }
-                }
-            }
-            
-            // Link compromised account
-            if (evt.compromised_account_id) {
-                const edgeId = `relationship--${crypto.randomUUID()}`;
-                await this.createRelationship(caseId, {
-                    type: 'relationship', id: edgeId,
-                    relationship_type: 'uses',
-                    source_ref: `observed-data--${evt._key}`,
-                    target_ref: `user-account--${evt.compromised_account_id}`,
-                    created: evt.created_at, modified: evt.created_at,
-                }, 'system');
-                edgeCount++;
-            }
-        }
-
-        // Create ONE lateral-movement edge per unique infrastructure pair
-        for (const [, pair] of lateralPairs) {
-            const lmEdgeId = `relationship--${crypto.randomUUID()}`;
-            await this.createRelationship(caseId, {
-                type: 'relationship', id: lmEdgeId,
-                relationship_type: 'lateral-movement',
-                source_ref: `infrastructure--${pair.source_system_id}`,
-                target_ref: `infrastructure--${pair.target_system_id}`,
-                x_oris_kill_chain: pair.kill_chain,
-                created: pair.event_datetime, modified: pair.event_datetime,
-            }, 'system');
-            edgeCount++;
-        }
-
-        // 7. Tasks → grouping + edges to events
+        // 6. Tasks → grouping objects (using STIX objects linked via x_oris_task_id)
         const taskCursor = await this.db.query(`FOR t IN tasks FILTER t.case_id == @caseId RETURN t`, { caseId });
         const tasks = await taskCursor.all();
         
         for (const task of tasks) {
+            // Get STIX objects linked to this task
+            const taskObjCursor = await this.db.query(
+                `FOR d IN stix_objects FILTER d.data.x_oris_task_id == @taskId RETURN d.data.id`,
+                { taskId: task._key }
+            );
+            const taskObjRefs = await taskObjCursor.all();
+
             await this.createObject(caseId, {
                 type: 'grouping', id: `grouping--${task._key}`, spec_version: '2.1',
                 name: task.title,
                 description: (task.description || '').replace(/<[^>]*>/g, ''),
                 context: 'suspicious-activity',
-                object_refs: events.filter(e => e.task_id === task._key).map(e => `observed-data--${e._key}`),
+                object_refs: taskObjRefs,
                 created: task.created_at, modified: task.updated_at || task.created_at,
             }, 'system');
             vertexCount++;
-
-            for (const evt of events.filter(e => e.task_id === task._key)) {
-                const edgeId = `relationship--${crypto.randomUUID()}`;
-                await this.createRelationship(caseId, {
-                    type: 'relationship', id: edgeId,
-                    relationship_type: 'consists-of',
-                    source_ref: `grouping--${task._key}`,
-                    target_ref: `observed-data--${evt._key}`,
-                    created: task.created_at, modified: task.created_at,
-                }, 'system');
-                edgeCount++;
-            }
         }
 
         return { vertices: vertexCount, edges: edgeCount };

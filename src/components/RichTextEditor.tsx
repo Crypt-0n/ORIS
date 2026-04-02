@@ -1,12 +1,101 @@
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import { useEffect, useState, forwardRef, useImperativeHandle } from 'react';
+import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
+import Mention from '@tiptap/extension-mention';
+import Placeholder from '@tiptap/extension-placeholder';
+import tippy from 'tippy.js';
 import { api } from '../lib/api';
 
 interface MentionUser {
   id: string;
   full_name: string;
 }
+
+interface MentionListProps {
+  items: MentionUser[];
+  command: (item: { id: string; label: string }) => void;
+}
+
+const MentionList = forwardRef((props: MentionListProps, ref) => {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const selectItem = (index: number) => {
+    const item = props.items[index];
+    if (item) {
+      props.command({ id: item.id, label: item.full_name });
+    }
+  };
+
+  const upHandler = () => {
+    setSelectedIndex((selectedIndex + props.items.length - 1) % props.items.length);
+  };
+
+  const downHandler = () => {
+    setSelectedIndex((selectedIndex + 1) % props.items.length);
+  };
+
+  const enterHandler = () => {
+    selectItem(selectedIndex);
+  };
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [props.items]);
+
+  useImperativeHandle(ref, () => ({
+    onKeyDown: ({ event }: { event: KeyboardEvent }) => {
+      if (event.key === 'ArrowUp') {
+        upHandler();
+        return true;
+      }
+      if (event.key === 'ArrowDown') {
+        downHandler();
+        return true;
+      }
+      if (event.key === 'Enter') {
+        enterHandler();
+        return true;
+      }
+      return false;
+    },
+  }));
+
+  if (!props.items.length) {
+    return null;
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg shadow-2xl overflow-hidden min-w-[220px] max-h-[200px] overflow-y-auto z-50">
+      {props.items.map((item, index) => (
+        <button
+          className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
+            index === selectedIndex ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700'
+          }`}
+          key={item.id}
+          onClick={() => selectItem(index)}
+        >
+          {item.id === '__case__' ? (
+            <>
+              <span className="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-xs">📢</span>
+              <span className="font-medium">@case</span>
+              <span className="text-xs text-gray-500 dark:text-slate-400 ml-auto">Tout le dossier</span>
+            </>
+          ) : (
+            <>
+              <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-300">
+                {item.full_name.charAt(0)}
+              </span>
+              <span>{item.full_name}</span>
+            </>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+});
+
+MentionList.displayName = 'MentionList';
 
 interface RichTextEditorProps {
   value: string;
@@ -16,237 +105,114 @@ interface RichTextEditorProps {
 }
 
 export function RichTextEditor({ value, onChange, placeholder, disabled = false }: RichTextEditorProps) {
-  const [showMention, setShowMention] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState('');
-  const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [mentionPos, setMentionPos] = useState({ top: 0, left: 0 });
-  const quillRef = useRef<ReactQuill>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mentionStartRef = useRef<number>(-1);
-  const listenerAttachedRef = useRef(false);
+  const [users, setUsers] = useState<MentionUser[]>([]);
 
-  // Fetch users once
   useEffect(() => {
     api.get('/auth/users-list').then((data: unknown) => {
-      if (Array.isArray(data)) setMentionUsers(data);
+      if (Array.isArray(data)) {
+        setUsers([{ id: '__case__', full_name: 'case' }, ...data]);
+      }
     }).catch(() => {});
   }, []);
 
-  // Build filtered suggestions
-  const suggestions = useMemo(() => {
-    const q = mentionQuery.toLowerCase();
-    const caseOption: MentionUser = { id: '__case__', full_name: 'case' };
-    const filtered = mentionUsers.filter(u =>
-      u.full_name.toLowerCase().includes(q)
-    );
-    const all = [caseOption, ...filtered];
-    return q ? all.filter(u => u.full_name.toLowerCase().includes(q)) : all;
-  }, [mentionQuery, mentionUsers]);
+  const suggestion = {
+    items: ({ query }: { query: string }) => {
+      return users.filter((item) => item.full_name.toLowerCase().includes(query.toLowerCase())).slice(0, 10);
+    },
+    render: () => {
+      let reactRenderer: any;
+      let popup: any[];
 
-  const insertMention = useCallback((user: MentionUser) => {
-    const quill = quillRef.current?.getEditor();
-    if (!quill) return;
+      return {
+        onStart: (props: any) => {
+          if (!props.clientRect) {
+            return;
+          }
+          reactRenderer = new ReactRenderer(MentionList, {
+            props,
+            editor: props.editor,
+          });
 
-    const start = mentionStartRef.current;
-    if (start < 0) return;
+          popup = tippy('body', {
+            getReferenceClientRect: props.clientRect,
+            appendTo: () => document.body,
+            content: reactRenderer.element,
+            showOnCreate: true,
+            interactive: true,
+            trigger: 'manual',
+            placement: 'bottom-start',
+          });
+        },
+        onUpdate(props: any) {
+          reactRenderer?.updateProps(props);
 
-    const sel = quill.getSelection();
-    const cursorPos = sel?.index ?? (start + mentionQuery.length + 1);
-    const deleteLen = cursorPos - start;
-    quill.deleteText(start, deleteLen);
-    const mentionText = `@${user.full_name}`;
-    // Insert mention with blue bold formatting
-    quill.insertText(start, mentionText, { bold: true, color: '#3b82f6' });
-    // Insert a space with NO formatting to reset the cursor style
-    const afterMention = start + mentionText.length;
-    quill.insertText(afterMention, ' ', { bold: false, color: false });
-    // Remove any residual format at the cursor position
-    quill.removeFormat(afterMention, 1);
-    quill.insertText(afterMention, ' ');
-    quill.deleteText(afterMention + 1, 1);
-    quill.setSelection(afterMention + 1, 0);
+          if (!props.clientRect) {
+            return;
+          }
 
-    setShowMention(false);
-    setMentionQuery('');
-    mentionStartRef.current = -1;
-  }, [mentionQuery]);
+          popup?.[0].setProps({
+            getReferenceClientRect: props.clientRect,
+          });
+        },
+        onKeyDown(props: any) {
+          if (props.event.key === 'Escape') {
+            popup?.[0].hide();
+            return true;
+          }
+          return reactRenderer?.ref?.onKeyDown(props);
+        },
+        onExit() {
+          popup?.[0].destroy();
+          reactRenderer?.destroy();
+        },
+      };
+    },
+  };
 
-  // Handle keydown for mention navigation (capture phase)
-  useEffect(() => {
-    if (!showMention) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex(i => Math.min(i + 1, suggestions.length - 1));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex(i => Math.max(i - 1, 0));
-      } else if (e.key === 'Enter' || e.key === 'Tab') {
-        if (suggestions.length > 0) {
-          e.preventDefault();
-          e.stopPropagation();
-          insertMention(suggestions[selectedIndex]);
-        }
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        setShowMention(false);
-        mentionStartRef.current = -1;
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown, true);
-    return () => document.removeEventListener('keydown', handleKeyDown, true);
-  }, [showMention, suggestions, selectedIndex, insertMention]);
-
-  // Callback to check for @ mention in the editor
-  const checkForMention = useCallback(() => {
-    const quill = quillRef.current?.getEditor();
-    if (!quill) return;
-
-    const sel = quill.getSelection();
-    if (!sel) {
-      setShowMention(false);
-      return;
-    }
-
-    const cursorPos = sel.index;
-    const fullText = quill.getText();
-    const textBeforeCursor = fullText.substring(0, cursorPos);
-
-    const atIndex = textBeforeCursor.lastIndexOf('@');
-    if (atIndex >= 0) {
-      const charBefore = atIndex > 0 ? textBeforeCursor[atIndex - 1] : ' ';
-      if (atIndex === 0 || /\s/.test(charBefore)) {
-        const query = textBeforeCursor.substring(atIndex + 1);
-        if (!query.includes('\n') && query.length < 30) {
-          mentionStartRef.current = atIndex;
-          setMentionQuery(query);
-          setSelectedIndex(0);
-
-          try {
-            const bounds = quill.getBounds(atIndex);
-            const qlContainer = containerRef.current?.querySelector('.ql-container') as HTMLElement;
-            const containerOffset = qlContainer ? qlContainer.offsetTop : 42;
-            if (bounds) {
-              setMentionPos({
-                top: containerOffset + bounds.top + bounds.height + 4,
-                left: bounds.left + 12,
-              });
-            }
-          } catch {}
-
-          setShowMention(true);
-          return;
-        }
-      }
-    }
-
-    setShowMention(false);
-    mentionStartRef.current = -1;
-  }, []);
-
-  // Use Quill's own event system via the ref - attach after component mounts
-  // This is called on every render to handle the case where quillRef becomes available
-  useEffect(() => {
-    if (listenerAttachedRef.current) return;
-
-    const quill = quillRef.current?.getEditor();
-    if (!quill) return;
-
-    const editorRoot = quill.root; // This is the contenteditable .ql-editor element
-    if (!editorRoot) return;
-
-    const handler = () => {
-      setTimeout(checkForMention, 10);
-    };
-
-    editorRoot.addEventListener('keyup', handler);
-    editorRoot.addEventListener('mouseup', handler);
-    listenerAttachedRef.current = true;
-
-    return () => {
-      editorRoot.removeEventListener('keyup', handler);
-      editorRoot.removeEventListener('mouseup', handler);
-      listenerAttachedRef.current = false;
-    };
-  }); // No deps - runs on every render until attached
-
-  const modules = useMemo(() => ({
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'color': [] }, { 'background': [] }],
-      ['link', 'code-block'],
-      ['clean']
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        bulletList: { keepMarks: true },
+        orderedList: { keepMarks: true },
+      }),
+      Link.configure({
+        openOnClick: false,
+      }),
+      Placeholder.configure({
+        placeholder: placeholder || 'Saisissez votre texte...',
+      }),
+      Mention.configure({
+        HTMLAttributes: {
+          class: 'mention bg-blue-100 text-blue-800 font-semibold px-1 rounded-sm cursor-pointer',
+        },
+        suggestion,
+      }),
     ],
-  }), []);
+    content: value,
+    editable: !disabled,
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML());
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm sm:prose-base focus:outline-none max-w-none min-h-[120px] p-4 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg',
+      },
+    },
+  });
 
-  const formats = [
-    'header',
-    'bold', 'italic', 'underline', 'strike',
-    'list', 'bullet',
-    'color', 'background',
-    'link', 'code-block'
-  ];
+  useEffect(() => {
+    if (editor && editor.getHTML() !== value) {
+      editor.commands.setContent(value);
+    }
+  }, [value, editor]);
+
+  if (!editor) {
+    return null;
+  }
 
   return (
-    <div
-      ref={containerRef}
-      className={`rich-text-editor relative ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
-    >
-      <ReactQuill
-        ref={quillRef}
-        theme="snow"
-        value={value}
-        onChange={onChange}
-        modules={modules}
-        formats={formats}
-        placeholder={placeholder}
-        readOnly={disabled}
-      />
-
-      {showMention && suggestions.length > 0 && (
-        <div
-          className="absolute z-50 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg shadow-2xl overflow-hidden"
-          style={{ top: mentionPos.top, left: mentionPos.left, minWidth: 220, maxHeight: 200 }}
-        >
-          <div className="overflow-y-auto max-h-[200px]">
-            {suggestions.map((user, i) => (
-              <button
-                key={user.id}
-                type="button"
-                className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors
-                  ${i === selectedIndex
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                    : 'text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  insertMention(user);
-                }}
-                onMouseEnter={() => setSelectedIndex(i)}
-              >
-                {user.id === '__case__' ? (
-                  <>
-                    <span className="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-xs">📢</span>
-                    <span className="font-medium">@case</span>
-                    <span className="text-xs text-gray-500 dark:text-slate-400 ml-auto">Tout le dossier</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-300">
-                      {user.full_name.charAt(0)}
-                    </span>
-                    <span>{user.full_name}</span>
-                  </>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+    <div className={`tiptap-editor ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+      <EditorContent editor={editor} />
     </div>
   );
 }

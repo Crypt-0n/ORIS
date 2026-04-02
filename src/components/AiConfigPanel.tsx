@@ -208,7 +208,7 @@ export function AiConfigPanel() {
           <button
             type="button"
             onClick={() => setShowKey(!showKey)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 dark:hover:text-slate-300"
           >
             {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
@@ -224,7 +224,7 @@ export function AiConfigPanel() {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
-            Température <span className="text-gray-400 font-normal">({config.ai_temperature})</span>
+            Température <span className="text-gray-500 font-normal">({config.ai_temperature})</span>
           </label>
           <input
             type="range"
@@ -235,7 +235,7 @@ export function AiConfigPanel() {
             onChange={(e) => setConfig((prev) => ({ ...prev, ai_temperature: e.target.value }))}
             className="w-full accent-purple-500"
           />
-          <div className="flex justify-between text-xs text-gray-400">
+          <div className="flex justify-between text-xs text-gray-500">
             <span>Précis</span>
             <span>Créatif</span>
           </div>
@@ -259,7 +259,7 @@ export function AiConfigPanel() {
       {/* System Prompt */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
-          Prompt système <span className="text-gray-400 font-normal">(optionnel)</span>
+          Prompt système <span className="text-gray-500 font-normal">(optionnel)</span>
         </label>
         <textarea
           value={config.ai_system_prompt}

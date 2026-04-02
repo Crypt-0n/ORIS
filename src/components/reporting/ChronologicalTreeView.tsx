@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import { getIsolatedSystems } from '../../lib/diamondModelUtils';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -140,49 +141,48 @@ function formatEdgeDate(datetime: string): string {
 // ─── Shared data fetching ────────────────────────────────────────────────────
 
 export async function fetchTreeData(caseId: string, endDate?: string) {
-  const [allEvents, overridesRes, systemsRes] = await Promise.all([
-    api.get(`/investigation/events/by-case/${caseId}`),
-    api.get(`/investigation/diamond-overrides/by-case/${caseId}`),
-    api.get(`/investigation/systems/by-case/${caseId}`),
+  const [lateralRes, bundleRes] = await Promise.all([
+    api.get(`/stix/lateral/${caseId}`),
+    api.get(`/stix/bundle/${caseId}`)
   ]);
 
-  const overridesMap = new Map<string, any>();
-  (overridesRes || []).forEach((o: any) => overridesMap.set(o.event_id, o));
+  let validEvents = lateralRes || [];
 
-  const filteredAll = endDate
-    ? (allEvents || []).filter((e: any) => {
-        const createdAt = (e.created_at || '').replace(' ', 'T') + (e.created_at?.includes('Z') ? '' : 'Z');
-        return createdAt <= endDate;
-      })
-    : (allEvents || []);
-  const mappedEvents = filteredAll.map((e: any) => {
-    let src = null, tgt = null;
-    const ov = overridesMap.get(e.id);
-    if (ov) {
-      try {
-        const infra = JSON.parse(ov.infrastructure || '[]');
-        if (infra[0]?.type === 'system') src = infra[0].id;
-        const vic = JSON.parse(ov.victim || '[]');
-        if (vic[0]?.type === 'system') tgt = vic[0].id;
-      } catch { /* ignore */ }
-    }
-    // Fallback: use source_system_id / target_system_id from the event directly
-    if (!src && e.source_system_id) src = e.source_system_id;
-    if (!tgt && e.target_system_id) tgt = e.target_system_id;
-    return { ...e, mapped_source: src, mapped_target: tgt };
-  });
+  if (endDate) {
+    validEvents = validEvents.filter((m: any) => {
+      const dt = m.event_datetime;
+      if (!dt) return true;
+      const time = new Date(dt.includes('T') ? dt : dt.replace(' ', 'T') + 'Z').getTime();
+      return time <= new Date(endDate).getTime();
+    });
+  }
 
-  const validEvents = mappedEvents
-    .filter((e: any) => e.mapped_target && e.mapped_source && e.mapped_source !== e.mapped_target)
+  validEvents = validEvents
+    .filter((e: any) => e.target?.id && e.source?.id && e.source.id !== e.target.id)
     .sort((a: any, b: any) => new Date(a.event_datetime).getTime() - new Date(b.event_datetime).getTime());
 
   if (validEvents.length === 0) return null;
 
+  const stixObjects = bundleRes?.objects || [];
   const systemMap = new Map<string, any>();
-  (systemsRes || []).forEach((s: any) => systemMap.set(s.id, s));
+  
+  const stdSystems = getIsolatedSystems(stixObjects);
+  stdSystems.forEach((o: any) => {
+    if (o.type === 'infrastructure' || o.type === 'ipv4-addr' || o.type === 'domain-name') {
+      systemMap.set(o.id, {
+        name: o.name || o.value || 'Inconnu',
+        system_type: o.infrastructure_types?.[0] || (o.type === 'domain-name' ? 'wan' : 'serveur')
+      });
+    }
+  });
 
   const sysIds = new Set<string>();
-  validEvents.forEach((e: any) => { sysIds.add(e.mapped_source); sysIds.add(e.mapped_target); });
+  validEvents.forEach((e: any) => { sysIds.add(e.source.id); sysIds.add(e.target.id); });
+  stdSystems.forEach((o: any) => {
+    if (o.type === 'infrastructure' || o.type === 'ipv4-addr' || o.type === 'domain-name') {
+      sysIds.add(o.id);
+    }
+  });
 
   let tasksData: any[] = [];
   try { tasksData = await api.get(`/tasks/by-case/${caseId}`); } catch { /* ignore */ }
@@ -190,7 +190,7 @@ export async function fetchTreeData(caseId: string, endDate?: string) {
   const systemStatus = new Map<string, string>();
   const STATUS_PRIORITY = ['infected', 'compromised', 'clean'];
   sysIds.forEach(sysId => {
-    const sysTasks = (tasksData || []).filter((t: any) => t.system_id === sysId);
+    const sysTasks = (tasksData || []).filter((t: any) => t.system_id === sysId || t.stix_system_id === sysId);
     let status = 'unknown';
     const closedTasks = sysTasks.filter((t: any) => t.status === 'closed' && t.investigation_status);
     for (const s of STATUS_PRIORITY) {
@@ -207,7 +207,7 @@ export async function fetchTreeData(caseId: string, endDate?: string) {
 
   const parent = new Map<string, string>();
   validEvents.forEach((e: any) => {
-    if (!parent.has(e.mapped_target)) parent.set(e.mapped_target, e.mapped_source);
+    if (!parent.has(e.target.id)) parent.set(e.target.id, e.source.id);
   });
 
   const roots = [...sysIds].filter(id => !parent.has(id));
@@ -227,10 +227,10 @@ export async function fetchTreeData(caseId: string, endDate?: string) {
 
   const edgePairs = new Map<string, { source: string; target: string; dates: string[] }>();
   validEvents.forEach((e: any) => {
-    const key = `${e.mapped_source}->${e.mapped_target}`;
+    const key = `${e.source.id}->${e.target.id}`;
     const existing = edgePairs.get(key);
     if (existing) { existing.dates.push(e.event_datetime); }
-    else { edgePairs.set(key, { source: e.mapped_source, target: e.mapped_target, dates: [e.event_datetime] }); }
+    else { edgePairs.set(key, { source: e.source.id, target: e.target.id, dates: [e.event_datetime] }); }
   });
 
   const edges = [...edgePairs.entries()].map(([key, pair]) => ({

@@ -15,7 +15,7 @@ function ensureBackupDir() {
  */
 async function arangoDump() {
     const db = getDb();
-    const collections = ['cases', 'tasks', 'task_files', 'task_results', 'case_events', 'case_systems', 'case_malware_tools', 'case_network_indicators', 'case_compromised_accounts', 'case_compromised_account_systems', 'case_exfiltrations', 'case_diamond_overrides', 'case_diamond_node_order', 'case_graph_layouts', 'case_attacker_infra', 'case_assignments', 'case_audit_log', 'user_profiles', 'beneficiaries', 'beneficiary_members', 'severities', 'notifications', 'comments', 'comment_attachments', 'api_tokens', 'login_history', 'kill_chain_ttps', 'webhooks', 'push_subscriptions', 'system_config', 'stix_objects', 'stix_relationships'];
+    const collections = ['cases', 'tasks', 'task_files', 'task_results', 'case_assignments', 'case_audit_log', 'user_profiles', 'beneficiaries', 'beneficiary_members', 'severities', 'notifications', 'comments', 'comment_attachments', 'api_tokens', 'login_history', 'kb_stix_objects', 'webhooks', 'push_subscriptions', 'system_config', 'stix_objects', 'stix_relationships'];
 
     const dumpData = {};
     for (const collName of collections) {

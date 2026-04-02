@@ -99,7 +99,7 @@ export function ApiDocs() {
                 {/* Authentication */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Lock className="w-5 h-5 text-gray-400" />
+                        <Lock className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Authentication</h3>
                     </div>
                     <Endpoint
@@ -177,7 +177,7 @@ export function ApiDocs() {
                 {/* Cases */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Tags className="w-5 h-5 text-gray-400" />
+                        <Tags className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Dossiers (Cases)</h3>
                     </div>
                     <Endpoint
@@ -269,7 +269,7 @@ export function ApiDocs() {
                 {/* Alerts */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Activity className="w-5 h-5 text-gray-400" />
+                        <Activity className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Alertes</h3>
                     </div>
                     <Endpoint
@@ -312,48 +312,26 @@ export function ApiDocs() {
                 {/* Investigation */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Activity className="w-5 h-5 text-gray-400" />
+                        <Activity className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Investigation</h3>
                     </div>
                     <Endpoint
                         method="GET"
-                        path="/investigation/:type/by-case/:caseId"
-                        description="Lister les entités d'un dossier"
-                        params={[
-                            "type: 'systems' | 'events' | 'indicators' | 'malware' | 'exfiltrations' | 'accounts' | 'diamond' (Path)",
-                            "caseId: UUID du dossier (Path)"
-                        ]}
-                    />
-                    <Endpoint
-                        method="POST"
-                        path="/investigation/:type"
-                        description="Créer une nouvelle entité d'investigation"
-                        params={[
-                            "type: Type d'entité (Path)",
-                            "payload: Objet complet selon le type (Body)"
-                        ]}
-                    />
-                    <Endpoint
-                        method="PUT"
-                        path="/investigation/:type/:id"
-                        description="Modifier une entité d'investigation"
-                        params={[
-                            "type: Type d'entité (Path)",
-                            "id: UUID de l'entité (Path)",
-                            "payload: Champs à modifier (Body)"
-                        ]}
-                    />
-                    <Endpoint
-                        method="GET"
-                        path="/investigation/account_systems/:caseId"
-                        description="Lister les liens comptes/systèmes d'un dossier"
+                        path="/investigation/timeline/:caseId"
+                        description="Timeline dynamique du dossier (générée depuis les objets STIX)"
                         params={["caseId: UUID du dossier (Path)"]}
                     />
                     <Endpoint
-                        method="POST"
-                        path="/investigation/account_systems"
-                        description="Lier des comptes compromis à des systèmes"
-                        params={["body: Tableau de { account_id, system_id } (Body)"]}
+                        method="PATCH"
+                        path="/stix/objects/:id/visual"
+                        description="Mise à jour partielle des propriétés visuelles d'un objet STIX (x_oris_diamond_label, x_oris_graph_position, x_oris_diamond_edge, x_oris_diamond_axes)"
+                        params={[
+                            "id: ID STIX de l'objet (Path)",
+                            "x_oris_diamond_label: Label personnalisé (Body, Opt)",
+                            "x_oris_graph_position: {x, y} Position dans le graphe (Body, Opt)",
+                            "x_oris_diamond_axes: {adversary, infrastructure, capability, victim} (Body, Opt)",
+                            "x_oris_diamond_edge: Boolean (Body, Opt)"
+                        ]}
                     />
                     <Endpoint
                         method="GET"
@@ -370,24 +348,12 @@ export function ApiDocs() {
                         path="/investigation/pap"
                         description="Lister les codes PAP disponibles"
                     />
-                    <Endpoint
-                        method="DELETE"
-                        path="/investigation/:type/:id"
-                        description="Supprimer une entité d'investigation"
-                        params={["type: Type d'entité (Path)", "id: UUID de l'entité (Path)"]}
-                    />
-                    <Endpoint
-                        method="DELETE"
-                        path="/investigation/account_systems/by-account/:accountId"
-                        description="Supprimer les liens système d'un compte compromis"
-                        params={["accountId: UUID du compte (Path)"]}
-                    />
                 </section>
 
                 {/* Tasks & Collaboration */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Code className="w-5 h-5 text-gray-400" />
+                        <Code className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Tâches & Collaboration</h3>
                     </div>
                     <Endpoint
@@ -513,7 +479,7 @@ export function ApiDocs() {
                 {/* Dashboard & Search */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Activity className="w-5 h-5 text-gray-400" />
+                        <Activity className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Dashboard & Recherche</h3>
                     </div>
                     <Endpoint
@@ -543,7 +509,7 @@ export function ApiDocs() {
                 {/* Notifications */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Activity className="w-5 h-5 text-gray-400" />
+                        <Activity className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Notifications</h3>
                     </div>
                     <Endpoint
@@ -614,7 +580,7 @@ export function ApiDocs() {
                 {/* 2FA */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Lock className="w-5 h-5 text-gray-400" />
+                        <Lock className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Authentification 2FA (TOTP)</h3>
                     </div>
                     <Endpoint
@@ -646,7 +612,7 @@ export function ApiDocs() {
                 {/* Backup */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Database className="w-5 h-5 text-gray-400" />
+                        <Database className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Sauvegarde & Restauration</h3>
                     </div>
                     <Endpoint
@@ -706,7 +672,7 @@ export function ApiDocs() {
                 {/* Webhooks */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Globe className="w-5 h-5 text-gray-400" />
+                        <Globe className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Webhooks</h3>
                     </div>
                     <Endpoint
@@ -749,50 +715,37 @@ export function ApiDocs() {
                     />
                 </section>
 
-                {/* TTPs */}
+                {/* MITRE ATT&CK Knowledge Base */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Tags className="w-5 h-5 text-gray-400" />
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">TTPs MITRE ATT&CK</h3>
+                        <Tags className="w-5 h-5 text-gray-500" />
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Base de connaissances MITRE ATT&CK</h3>
                     </div>
                     <Endpoint
                         method="GET"
-                        path="/admin/ttps"
-                        description="Lister les TTPs personnalisés"
+                        path="/kb/mitre/attack-patterns"
+                        description="Rechercher des techniques d'attaque dans la KB MITRE (lecture seule)"
+                        params={[
+                            "search: Terme de recherche — ID MITRE ou nom (Query, Opt)"
+                        ]}
+                        response={`[{ "id": "attack-pattern--uuid", "mitre_id": "T1566", "name": "Phishing", "description": "...", "kill_chain_phases": [...] }]`}
                     />
                     <Endpoint
                         method="POST"
-                        path="/admin/ttps"
-                        description="Créer un TTP personnalisé (Admin)"
+                        path="/kb/mitre/clone-to-case"
+                        description="Copier un objet STIX de la KB vers le dossier d'un cas"
                         params={[
-                            "technique_id: ID MITRE (ex: T1059) (Body)",
-                            "name: Nom de la technique (Body)",
-                            "tactic: Tactique associée (Body)"
+                            "case_id: UUID du dossier (Body)",
+                            "stix_id: ID STIX de l'objet KB à cloner (Body)"
                         ]}
-                    />
-                    <Endpoint
-                        method="PUT"
-                        path="/admin/ttps/:id"
-                        description="Modifier un TTP (Admin)"
-                        params={["id: UUID du TTP (Path)"]}
-                    />
-                    <Endpoint
-                        method="DELETE"
-                        path="/admin/ttps/:id"
-                        description="Supprimer un TTP (Admin)"
-                        params={["id: UUID du TTP (Path)"]}
-                    />
-                    <Endpoint
-                        method="GET"
-                        path="/config/ttps"
-                        description="Lister tous les TTPs disponibles (référentiel + personnalisés)"
+                        response={`{ "cloned": true, "object": { "id": "attack-pattern--uuid", "case_id": "...", "kb_origin": "..." } }`}
                     />
                 </section>
 
                 {/* Admin & Audit */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Database className="w-5 h-5 text-gray-400" />
+                        <Database className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Admin & Audit</h3>
                     </div>
                     <Endpoint
@@ -910,7 +863,7 @@ export function ApiDocs() {
                 {/* Reports */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Book className="w-5 h-5 text-gray-400" />
+                        <Book className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Rapports</h3>
                     </div>
                     <Endpoint
@@ -924,7 +877,7 @@ export function ApiDocs() {
                 {/* Présence */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Globe className="w-5 h-5 text-gray-400" />
+                        <Globe className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Présence en temps réel</h3>
                     </div>
                     <Endpoint
@@ -953,7 +906,7 @@ export function ApiDocs() {
                 {/* STIX 2.1 */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Share2 className="w-5 h-5 text-gray-400" />
+                        <Share2 className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">STIX 2.1 — Graphe d'investigation</h3>
                     </div>
                     <Endpoint
@@ -1047,7 +1000,7 @@ export function ApiDocs() {
                 {/* AI */}
                 <section>
                     <div className="flex items-center gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                        <Brain className="w-5 h-5 text-gray-400" />
+                        <Brain className="w-5 h-5 text-gray-500" />
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Assistant IA</h3>
                     </div>
                     <Endpoint

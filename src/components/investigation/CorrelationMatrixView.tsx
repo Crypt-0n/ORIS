@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 interface CorrelationMatrixViewProps {
   nodes: DiamondNode[];
+  allSystems?: { id: string; label: string; type: string }[];
 }
 
 interface SystemCorrelation {
@@ -27,8 +28,30 @@ interface SystemCorrelation {
   shadowReason: string[];
 }
 
-function buildCorrelationMatrix(nodes: DiamondNode[]): SystemCorrelation[] {
+function buildCorrelationMatrix(nodes: DiamondNode[], allSystems: { id: string; label: string; type: string }[] = []): SystemCorrelation[] {
   const systemMap = new Map<string, SystemCorrelation>();
+
+  allSystems.forEach((sys) => {
+    systemMap.set(sys.id, {
+      systemId: sys.id,
+      systemLabel: sys.label,
+      hasAdversary: false,
+      hasInfrastructure: false,
+      hasCapability: false,
+      asVictim: false,
+      hasIncomingEvent: false,
+      hasOutgoingEvent: false,
+      identifiedSource: false,
+      adversaryLabels: [],
+      infrastructureLabels: [],
+      capabilityLabels: [],
+      firstEvent: null,
+      lastEvent: null,
+      eventCount: 0,
+      shadowScore: 0,
+      shadowReason: [],
+    });
+  });
 
   const ensureSystem = (id: string, label: string) => {
     if (!systemMap.has(id)) {
@@ -187,9 +210,9 @@ function ShadowBadge({ score }: { score: number }) {
   );
 }
 
-export function CorrelationMatrixView({ nodes }: CorrelationMatrixViewProps) {
+export function CorrelationMatrixView({ nodes, allSystems }: CorrelationMatrixViewProps) {
   const { t } = useTranslation();
-  const systems = useMemo(() => buildCorrelationMatrix(nodes), [nodes]);
+  const systems = useMemo(() => buildCorrelationMatrix(nodes, allSystems || []), [nodes, allSystems]);
 
   const criticalCount = systems.filter((s) => s.shadowScore >= 7).length;
   const suspectCount = systems.filter((s) => s.shadowScore >= 4 && s.shadowScore < 7).length;

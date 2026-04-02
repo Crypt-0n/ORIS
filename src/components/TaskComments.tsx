@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import { sanitizeHtml } from '../lib/sanitize';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Send, Edit, Trash2, X, Check, Paperclip, Download, FileText, Image as ImageIcon, Reply, Clock } from 'lucide-react';
+import { Send, Edit, Trash2, X, Check, Paperclip, Download, FileText, Image as ImageIcon, Reply } from 'lucide-react';
 import { RichTextEditor } from './RichTextEditor';
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from 'react-router-dom';
@@ -33,7 +34,6 @@ interface TaskCommentsProps {
   isClosed: boolean;
   caseAuthorId: string | null;
   onCountChange?: (count: number) => void;
-  onNewEvent?: () => void;
   isReadOnly?: boolean;
 }
 
@@ -45,7 +45,7 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
 }
 
-export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, onNewEvent, isReadOnly }: TaskCommentsProps) {
+export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, isReadOnly }: TaskCommentsProps) {
   const { t } = useTranslation();
   const { user, hasAnyRole } = useAuth();
   const isOnline = useOnlineStatus();
@@ -271,7 +271,7 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, on
         <>
           <div
             className="text-sm text-gray-700 dark:text-slate-300 rich-text-content"
-            dangerouslySetInnerHTML={{ __html: comment.content }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(comment.content) }}
           />
           {comment.attachments && comment.attachments.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">
@@ -301,7 +301,7 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, on
                       <div className="text-gray-700 dark:text-slate-300 truncate max-w-[150px]">{att.file_name}</div>
                       <div className="text-xs text-gray-500 dark:text-slate-400">{formatFileSize(att.file_size)}</div>
                     </div>
-                    <Download className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    <Download className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
                   </a>
                 )
               ))}
@@ -392,16 +392,6 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, on
                 >
                   <Paperclip className="w-5 h-5" />
                 </button>
-                {onNewEvent && (
-                  <button
-                    type="button"
-                    onClick={onNewEvent}
-                    className="p-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
-                    title="Nouveau fait marquant"
-                  >
-                    <Clock className="w-5 h-5" />
-                  </button>
-                )}
               </div>
               <button
                 type="submit"

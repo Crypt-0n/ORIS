@@ -174,7 +174,7 @@ export function TaskFiles({ taskId, caseId, isClosed, onCountChange }: TaskFiles
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+        <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
       </div>
     );
   }

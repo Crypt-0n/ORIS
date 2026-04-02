@@ -1,35 +1,21 @@
 import { useState } from 'react';
 import { api } from '../lib/api';
-import { X, Lock, ShieldCheck, ShieldAlert, ShieldX, ShieldQuestion, ArrowRight } from 'lucide-react';
+import { X, Lock, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
 import { RichTextEditor } from './RichTextEditor';
 import { useTranslation } from "react-i18next";
 
 interface CloseTaskProps {
   taskId: string;
   initialComment?: string;
-  hasSystem?: boolean;
-  initialInvestigationStatus?: string | null;
+  stixObjects?: any[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
-const INVESTIGATION_STATUSES = [
-  { value: 'clean', label: 'Sain', description: 'Le systeme est sain, aucune trace de compromission', icon: ShieldCheck, bgClass: 'bg-green-50 dark:bg-green-900/20', borderActive: 'border-green-500', textClass: 'text-green-700 dark:text-green-400' },
-  { value: 'compromised', label: 'Compromis / Accede', description: "Le systeme a ete accede ou compromis par l'attaquant", icon: ShieldAlert, bgClass: 'bg-amber-50 dark:bg-amber-900/20', borderActive: 'border-amber-500', textClass: 'text-amber-700 dark:text-amber-400' },
-  { value: 'infected', label: 'Infecte', description: 'Le systeme est infecte (malware, backdoor, etc.)', icon: ShieldX, bgClass: 'bg-red-50 dark:bg-red-900/20', borderActive: 'border-red-500', textClass: 'text-red-700 dark:text-red-400' },
-] as const;
-
-const INITIAL_STATUS_MAP: Record<string, { label: string; icon: typeof ShieldCheck; textClass: string; bgClass: string; borderClass: string }> = {
-  unknown: { label: 'Inconnu', icon: ShieldQuestion, textClass: 'text-slate-500 dark:text-slate-400', bgClass: 'bg-slate-100 dark:bg-slate-800', borderClass: 'border-slate-300 dark:border-slate-600' },
-  clean: { label: 'Sain', icon: ShieldCheck, textClass: 'text-green-700 dark:text-green-400', bgClass: 'bg-green-50 dark:bg-green-900/20', borderClass: 'border-green-200 dark:border-green-800' },
-  compromised: { label: 'Compromis / Accede', icon: ShieldAlert, textClass: 'text-amber-700 dark:text-amber-400', bgClass: 'bg-amber-50 dark:bg-amber-900/20', borderClass: 'border-amber-200 dark:border-amber-800' },
-  infected: { label: 'Infecte', icon: ShieldX, textClass: 'text-red-700 dark:text-red-400', bgClass: 'bg-red-50 dark:bg-red-900/20', borderClass: 'border-red-200 dark:border-red-800' },
-};
-
-export function CloseTask({ taskId, initialComment = '', hasSystem = false, initialInvestigationStatus, onClose, onSuccess }: CloseTaskProps) {
+export function CloseTask({ taskId, initialComment = '', stixObjects = [], onClose, onSuccess }: CloseTaskProps) {
   const { t } = useTranslation();
   const [comment, setComment] = useState(initialComment);
-  const [investigationStatus, setInvestigationStatus] = useState<string>('');
+  const [objectStatuses, setObjectStatuses] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [closing, setClosing] = useState(false);
 
@@ -37,8 +23,8 @@ export function CloseTask({ taskId, initialComment = '', hasSystem = false, init
     e.preventDefault();
     if (!comment.trim()) return;
 
-    if (hasSystem && !investigationStatus) {
-      setError("Vous devez selectionner un statut d'investigation pour ce systeme");
+    if (stixObjects.some(obj => !objectStatuses[obj.id])) {
+      setError("Vous devez sélectionner un statut pour tous les éléments techniques de cette tâche.");
       return;
     }
 
@@ -47,9 +33,22 @@ export function CloseTask({ taskId, initialComment = '', hasSystem = false, init
 
     try {
       await api.post(`/tasks/${taskId}/close`, {
-        closure_comment: comment.trim(),
-        investigation_status: hasSystem && investigationStatus ? investigationStatus : null,
+        closure_comment: comment.trim()
       });
+
+      // Update STIX Objects categorisation
+      if (stixObjects && stixObjects.length > 0) {
+        const categoriesToRemove = ['sain', 'clean', 'benign', 'false-positive', 'compromis', 'compromised', 'malveillant', 'malicious-activity'];
+        for (const obj of stixObjects) {
+            const finalStatus = objectStatuses[obj.id];
+            if (finalStatus) {
+                const currentLabels = obj.labels || [];
+                const newLabels = currentLabels.filter((l: string) => !categoriesToRemove.includes(l.toLowerCase()));
+                newLabels.push(finalStatus);
+                await api.put(`/investigation/stix/${obj.id}`, { labels: newLabels });
+            }
+        }
+      }
 
       onSuccess();
     } catch (err) {
@@ -67,7 +66,7 @@ export function CloseTask({ taskId, initialComment = '', hasSystem = false, init
             <Lock className="w-6 h-6 text-red-600" />
             <h3 className="text-xl font-bold text-gray-800 dark:text-white">{t('auto.fermer_la_tache')}</h3>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200">
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -78,49 +77,46 @@ export function CloseTask({ taskId, initialComment = '', hasSystem = false, init
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {hasSystem && initialInvestigationStatus && (() => {
-            const cfg = INITIAL_STATUS_MAP[initialInvestigationStatus];
-            if (!cfg) return null;
-            const Icon = cfg.icon;
-            return (
-              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${cfg.bgClass} ${cfg.borderClass}`}>
-                <Icon className={`w-4 h-4 flex-shrink-0 ${cfg.textClass}`} />
-                <span className={`text-xs ${cfg.textClass}`}>
-                  {t('auto.statut_initial_avant_investiga')}<strong>{cfg.label}</strong>
-                </span>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 ml-auto flex-shrink-0" />
-                <span className="text-xs text-slate-500 dark:text-slate-400">{t('auto.statut_final_ci_dessous')}</span>
-              </div>
-            );
-          })()}
-
-          {hasSystem && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
-                {t('auto.statut_final_du_systeme_apres_')}</label>
-              <div className="grid grid-cols-1 gap-2">
-                {INVESTIGATION_STATUSES.map(status => {
-                  const Icon = status.icon;
-                  const isSelected = investigationStatus === status.value;
-                  return (
-                    <button
-                      key={status.value}
-                      type="button"
-                      onClick={() => setInvestigationStatus(status.value)}
-                      className={`flex items-start gap-3 p-3 rounded-lg border-2 transition text-left ${isSelected
-                          ? `${status.borderActive} ${status.bgClass}`
-                          : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
-                        }`}
-                    >
-                      <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isSelected ? status.textClass : 'text-gray-400 dark:text-slate-400'}`} />
-                      <div>
-                        <span className={`text-sm font-medium ${isSelected ? status.textClass : 'text-gray-800 dark:text-white'}`}>
-                          {status.label}
-                        </span>
-                        <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{status.description}</p>
-                      </div>
-                    </button>
-                  );
+          {stixObjects && stixObjects.length > 0 && (
+            <div className="mb-6 space-y-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">
+                Catégorisation des éléments techniques *
+              </label>
+              <div className="bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-lg p-3 space-y-3 max-h-[40vh] overflow-y-auto">
+                {stixObjects.map(obj => {
+                    const currentStatus = objectStatuses[obj.id] || '';
+                    const label = obj.name || obj.value || obj.user_id || 'Inconnu';
+                    return (
+                        <div key={obj.id} className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 p-3 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-600 rounded-lg shadow-sm">
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate" title={label}>{label}</p>
+                                <p className="text-[10px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">{obj.type}</p>
+                            </div>
+                            <div className="flex flex-wrap bg-gray-100 dark:bg-slate-900 rounded-lg p-1 gap-1 flex-shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setObjectStatuses(prev => ({...prev, [obj.id]: 'benign'}))}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition flex items-center gap-1 ${currentStatus === 'benign' ? 'bg-green-100/80 text-green-700 dark:bg-green-900/40 dark:text-green-400 shadow-sm border border-green-200 dark:border-green-800' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-slate-800 border border-transparent'}`}
+                                >
+                                    <ShieldCheck className="w-3.5 h-3.5" /> Sain
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setObjectStatuses(prev => ({...prev, [obj.id]: 'compromised'}))}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition flex items-center gap-1 ${currentStatus === 'compromised' ? 'bg-amber-100/80 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 shadow-sm border border-amber-200 dark:border-amber-800' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-slate-800 border border-transparent'}`}
+                                >
+                                    <ShieldAlert className="w-3.5 h-3.5" /> Compromis
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setObjectStatuses(prev => ({...prev, [obj.id]: 'malicious-activity'}))}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition flex items-center gap-1 ${currentStatus === 'malicious-activity' ? 'bg-red-100/80 text-red-700 dark:bg-red-900/40 dark:text-red-400 shadow-sm border border-red-200 dark:border-red-800' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-slate-800 border border-transparent'}`}
+                                >
+                                    <ShieldX className="w-3.5 h-3.5" /> Malveillant
+                                </button>
+                            </div>
+                        </div>
+                    );
                 })}
               </div>
             </div>
@@ -153,7 +149,7 @@ export function CloseTask({ taskId, initialComment = '', hasSystem = false, init
               {t('auto.annuler')}</button>
             <button
               type="submit"
-              disabled={closing || !comment.trim() || (hasSystem && !investigationStatus)}
+              disabled={closing || !comment.trim()}
               className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Lock className="w-4 h-4" />

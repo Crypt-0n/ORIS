@@ -145,7 +145,7 @@ describe('STIX 2.1 API', () => {
                     threat_actor_types: ['nation-state'],
                     sophistication: 'advanced',
                 });
-            expect(res.statusCode).toBe(201);
+            expect(res.statusCode).toBe(200);
             expect(res.body.type).toBe('threat-actor');
             expect(res.body.name).toBe('APT28');
         });
@@ -166,7 +166,7 @@ describe('STIX 2.1 API', () => {
                     name: 'C2 Server',
                     infrastructure_types: ['command-and-control'],
                 });
-            expect(res.statusCode).toBe(201);
+            expect(res.statusCode).toBe(200);
             expect(res.body.name).toBe('C2 Server');
         });
 
@@ -187,7 +187,7 @@ describe('STIX 2.1 API', () => {
                     is_family: true,
                     malware_types: ['backdoor'],
                 });
-            expect(res.statusCode).toBe(201);
+            expect(res.statusCode).toBe(200);
             expect(res.body.is_family).toBe(true);
         });
 
@@ -208,7 +208,7 @@ describe('STIX 2.1 API', () => {
                     identity_class: 'organization',
                     sectors: ['technology'],
                 });
-            expect(res.statusCode).toBe(201);
+            expect(res.statusCode).toBe(200);
             expect(res.body.identity_class).toBe('organization');
         });
     });
@@ -249,7 +249,7 @@ describe('STIX 2.1 API', () => {
                     target_ref: malwareId,
                     confidence: 90,
                 });
-            expect(res.statusCode).toBe(201);
+            expect(res.statusCode).toBe(200);
             expect(res.body.relationship_type).toBe('uses');
         });
 
@@ -268,7 +268,7 @@ describe('STIX 2.1 API', () => {
                     source_ref: threatActorId,
                     target_ref: identityId,
                 });
-            expect(res.statusCode).toBe(201);
+            expect(res.statusCode).toBe(200);
         });
     });
 

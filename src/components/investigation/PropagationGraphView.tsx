@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 interface PropagationGraphViewProps {
   nodes: DiamondNode[];
+  availableSystems?: { id: string; label: string, type?: 'system' | 'network' }[];
 }
 
 interface SystemNode {
@@ -43,7 +44,7 @@ interface GraphData {
   exfiltrationNodeIds: Set<string>;
 }
 
-function buildPropagationGraph(nodes: DiamondNode[]): GraphData {
+function buildPropagationGraph(nodes: DiamondNode[], availableSystems: { id: string; label: string, type?: 'system' | 'network' }[] = []): GraphData {
   const systemNodes = new Map<string, SystemNode>();
   const edges: PropagationEdge[] = [];
   const exfiltrationNodeIds = new Set<string>();
@@ -69,6 +70,11 @@ function buildPropagationGraph(nodes: DiamondNode[]): GraphData {
     }
     return systemNodes.get(id)!;
   };
+
+  // Pre-seed the system mapping with ALL provided systems
+  availableSystems.forEach(sys => {
+    ensureSystem(sys.id, sys.label, sys.type || 'system');
+  });
 
   const C2_PHASES = new Set(['c2', 'ukc_c2', 'att_c2']);
 
@@ -168,6 +174,7 @@ function buildPropagationGraph(nodes: DiamondNode[]): GraphData {
       s.hasIncoming = true;
     }
     if (!s.hasIncoming && s.hasOutgoing && !s.hasExfiltration) s.isOrphan = true;
+    if (!s.hasIncoming && !s.hasOutgoing && s.eventCount === 0) s.isOrphan = true;
   });
 
   const allSystems = Array.from(systemNodes.values());
@@ -220,11 +227,11 @@ function SystemCard({ sys, variant }: { sys: SystemNode; variant: 'orphan' | 'sh
       <div className="px-3 py-2 space-y-1.5">
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
           <div>
-            <span className="text-[9px] text-gray-400 dark:text-slate-600 uppercase tracking-wide">{t('auto.premiere_activite')}</span>
+            <span className="text-[9px] text-gray-500 dark:text-slate-600 uppercase tracking-wide">{t('auto.premiere_activite')}</span>
             <p className="text-[10px] text-gray-600 dark:text-slate-300">{sys.firstSeen ? formatDate(sys.firstSeen) : '—'}</p>
           </div>
           <div>
-            <span className="text-[9px] text-gray-400 dark:text-slate-600 uppercase tracking-wide">{t('auto.derniere_activite')}</span>
+            <span className="text-[9px] text-gray-500 dark:text-slate-600 uppercase tracking-wide">{t('auto.derniere_activite')}</span>
             <p className="text-[10px] text-gray-600 dark:text-slate-300">{sys.lastSeen ? formatDate(sys.lastSeen) : '—'}</p>
           </div>
         </div>
@@ -261,7 +268,7 @@ function SystemCard({ sys, variant }: { sys: SystemNode; variant: 'orphan' | 'sh
           </div>
         )}
         {sys.linkedMalware.length === 0 && sys.linkedAccounts.length === 0 && sys.linkedNetwork.length === 0 && sys.linkedExfiltrations.length === 0 && (
-          <p className="text-[10px] text-gray-400 dark:text-slate-600 italic flex items-center gap-1">
+          <p className="text-[10px] text-gray-500 dark:text-slate-600 italic flex items-center gap-1">
             <HelpCircle className="w-3 h-3" />
             {t('auto.aucun_indicateur_d_activite_as')}</p>
         )}
@@ -295,15 +302,15 @@ function EdgeRow({ edge, isExfiltration }: { edge: PropagationEdge; isExfiltrati
         {edge.killChainPhase}
       </span>
       {edge.datetime && (
-        <span className="text-[9px] text-gray-400 dark:text-slate-600 flex-shrink-0 hidden sm:block">{formatDate(edge.datetime)}</span>
+        <span className="text-[9px] text-gray-500 dark:text-slate-600 flex-shrink-0 hidden sm:block">{formatDate(edge.datetime)}</span>
       )}
     </div>
   );
 }
 
-export function PropagationGraphView({ nodes }: PropagationGraphViewProps) {
+export function PropagationGraphView({ nodes, availableSystems = [] }: PropagationGraphViewProps) {
   const { t } = useTranslation();
-  const { systemNodes, edges, orphans, shadowZones, exfiltrationNodeIds } = useMemo(() => buildPropagationGraph(nodes), [nodes]);
+  const { systemNodes, edges, orphans, shadowZones, exfiltrationNodeIds } = useMemo(() => buildPropagationGraph(nodes, availableSystems), [nodes, availableSystems]);
 
   const allSystems = Array.from(systemNodes.values());
   const knownSystems = allSystems.filter((s) => s.hasIncoming);
