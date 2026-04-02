@@ -206,7 +206,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
         
         <div className="flex flex-wrap items-center gap-2">
           {/* Filtres Tous/Ouvert/Fermé */}
-          <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-lg w-max flex-shrink-0">
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-lg w-full sm:w-auto">
             <button
               onClick={() => { setFilter('all'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md font-medium transition-all text-xs sm:text-sm ${filter === 'all' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`}
@@ -228,7 +228,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
           </div>
 
           {/* Sélecteur Groupage */}
-          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-1.5 rounded-lg w-max flex-shrink-0">
+          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-1.5 rounded-lg w-full sm:w-auto">
             <Layers className="w-4 h-4 text-gray-400 ml-1" />
             <select
               value={groupBy}
@@ -244,7 +244,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
           </div>
 
           {/* Filtres croisés */}
-          <div className="flex flex-wrap items-center gap-1.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-1.5 rounded-lg w-max flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-1.5 rounded-lg w-full sm:w-auto">
             <Filter className="w-4 h-4 text-gray-400 ml-1" />
             <select
               value={filterBeneficiary}

@@ -93,13 +93,13 @@ ORIS est une application web auto-hébergée pour piloter les investigations de 
 
 | Composant | Stack |
 |---|---|
-| **Frontend** | React 18, TypeScript, Vite, CSS (dark mode) |
-| **Backend** | Node.js, Express |
-| **Base de données** | ArangoDB 3.12 (graphe + document) |
-| **Authentification** | JWT + bcrypt, TOTP (2FA) |
+| **Frontend** | React 18, TypeScript, Vite, CSS (vanilla, dark mode natif) |
+| **Backend** | Node.js, Express, TypeScript (Driver natif `arangojs`, sans ORM) |
+| **Base de données** | ArangoDB 3.12 (Architecture multi-modèle exclusive Graphe + Document) |
+| **Authentification** | JWT via cookies `HttpOnly` sécurisés (Anti-XSS), bcrypt, TOTP (2FA) |
 | **Notifications** | Web Push (VAPID) |
-| **Conteneurisation** | Docker, Docker Compose |
-| **Tests** | Jest + supertest |
+| **Infrastructure** | Docker, Docker Compose (Compatible Nginx Proxy Manager & Portainer) |
+| **Tests qualité** | Jest + supertest (Intégration), Playwright (Tests E2E) |
 
 ## 🚀 Déploiement avec Docker
 
@@ -113,15 +113,15 @@ ORIS est une application web auto-hébergée pour piloter les investigations de 
 docker compose up -d --build
 ```
 
-L'application est accessible sur **http://localhost:3457** (port configurable dans `docker-compose.yml`).
+L'application est accessible sur **http://localhost:3456** (port frontal configurable dans `docker-compose.yml`).
 
 ### Architecture des services
 
-| Service | Image | Port |
-|---|---|---|
-| `arangodb` | ArangoDB 3.12 | 8529 (admin UI) |
-| `backend` | Node.js/Express | 3001 (interne) |
-| `frontend` | Nginx + SPA React | 3457 → 80 |
+| Service | Image | Expositions via Reverse Proxy | Port interne |
+|---|---|---|---|
+| `arangodb` | ArangoDB 3.12 | 8529 (admin UI) | 8529 |
+| `backend` | Node.js/Express | (non exposé publiquement) | 3001 |
+| `frontend` | Nginx + SPA React | **3456 → 80** | 80 |
 
 ### Arrêter l'application
 
@@ -190,26 +190,20 @@ npm run dev
 
 ### Tests
 
+ORIS utilise une suite de tests rigoureuse pour garantir et prouver sa sûreté.  
+
 ```bash
-cd server
+# Lancer les tests d'intégration backend (ArangoDB en mémoire)
+npm run test:backend
 
-# Tests API complets
-npx jest __tests__/api.test.js --forceExit
+# Lancer tous les tests fonctionnels E2E (Simulateur de navigateur)
+npx playwright test
 
-# Tests STIX 2.1
-npx jest __tests__/stix.test.js --forceExit
-
-# Tests conformité STIX
-npx jest __tests__/stix-compliance.test.js --forceExit
-
-# Tests TTPs MITRE ATT&CK
-npx jest __tests__/ttps.test.js --forceExit
-
-# Suite complète
-npx jest --forceExit
+# Pour voir visuellement ce que fait le robot Playwright :
+npx playwright test --ui
 ```
 
-## 🏁 Premier lancement
+## 🏁 Configuration initiale
 
 Au premier démarrage, l'application redirige vers une page de configuration initiale pour :
 

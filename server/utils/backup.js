@@ -5,8 +5,12 @@ const { getDb } = require('../db-arango');
 const BACKUP_DIR = process.env.BACKUP_DIR || path.join(__dirname, '..', 'data', 'backups');
 
 function ensureBackupDir() {
-    if (!fs.existsSync(BACKUP_DIR)) {
-        fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    try {
+        if (!fs.existsSync(BACKUP_DIR)) {
+            fs.mkdirSync(BACKUP_DIR, { recursive: true });
+        }
+    } catch (err) {
+        console.error('[Backup] ensureBackupDir failed (EACCES):', err.message);
     }
 }
 
@@ -47,21 +51,25 @@ async function createBackup() {
 }
 
 async function cleanOldBackups() {
-    ensureBackupDir();
-    const maxBackups = await getRetentionCount();
-    const files = fs.readdirSync(BACKUP_DIR)
-        .filter(f => f.startsWith('oris_backup_') || f.startsWith('oris_full_backup_'))
-        .sort().reverse();
+    try {
+        ensureBackupDir();
+        const maxBackups = await getRetentionCount();
+        const files = fs.readdirSync(BACKUP_DIR)
+            .filter(f => f.startsWith('oris_backup_') || f.startsWith('oris_full_backup_'))
+            .sort().reverse();
 
-    if (files.length > maxBackups) {
-        for (const f of files.slice(maxBackups)) {
-            try {
-                fs.unlinkSync(path.join(BACKUP_DIR, f));
-                console.log(`[Backup] Cleaned old: ${f}`);
-            } catch (e) {
-                console.error(`[Backup] Failed to delete ${f}:`, e);
+        if (files.length > maxBackups) {
+            for (const f of files.slice(maxBackups)) {
+                try {
+                    fs.unlinkSync(path.join(BACKUP_DIR, f));
+                    console.log(`[Backup] Cleaned old: ${f}`);
+                } catch (e) {
+                    console.error(`[Backup] Failed to delete ${f}:`, e);
+                }
             }
         }
+    } catch (err) {
+        console.error('[Backup] cleanOldBackups failed:', err.message);
     }
 }
 
@@ -176,40 +184,49 @@ async function createFullBackup() {
     const backupName = `oris_full_backup_${timestamp}.zip`;
     const backupPath = path.join(BACKUP_DIR, backupName);
 
+    let archive;
     try {
         const jsonStr = await arangoDump();
         const output = fs.createWriteStream(backupPath);
-        const archive = archiver('zip', { zlib: { level: 5 } });
+        archive = archiver('zip', { zlib: { level: 5 } });
 
         const done = new Promise((resolve, reject) => {
             output.on('close', resolve);
             output.on('finish', resolve);
             output.on('error', reject);
             archive.on('error', reject);
+            archive.on('warning', err => console.warn('[Backup] Warning:', err.message));
         });
 
         archive.pipe(output);
         archive.append(jsonStr, { name: 'database.json' });
 
         const uploadsDir = getUploadsDir();
-        if (fs.existsSync(uploadsDir) && fs.readdirSync(uploadsDir).length > 0) {
-            archive.directory(uploadsDir, 'uploads');
-        }
+        try {
+            if (fs.existsSync(uploadsDir) && fs.readdirSync(uploadsDir).length > 0) {
+                archive.directory(uploadsDir, 'uploads');
+            }
+        } catch (e) {}
 
         const avatarsDir = getAvatarsDir();
-        if (fs.existsSync(avatarsDir) && fs.readdirSync(avatarsDir).length > 0) {
-            archive.directory(avatarsDir, 'avatars');
-        }
+        try {
+            if (fs.existsSync(avatarsDir) && fs.readdirSync(avatarsDir).length > 0) {
+                archive.directory(avatarsDir, 'avatars');
+            }
+        } catch (e) {}
 
         await archive.finalize();
         await done;
 
-        console.log(`[Backup] Full backup created: ${backupName} (${fs.statSync(backupPath).size} bytes)`);
+        console.log(`[Backup] Full backup created: ${backupName}`);
         await cleanOldBackups();
         return backupName;
     } catch (err) {
         console.error('[Backup] Full backup failed:', err.message);
-        if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
+        if (archive) { try { archive.abort(); } catch (e) {} }
+        try {
+            if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
+        } catch (unlinkErr) {}
         return null;
     }
 }

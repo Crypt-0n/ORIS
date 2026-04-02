@@ -258,17 +258,17 @@ export function Dashboard() {
                                             onClick={() => navigate(`/cases/${item.case_id}`)}
                                             className="flex-1 min-w-0 p-3.5 bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-slate-700/80 rounded-xl hover:bg-white dark:hover:bg-slate-800 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-500/50 transition-all text-left"
                                         >
-                                            <div className="flex justify-between items-start gap-3 mb-1">
-                                                <p className="text-sm text-gray-900 dark:text-slate-100 font-semibold truncate">
+                                            <div className="flex justify-between items-start gap-3 mb-1 min-w-0">
+                                                <p className="flex-1 min-w-0 text-sm text-gray-900 dark:text-slate-100 font-semibold truncate pr-2">
                                                     {item.user_name} <span className="text-gray-500 dark:text-slate-400 font-normal">{t(`dashboard.actions.${item.action}`, { defaultValue: item.action })}</span>
                                                 </p>
-                                                <span className="text-[11px] text-gray-400 dark:text-slate-500 whitespace-nowrap pt-0.5 font-medium uppercase tracking-wider">
+                                                <span className="text-[11px] text-gray-400 dark:text-slate-500 whitespace-nowrap pt-0.5 font-medium uppercase tracking-wider flex-shrink-0">
                                                     {formatDate(item.created_at)}
                                                 </span>
                                             </div>
-                                            <p className="text-[13px] text-gray-600 dark:text-slate-400 truncate flex items-center gap-2">
-                                                <span className="font-mono text-[10px] bg-slate-200/50 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">{item.case_number}</span> 
-                                                {details.title || details.task_title || item.case_title}
+                                            <p className="text-[13px] text-gray-600 dark:text-slate-400 flex items-center gap-2 min-w-0">
+                                                <span className="font-mono text-[10px] bg-slate-200/50 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300 flex-shrink-0">{item.case_number}</span> 
+                                                <span className="flex-1 min-w-0 truncate">{details.title || details.task_title || item.case_title}</span>
                                             </p>
                                         </button>
                                     </div>
