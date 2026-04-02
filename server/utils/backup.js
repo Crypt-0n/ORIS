@@ -184,6 +184,7 @@ async function createFullBackup() {
         const done = new Promise((resolve, reject) => {
             output.on('close', resolve);
             output.on('finish', resolve);
+            output.on('error', reject);
             archive.on('error', reject);
         });
 
