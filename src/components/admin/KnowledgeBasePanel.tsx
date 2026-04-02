@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bot, Shield } from 'lucide-react';
+import { Bot, Shield } from 'lucide-react'; // force hash
 import { TtpManagementPanel } from '../TtpManagementPanel';
 import { AiConfigPanel } from '../AiConfigPanel';
 

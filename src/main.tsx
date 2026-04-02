@@ -1,5 +1,5 @@
 import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot } from 'react-dom/client'; // hash buster
 import { HelmetProvider } from 'react-helmet-async';
 import './index.css';
 import '@fontsource/inter/300.css';
