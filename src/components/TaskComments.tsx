@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { sanitizeHtml } from '../lib/sanitize';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Send, Edit, Trash2, X, Check, Paperclip, Download, FileText, Image as ImageIcon, Reply } from 'lucide-react';
+import { Send, Edit, Trash2, X, Check, Paperclip, Download, FileText, Image as ImageIcon, Reply, Plus } from 'lucide-react';
 import { RichTextEditor } from './RichTextEditor';
+import { OffCanvas } from './common/OffCanvas';
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from 'react-router-dom';
 import { useRef } from 'react';
@@ -62,6 +63,7 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   useEffect(() => {
     fetchComments();
@@ -113,6 +115,7 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
       setNewComment('');
       setSelectedFiles([]);
       setReplyingTo(null);
+      setIsFormOpen(false);
       fetchComments();
     } catch (error) {
       console.error('Erreur:', error);
@@ -214,7 +217,10 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
             <div className="flex gap-1">
               {!isClosed && !isReply && (
                 <button
-                  onClick={() => setReplyingTo(comment)}
+                  onClick={() => {
+                    setReplyingTo(comment);
+                    setIsFormOpen(true);
+                  }}
                   className="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition"
                   title="Répondre"
                 >
@@ -332,23 +338,56 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
       )}
 
       {!isClosed && !isReadOnly && (
-        <div className="border-t dark:border-slate-700 pt-3">
+        <div className="border-t dark:border-slate-700 pt-4 flex justify-end">
+          <button
+            onClick={() => {
+              setReplyingTo(null);
+              setIsFormOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Ajouter un commentaire
+          </button>
+        </div>
+      )}
+
+      {/* Formulaire Modal OffCanvas */}
+      <OffCanvas
+        isOpen={isFormOpen}
+        onClose={() => {
+          setIsFormOpen(false);
+          setReplyingTo(null);
+        }}
+        title={replyingTo ? "Répondre au commentaire" : "Nouveau commentaire"}
+        width="md"
+      >
+        <div className="p-6">
           {replyingTo && (
-            <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm">
+            <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 shadow-inner rounded-lg text-sm border border-blue-100 dark:border-blue-800/50">
               <Reply className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-              <span className="text-blue-700 dark:text-blue-300">Réponse à <strong>{replyingTo.author.full_name}</strong></span>
-              <button onClick={() => setReplyingTo(null)} className="ml-auto p-1 hover:bg-blue-100 dark:hover:bg-blue-800 rounded">
+              <span className="text-blue-700 dark:text-blue-300">En réponse à <strong>{replyingTo.author.full_name}</strong></span>
+              <button 
+                onClick={() => setReplyingTo(null)} 
+                className="ml-auto p-1 hover:bg-blue-100 dark:hover:bg-blue-800 rounded transition"
+                title="Annuler la réponse"
+              >
                 <X className="w-3.5 h-3.5 text-blue-500" />
               </button>
             </div>
           )}
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <RichTextEditor
-              value={newComment}
-              onChange={setNewComment}
-              placeholder={isOnline ? t('auto.ajouter_un_commentaire') : 'Hors ligne — modifications désactivées'}
-              disabled={posting || !isOnline}
-            />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
+                Contenu du commentaire
+              </label>
+              <RichTextEditor
+                value={newComment}
+                onChange={setNewComment}
+                placeholder={isOnline ? t('auto.ajouter_un_commentaire') : 'Hors ligne — modifications désactivées'}
+                disabled={posting || !isOnline}
+              />
+            </div>
 
             {/* Selected files preview */}
             {selectedFiles.length > 0 && (
@@ -374,7 +413,7 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
               </div>
             )}
 
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center pt-2">
               <div className="flex items-center gap-1">
                 <input
                   ref={fileInputRef}
@@ -387,24 +426,35 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 flex items-center gap-2 border border-gray-200 dark:border-slate-700"
                   title="Joindre un fichier"
                 >
-                  <Paperclip className="w-5 h-5" />
+                  <Paperclip className="w-4 h-4" />
+                  <span className="text-sm font-medium">Joindre...</span>
                 </button>
               </div>
-              <button
-                type="submit"
-                disabled={!isOnline || posting || (isCommentEmpty(newComment) && selectedFiles.length === 0)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                {posting ? 'Envoi...' : 'Envoyer'}
-              </button>
+              
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsFormOpen(false)}
+                  className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition dark:text-slate-300 text-sm font-medium"
+                >
+                  {t('auto.annuler')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={!isOnline || posting || (isCommentEmpty(newComment) && selectedFiles.length === 0)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2 text-sm font-medium shadow-sm"
+                >
+                  <Send className="w-4 h-4" />
+                  {posting ? 'Envoi...' : 'Envoyer'}
+                </button>
+              </div>
             </div>
           </form>
         </div>
-      )}
+      </OffCanvas>
 
       {/* Image lightbox */}
       {lightboxSrc && (
