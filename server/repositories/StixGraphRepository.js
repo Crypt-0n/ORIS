@@ -118,14 +118,13 @@ class StixGraphRepository {
     async getObjectsByTaskId(taskId) {
         const cursor = await this.db.query(
             `
-            LET task_objects = (
+            LET task_diamonds = (
                 FOR d IN stix_objects
-                FILTER d.data.x_oris_task_id == @taskId
+                FILTER d.data.x_oris_task_id == @taskId AND d.type == 'observed-data' AND HAS(d.data, 'x_oris_diamond_axes')
                 RETURN d.data
             )
             LET diamond_refs = (
-                FOR d IN task_objects
-                FILTER d.type == 'observed-data' AND HAS(d, 'x_oris_diamond_axes')
+                FOR d IN task_diamonds
                 LET axes = d.x_oris_diamond_axes
                 LET refs = APPEND(
                     APPEND(axes.adversary || [], axes.infrastructure || []),
@@ -140,7 +139,7 @@ class StixGraphRepository {
                 FILTER o.data.id == ref
                 RETURN o.data
             )
-            LET all_results = APPEND(task_objects, referenced_objects)
+            LET all_results = APPEND(task_diamonds, referenced_objects)
             FOR r IN UNIQUE(all_results)
             SORT r.created DESC
             RETURN r

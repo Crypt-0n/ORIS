@@ -240,21 +240,24 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
         }
     }, [stepIndex]);
 
-    const handleAddNode = () => {
+    const handleAddNode = (directId?: any) => {
+        const isEvent = directId && typeof directId === 'object' && 'preventDefault' in directId;
+        const targetId = (!isEvent && typeof directId === 'string') ? directId : draftExistingId;
+
         setError(null);
         if (!currentStep) return;
         
         if (draftMode === 'existing') {
-            if (!draftExistingId) { setError('Veuillez sélectionner un objet.'); return; }
-            const obj = existingObjects.find(o => o && o.id === draftExistingId);
-            const mitreTtp = !obj ? mitrePatterns.find(p => p && p.id === draftExistingId) : null;
+            if (!targetId) { setError('Veuillez sélectionner un objet.'); return; }
+            const obj = existingObjects.find(o => o && o.id === targetId);
+            const mitreTtp = !obj ? mitrePatterns.find(p => p && p.id === targetId) : null;
             if (!obj && !mitreTtp) return;
             
             const label = obj ? (('name' in obj) ? (obj as any).name : ('value' in obj) ? (obj as any).value : obj.type) : `${mitreTtp?.mitre_id} - ${mitreTtp?.name}`;
             const sdoType = obj ? obj.type : 'attack-pattern';
             
             // Avoid duplicates
-            if (axesNodes[currentStep.key].some(n => n.id === draftExistingId)) {
+            if (axesNodes[currentStep.key].some(n => n.id === targetId)) {
                 setError('Cet objet est déjà ajouté à cet axe.');
                 return;
             }
@@ -266,9 +269,9 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
 
             setAxesNodes(prev => ({
                 ...prev,
-                [currentStep.key]: [...prev[currentStep.key], { mode: 'existing', id: draftExistingId, label, sdoType }]
+                [currentStep.key]: [...prev[currentStep.key], { mode: 'existing', id: targetId, label, sdoType }]
             }));
-            setDraftMode('none');
+            // Restes en mode 'existing' pour permettre les ajouts multiples rapides
             setDraftExistingId('');
         } else if (draftMode === 'new') {
             if (!draftNewData.name.trim()) { setError('Le nom est requis.'); return; }
@@ -585,7 +588,10 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                                                             <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Sélectionner dans l'affaire</label>
                                                             <SearchableSelect
                                                                 value={draftExistingId}
-                                                                onChange={setDraftExistingId}
+                                                                onChange={(val) => {
+                                                                    setDraftExistingId(val);
+                                                                    if (val) handleAddNode(val);
+                                                                }}
                                                                 options={(() => {
                                                                     const opts = existingObjects.filter(o => o && currentStep.types.includes(o.type)).map(o => ({
                                                                         value: o.id,
