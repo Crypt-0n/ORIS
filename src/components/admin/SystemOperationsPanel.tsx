@@ -13,6 +13,7 @@ export function SystemOperationsPanel() {
   const [sessionLockEnabled, setSessionLockEnabled] = useState(false);
   const [sessionLockTimeout, setSessionLockTimeout] = useState(5);
   const [allowApiTokens, setAllowApiTokens] = useState(true);
+  const [allowDiamondDeletion, setAllowDiamondDeletion] = useState(false);
   const [defaultKillChainType, setDefaultKillChainType] = useState<KillChainType>('cyber_kill_chain');
 
   useEffect(() => {
@@ -26,6 +27,7 @@ export function SystemOperationsPanel() {
         for (const row of data) {
           if (row.key === 'default_kill_chain_type') setDefaultKillChainType((row.value as KillChainType) || 'cyber_kill_chain');
           if (row.key === 'allow_api_tokens') setAllowApiTokens(row.value === 'true');
+          if (row.key === 'allow_diamond_deletion') setAllowDiamondDeletion(row.value === 'true');
           if (row.key === 'session_lock_enabled') setSessionLockEnabled(row.value === 'true');
           if (row.key === 'session_lock_timeout') setSessionLockTimeout(parseInt(row.value, 10) || 5);
         }
@@ -39,6 +41,16 @@ export function SystemOperationsPanel() {
     try {
       await api.put('/admin/config', { key: 'allow_api_tokens', value: String(newValue) });
       setAllowApiTokens(newValue);
+    } catch (err) { console.error(err); }
+    setSavingConfig(false);
+  };
+
+  const toggleAllowDiamondDeletion = async () => {
+    const newValue = !allowDiamondDeletion;
+    setSavingConfig(true);
+    try {
+      await api.put('/admin/config', { key: 'allow_diamond_deletion', value: String(newValue) });
+      setAllowDiamondDeletion(newValue);
     } catch (err) { console.error(err); }
     setSavingConfig(false);
   };
@@ -107,6 +119,29 @@ export function SystemOperationsPanel() {
             >
               <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${allowApiTokens ? 'translate-x-5' : 'translate-x-0'}`} />
             </button>
+          </div>
+
+          <div className="border-t border-gray-100 dark:border-slate-800 pt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-slate-500" />
+                  Autoriser la suppression du modèle diamant (manuel)
+                </p>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mt-1 max-w-2xl">Si désactivé, la suppression d'un diamant directement depuis l'onglet Modèle Diamant sera bloquée. Il faudra supprimer la tâche associée.</p>
+              </div>
+              <button
+                type="button"
+                disabled={savingConfig}
+                onClick={toggleAllowDiamondDeletion}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${allowDiamondDeletion ? 'bg-blue-600' : 'bg-gray-300 dark:bg-slate-600'}`}
+                aria-label="Autoriser suppression Modèle Diamant"
+                role="switch"
+                aria-checked={allowDiamondDeletion}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${allowDiamondDeletion ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
           </div>
 
           <div className="border-t border-gray-100 dark:border-slate-800 pt-6">

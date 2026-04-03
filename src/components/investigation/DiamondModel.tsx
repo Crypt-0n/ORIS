@@ -13,6 +13,7 @@ import {
   Bug,
   Shield,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 import { Tooltip } from '../common/Tooltip';
 import { getKillChainLabel } from '../../lib/diamondModelUtils';
@@ -61,6 +62,13 @@ export function DiamondModel({ caseId, killChainType, caseAdversary }: DiamondMo
 
   const [activeTab, setActiveTab] = useState<'thread' | 'transition' | 'shared' | 'propagation' | 'swimlane' | 'matrix' | 'killchain'>('thread');
   const [analysisSubTab, setAnalysisSubTab] = useState<'propagation' | 'swimlane' | 'matrix'>('propagation');
+  const [allowDiamondDeletion, setAllowDiamondDeletion] = useState(false);
+
+  useEffect(() => {
+    api.get('/config').then((config: Record<string, string>) => {
+      setAllowDiamondDeletion(config.allow_diamond_deletion === 'true');
+    }).catch(console.error);
+  }, []);
 
   const [phaseTtps, setPhaseTtps] = useState<TtpOption[]>([]);
 
@@ -207,6 +215,18 @@ export function DiamondModel({ caseId, killChainType, caseAdversary }: DiamondMo
       newIdx = direction === 'next' ? (idx + 1) % nodes.length : (idx - 1 + nodes.length) % nodes.length;
     }
     handleSelectNode(nodes[newIdx].id);
+  };
+
+  const handleDeleteDiamond = async (id: string) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet événement diamant ? Cette action est irréversible.")) return;
+    try {
+      await api.delete(`/stix/objects/${id}`);
+      setSelectedNodeId(null);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la suppression de l'événement diamant.");
+    }
   };
 
   if (loading) {
@@ -425,6 +445,15 @@ export function DiamondModel({ caseId, killChainType, caseAdversary }: DiamondMo
                     </button>
                   )}
                 </div>
+              {allowDiamondDeletion && selectedNode.eventId && (
+                <button
+                  onClick={() => handleDeleteDiamond(selectedNode.eventId!)}
+                  className="p-1 px-1.5 text-red-400 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition rounded"
+                  title="Supprimer ce diamant"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={() => setSelectedNodeId(null)}
                 className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition"
