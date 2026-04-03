@@ -11,6 +11,7 @@ import { api } from './lib/api';
 import { useTranslation } from "react-i18next";
 import { AnimatePresence } from 'framer-motion';
 import { AnimatedPage } from './components/common/AnimatedPage';
+import { Server, Loader2 } from 'lucide-react'; // Added icons for waiting screen
 
 // Lazy-loaded pages for code-splitting (reduces initial bundle)
 const AdminPanel = lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
@@ -200,6 +201,7 @@ function AppContent() {
   const { user, profile, loading, isLocked, hasRole } = useAuth();
   const [initComplete, setInitComplete] = useState<boolean | null>(null);
   const [checkingInit, setCheckingInit] = useState(true);
+  const [systemError, setSystemError] = useState<{ message: string, detail: string } | null>(null);
 
   useInactivityLock();
 
@@ -242,18 +244,46 @@ function AppContent() {
     try {
       const { isInitialized } = await api.get('/admin/setup-status');
       setInitComplete(isInitialized);
-    } catch (err) {
-      console.error('Erreur:', err);
-      // default to false if not setup, or we have an error
-      setInitComplete(false);
-    } finally {
+      setSystemError(null);
       setCheckingInit(false);
+    } catch (err: any) {
+      console.error('Erreur:', err);
+      const msg = err.message || '';
+      if (msg.includes('Failed to fetch')) {
+        setSystemError({ message: "Système Injoignable (Docker API)", detail: "Le reverse proxy (Nginx) est injoignable ou l'application front-end a perdu sa connexion." });
+        setTimeout(checkInitialization, 5000);
+      } else if (msg.includes('Bad Gateway') || msg.includes('502') || msg.includes('503') || msg.includes('504')) {
+        setSystemError({ message: "Serveur Backend en démarrage", detail: "Le serveur de l'application (oris-backend) est en cours de lancement. Veuillez patienter..." });
+        setTimeout(checkInitialization, 5000);
+      } else if (msg.includes('Internal Server Error') || msg.includes('500') || msg.toLowerCase().includes('db') || msg.toLowerCase().includes('arangodb') || msg.toLowerCase().includes('connect')) {
+        setSystemError({ message: "Base de données non prête", detail: "La base de données (oris-arangodb) est en cours d'initialisation ou refuse la connexion. Veuillez patienter..." });
+        setTimeout(checkInitialization, 5000);
+      } else {
+        // Assume default status if unhandled error
+        setInitComplete(false);
+        setSystemError(null);
+        setCheckingInit(false);
+      }
     }
   };
 
   const handleInitComplete = () => {
     setInitComplete(true);
   };
+
+  if (systemError) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
+        <Server className="w-16 h-16 text-red-500 mb-6 animate-pulse" />
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">{systemError.message}</h2>
+        <p className="text-gray-500 dark:text-slate-400 text-center max-w-md">{systemError.detail}</p>
+        <div className="mt-8 flex items-center justify-center gap-2 text-sm text-gray-400">
+           <Loader2 className="w-4 h-4 animate-spin" />
+           Tentative de reconnexion statique...
+        </div>
+      </div>
+    );
+  }
 
   if (checkingInit || loading) {
     return (
