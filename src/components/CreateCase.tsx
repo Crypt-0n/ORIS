@@ -76,7 +76,14 @@ export function CreateCase({ onClose, onSuccess, type = 'case' }: CreateCaseProp
 
       // Default behavior: if only one beneficiary, select it automatically
       if (data && data.length === 1) {
-        setFormData(prev => ({ ...prev, beneficiary_id: data[0].id }));
+        const defaultBid = data[0].id;
+        setFormData(prev => ({ ...prev, beneficiary_id: defaultBid }));
+        if (isAlert) {
+          try {
+            const members = await api.get(`/cases/beneficiary-members/${defaultBid}`);
+            setBeneficiaryMembers(members || []);
+          } catch { setBeneficiaryMembers([]); }
+        }
       }
     } catch (err) {
       console.error('Erreur:', err);
