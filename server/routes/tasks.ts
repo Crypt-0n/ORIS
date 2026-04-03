@@ -342,6 +342,14 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
         // Cascade-delete STIX objects linked to this task (diamonds, etc.)
         try {
             const db = getDb();
+            // Delete the task's diamond (observed-data)
+            await db.query(
+                `FOR obj IN stix_objects
+                 FILTER obj.data.x_oris_task_id == @taskId AND obj.data.type == 'observed-data'
+                 REMOVE obj IN stix_objects`,
+                { taskId: (req.params.id as string) }
+            );
+            // Unlink other created objects to avoid deleting real intel like threat-actors
             await db.query(
                 `FOR obj IN stix_objects
                  FILTER obj.data.x_oris_task_id == @taskId

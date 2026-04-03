@@ -394,6 +394,28 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
     const handleNext = () => {
         setError(null);
         if (validateStep()) {
+            if (currentStep && currentStep.key === 'victim') {
+                const newRels: ManualRelation[] = [];
+                axesNodes.adversary.forEach(adv => {
+                    axesNodes.capability.forEach(cap => {
+                        const exists = relations.some(r => 
+                            (r.sourceId === adv.id && r.targetId === cap.id) || 
+                            (r.sourceId === cap.id && r.targetId === adv.id)
+                        );
+                        if (!exists) {
+                            newRels.push({
+                                id: generateStixId('relationship'),
+                                sourceId: adv.id,
+                                targetId: cap.id,
+                                type: 'uses'
+                            });
+                        }
+                    });
+                });
+                if (newRels.length > 0) {
+                    setRelations(prev => [...prev, ...newRels]);
+                }
+            }
             setStepIndex(prev => prev + 1);
         }
     };
