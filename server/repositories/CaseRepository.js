@@ -110,14 +110,12 @@ class CaseRepository extends BaseRepository {
                     RETURN m.beneficiary_id
             )
 
-            LET filteredCaseRefs = (
+            LET casesBeforeStatusFilter = (
                 FOR c IN cases
                     FILTER !c.type || c.type == @typeFilter
                     LET hasAccess = @hasAdminAccessGlobal OR (c._key IN userCaseIds) OR (c._key IN assignedCaseIds) OR (c.beneficiary_id IN userBeneficiaryIds)
                     FILTER hasAccess OR @hasAdminAccessGlobal
                     
-                    
-                    FILTER @status == null OR c.status == @status
                     FILTER @beneficiary_id == null OR c.beneficiary_id == @beneficiary_id
                     FILTER @severity_id == null OR c.severity_id == @severity_id
                     FILTER @author_id == null OR c.author_id == @author_id
@@ -126,6 +124,18 @@ class CaseRepository extends BaseRepository {
                     LET isMyCase = c.author_id == @userId || (c._key IN assignedCaseIds)
                     FILTER @supervision == null OR (@supervision == 'backlog' ? isUnassigned : (@supervision == true ? (!isMyCase AND !isUnassigned) : isMyCase))
                     
+                    RETURN c
+            )
+
+            LET statusCounts = {
+                all: LENGTH(casesBeforeStatusFilter),
+                open: LENGTH(FOR c IN casesBeforeStatusFilter FILTER c.status == 'open' RETURN 1),
+                closed: LENGTH(FOR c IN casesBeforeStatusFilter FILTER c.status == 'closed' RETURN 1)
+            }
+
+            LET filteredCaseRefs = (
+                FOR c IN casesBeforeStatusFilter
+                    FILTER @status == null OR c.status == @status
                     SORT c.created_at DESC
                     RETURN c
             )
@@ -201,7 +211,7 @@ class CaseRepository extends BaseRepository {
                     }
             )
             
-            RETURN { total: total, rows: rows }
+            RETURN { total: total, rows: rows, statusCounts: statusCounts }
         `;
         const offset = Math.max(0, (page - 1) * limit);
         const result = await this.query(aql, {

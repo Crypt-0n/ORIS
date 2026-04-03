@@ -272,7 +272,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
         if (page <= 0) return res.json(result.rows);
         
         const totalPages = Math.ceil(result.total / limit);
-        res.json({ data: result.rows, pagination: { page, limit, total: result.total, totalPages } });
+        res.json({ data: result.rows, statusCounts: result.statusCounts, pagination: { page, limit, total: result.total, totalPages } });
     } catch (err) {
         logger.error({ err, userId: req.user?.id, route: 'GET /cases' }, 'Erreur AQL lors de la récupération des dossiers');
         res.status(500).json({ error: 'Internal server error' });

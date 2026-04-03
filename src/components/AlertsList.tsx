@@ -71,6 +71,8 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
   const [availableAuthors, setAvailableAuthors] = useState<Array<{id: string, full_name: string}>>([]);
   const [tabCounts, setTabCounts] = useState({ my: 0, backlog: 0, supervision: 0 });
   
+  const [statusCounts, setStatusCounts] = useState({ all: 0, open: 0, closed: 0 });
+  
   const ITEMS_PER_PAGE = 25;
 
   useEffect(() => {
@@ -121,6 +123,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
         setAlerts(data.data);
         setTotalItems(data.pagination.total);
         setTotalPages(data.pagination.totalPages);
+        if (data.statusCounts) setStatusCounts(data.statusCounts);
       } else if (Array.isArray(data)) {
         setAlerts(data);
       }
@@ -205,7 +208,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">
-            {activeTab === 'supervision' ? 'Supervision des alertes' : (activeTab === 'backlog' ? 'Backlog des alertes' : 'Mes alertes')}
+            {activeTab === 'supervision' ? 'Supervision des alertes' : (activeTab === 'backlog' ? 'Backlog' : 'Mes alertes')}
           </h2>
         </div>
         
@@ -216,19 +219,19 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
               onClick={() => { setFilter('all'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md font-medium transition-all text-xs sm:text-sm ${filter === 'all' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`}
             >
-              Toutes <span className="ml-1 opacity-70 text-[10px] font-mono">({filter === 'all' ? totalItems : ''})</span>
+              Toutes <span className="ml-1 opacity-70 text-[10px] font-mono">({statusCounts.all})</span>
             </button>
             <button
               onClick={() => { setFilter('open'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md font-medium transition-all text-xs sm:text-sm ${filter === 'open' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`}
             >
-              Ouvertes <span className="ml-1 opacity-70 text-[10px] font-mono">({filter === 'open' ? totalItems : ''})</span>
+              Ouvertes <span className="ml-1 opacity-70 text-[10px] font-mono">({statusCounts.open})</span>
             </button>
             <button
               onClick={() => { setFilter('closed'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md font-medium transition-all text-xs sm:text-sm ${filter === 'closed' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`}
             >
-               Clôturées <span className="ml-1 opacity-70 text-[10px] font-mono">({filter === 'closed' ? totalItems : ''})</span>
+               Clôturées <span className="ml-1 opacity-70 text-[10px] font-mono">({statusCounts.closed})</span>
             </button>
           </div>
 
@@ -481,7 +484,7 @@ function AlertCard({ alertItem, t, onSelectAlert, dateLocale, handleTakeOver, ha
               {alertItem.case_assignments.length > 0 ? (
                 <div className="flex items-center gap-1.5 mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                   <UserCheck className="w-3.5 h-3.5" />
-                  <span>Suivie par {alertItem.case_assignments.map((a: any) => a.full_name || 'Inconnu').join(', ')}</span>
+                  <span>Suivie par {alertItem.case_assignments.map((a: any) => a.user?.full_name || 'Inconnu').join(', ')}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 mt-2">

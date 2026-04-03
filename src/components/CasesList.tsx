@@ -71,6 +71,7 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
   const [availableSeverities, setAvailableSeverities] = useState<Array<{id: string, label: string, color: string}>>([]);
   const [availableAuthors, setAvailableAuthors] = useState<Array<{id: string, full_name: string}>>([]);
   const [tabCounts, setTabCounts] = useState({ my: 0, backlog: 0, supervision: 0 });
+  const [statusCounts, setStatusCounts] = useState({ all: 0, open: 0, closed: 0 });
   
   const ITEMS_PER_PAGE = 25;
 
@@ -133,6 +134,7 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
         setCases(data.data);
         setTotalItems(data.pagination.total);
         setTotalPages(data.pagination.totalPages);
+        if (data.statusCounts) setStatusCounts(data.statusCounts);
       } else if (Array.isArray(data)) {
         setCases(data);
       }
@@ -214,19 +216,19 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
               onClick={() => { setFilter('all'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md font-medium transition-all text-xs sm:text-sm ${filter === 'all' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`}
             >
-              {t('cases.all')} <span className="ml-1 opacity-70 text-[10px] font-mono">({filter === 'all' ? totalItems : ''})</span>
+              {t('cases.all')} <span className="ml-1 opacity-70 text-[10px] font-mono">({statusCounts.all})</span>
             </button>
             <button
               onClick={() => { setFilter('open'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md font-medium transition-all text-xs sm:text-sm ${filter === 'open' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`}
             >
-              {t('cases.open')} <span className="ml-1 opacity-70 text-[10px] font-mono">({filter === 'open' ? totalItems : ''})</span>
+              {t('cases.open')} <span className="ml-1 opacity-70 text-[10px] font-mono">({statusCounts.open})</span>
             </button>
             <button
               onClick={() => { setFilter('closed'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md font-medium transition-all text-xs sm:text-sm ${filter === 'closed' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`}
             >
-              {t('cases.closed')} <span className="ml-1 opacity-70 text-[10px] font-mono">({filter === 'closed' ? totalItems : ''})</span>
+              {t('cases.closed')} <span className="ml-1 opacity-70 text-[10px] font-mono">({statusCounts.closed})</span>
             </button>
           </div>
 
