@@ -35,7 +35,9 @@ class ApiClient {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API Error: ${response.statusText}`);
+            const err = new Error(errorData.error || `API Error: ${response.statusText || response.status}`);
+            (err as any).status = response.status;
+            throw err;
         }
 
         // Return empty object for 204 No Content

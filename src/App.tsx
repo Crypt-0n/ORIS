@@ -252,10 +252,10 @@ function AppContent() {
       if (msg.includes('failed to fetch')) {
         setSystemError({ message: "Système Injoignable (Docker API)", detail: "Le reverse proxy (Nginx) est injoignable ou l'application front-end a perdu sa connexion." });
         setTimeout(checkInitialization, 5000);
-      } else if (msg.includes('bad gateway') || msg.includes('502') || msg.includes('503') || msg.includes('504')) {
+      } else if (err.status === 502 || err.status === 503 || err.status === 504 || msg.includes('bad gateway') || msg.includes('502') || msg.includes('503') || msg.includes('504')) {
         setSystemError({ message: "Serveur Backend en démarrage", detail: "Le serveur de l'application (oris-backend) est en cours de lancement. Veuillez patienter..." });
         setTimeout(checkInitialization, 5000);
-      } else if (msg.includes('internal server error') || msg.includes('500') || msg.includes('db') || msg.includes('arangodb') || msg.includes('connect')) {
+      } else if (err.status === 500 || msg.includes('internal server error') || msg.includes('500') || msg.includes('db') || msg.includes('arangodb') || msg.includes('connect')) {
         setSystemError({ message: "Base de données non prête", detail: "La base de données (oris-arangodb) est en cours d'initialisation ou refuse la connexion. Veuillez patienter..." });
         setTimeout(checkInitialization, 5000);
       } else {
