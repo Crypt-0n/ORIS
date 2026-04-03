@@ -463,14 +463,6 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
       case 'description':
         return (
           <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">{t('auto.description')}</h3>
-              <div
-                className="text-gray-700 dark:text-slate-300 rich-text-content max-w-4xl"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(caseData.description) }}
-              />
-            </div>
-            
             {!isAlert && caseData.adversary && (
               <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -478,12 +470,20 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
                     <User className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-slate-400">Adversaire</h3>
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-slate-400">Adversaire ciblé</h3>
                     <p className="text-lg font-semibold text-gray-900 dark:text-white">{caseData.adversary}</p>
                   </div>
                 </div>
               </div>
             )}
+            
+            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">{t('auto.description')}</h3>
+              <div
+                className="text-gray-700 dark:text-slate-300 rich-text-content max-w-4xl"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(caseData.description) }}
+              />
+            </div>
             
             {!isClosed && !isReadOnly && !isAlert && (
               <CaseOnboarding caseId={caseId} onNavigate={setActiveSection} />
