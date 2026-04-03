@@ -2,7 +2,7 @@
 // Security: session is carried exclusively via HttpOnly cookie (oris_jwt).
 // No token is stored in localStorage to prevent XSS-based session theft.
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 class ApiClient {
     /**
