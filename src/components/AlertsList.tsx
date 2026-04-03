@@ -58,7 +58,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
   const [currentPage, setCurrentPage] = useState(1);
   
   const [filter, setFilter] = useState<'all' | 'open' | 'closed'>('open');
-  const [showSupervision, setShowSupervision] = useState(false);
+  const [activeTab, setActiveTab] = useState<'my' | 'supervision' | 'backlog'>('my');
   const [groupBy, setGroupBy] = useState<'none' | 'beneficiary' | 'severity' | 'status' | 'author'>('none');
   
   const [filterBeneficiary, setFilterBeneficiary] = useState<string>('all');
@@ -82,7 +82,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
     if (user) {
       fetchAlerts();
     }
-  }, [user, currentPage, filter, filterBeneficiary, filterSeverity, filterAuthor, showSupervision]);
+  }, [user, currentPage, filter, filterBeneficiary, filterSeverity, filterAuthor, activeTab]);
 
   const fetchFiltersMetadata = async () => {
     try {
@@ -108,7 +108,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
         beneficiary: filterBeneficiary,
         severity: filterSeverity,
         author: filterAuthor,
-        supervision: showSupervision.toString()
+        supervision: activeTab === 'supervision' ? 'true' : (activeTab === 'backlog' ? 'backlog' : 'false')
       });
       
       const data = await api.get(`/cases?${params.toString()}`);
@@ -200,7 +200,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">
-            {showSupervision ? 'Supervision des alertes' : 'Mes alertes'}
+            {activeTab === 'supervision' ? 'Supervision des alertes' : (activeTab === 'backlog' ? 'Backlog des alertes' : 'Mes alertes')}
           </h2>
         </div>
         
@@ -282,7 +282,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
             </select>
           </div>
 
-          {(isAdmin || profile?.canSeeAlerts) && !showSupervision && (
+          {(isAdmin || profile?.canSeeAlerts) && activeTab !== 'supervision' && (
             <button
               onClick={onCreateAlert}
               className="bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 transition flex items-center justify-center gap-2 text-sm font-medium flex-shrink-0"
@@ -294,12 +294,11 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
         </div>
       </div>
 
-      {isAdmin && (
-        <div className="border-b border-gray-200 dark:border-slate-700/80 mb-6 sticky top-[57px] z-30 bg-[var(--app-bg)] px-2 sm:px-0">
-          <div className="flex gap-4">
-            <button
-              onClick={() => { setShowSupervision(false); resetFilters(); }}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${!showSupervision
+      <div className="border-b border-gray-200 dark:border-slate-700/80 mb-6 sticky top-[57px] z-30 bg-[var(--app-bg)] px-2 sm:px-0">
+        <div className="flex gap-4">
+          <button
+            onClick={() => { setActiveTab('my'); resetFilters(); }}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === 'my'
               ? 'border-orange-600 text-orange-600 dark:text-orange-400 dark:border-orange-400'
               : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
               }`}
@@ -308,18 +307,29 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
             Mes alertes
           </button>
           <button
-            onClick={() => { setShowSupervision(true); resetFilters(); }}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${showSupervision
+            onClick={() => { setActiveTab('backlog'); resetFilters(); }}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === 'backlog'
               ? 'border-orange-600 text-orange-600 dark:text-orange-400 dark:border-orange-400'
               : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
               }`}
           >
-            <Eye className="w-4 h-4" />
-            Supervision
+            <Layers className="w-4 h-4" />
+            Backlog
           </button>
-          </div>
+          {isAdmin && (
+            <button
+              onClick={() => { setActiveTab('supervision'); resetFilters(); }}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === 'supervision'
+                ? 'border-orange-600 text-orange-600 dark:text-orange-400 dark:border-orange-400'
+                : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
+                }`}
+            >
+              <Eye className="w-4 h-4" />
+              Supervision
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       {loading ? (
         <div className="space-y-4">

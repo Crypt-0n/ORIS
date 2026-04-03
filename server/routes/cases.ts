@@ -258,7 +258,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
         const severity_id = (req.query.severity as string) === 'all' ? null : (req.query.severity as string) || null;
         const author_id = (req.query.author as string) === 'all' ? null : (req.query.author as string) || null;
         const supervisionStr = req.query.supervision as string;
-        const supervision = supervisionStr === 'true' ? true : (supervisionStr === 'false' ? false : undefined);
+        const supervision = supervisionStr === 'true' ? true : (supervisionStr === 'backlog' ? 'backlog' : (supervisionStr === 'false' ? false : undefined));
 
         const filters = { status, beneficiary_id, severity_id, author_id, supervision };
 

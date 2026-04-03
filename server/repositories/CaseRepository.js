@@ -122,8 +122,9 @@ class CaseRepository extends BaseRepository {
                     FILTER @severity_id == null OR c.severity_id == @severity_id
                     FILTER @author_id == null OR c.author_id == @author_id
                     
+                    LET isUnassigned = LENGTH(FOR ca IN case_assignments FILTER ca.case_id == c._key RETURN 1) == 0
                     LET isMyCase = c.author_id == @userId || (c._key IN assignedCaseIds)
-                    FILTER @supervision == null OR (@supervision == true ? !isMyCase : isMyCase)
+                    FILTER @supervision == null OR (@supervision == 'backlog' ? isUnassigned : (@supervision == true ? (!isMyCase AND !isUnassigned) : isMyCase))
                     
                     SORT c.created_at DESC
                     RETURN c
