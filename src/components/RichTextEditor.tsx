@@ -5,6 +5,7 @@ import Link from '@tiptap/extension-link';
 import Mention from '@tiptap/extension-mention';
 import Placeholder from '@tiptap/extension-placeholder';
 import tippy from 'tippy.js';
+import 'tippy.js/dist/tippy.css';
 import { api } from '../lib/api';
 import { 
   Bold, Italic, Strikethrough, Code, List, ListOrdered,
