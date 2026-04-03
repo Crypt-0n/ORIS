@@ -215,6 +215,27 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
     }, []);
 
     // State for manual relations
+    const [initialRelationIds] = useState<Set<string>>(() => {
+        if (!editingDiamond || !existingObjects) return new Set();
+        const nodeIds = new Set<string>();
+        const axes = editingDiamond.x_oris_diamond_axes || editingDiamond._axes || {};
+        ['adversary', 'capability', 'infrastructure', 'victim'].forEach(k => {
+             (axes[k] || []).forEach((val: any) => {
+                 const id = typeof val === 'string' ? val : val.id;
+                 if (id) nodeIds.add(id);
+             });
+        });
+        
+        const existingRels = existingObjects.filter(obj => {
+            const o = obj as any;
+            return o && o.type === 'relationship' && 
+            nodeIds.has(o.source_ref) && 
+            nodeIds.has(o.target_ref);
+        });
+        
+        return new Set(existingRels.map((r: any) => r.id));
+    });
+
     const [relations, setRelations] = useState<ManualRelation[]>(() => {
         if (!editingDiamond || !existingObjects) return [];
         const nodeIds = new Set<string>();
@@ -458,7 +479,9 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
             }
 
             // 3. Create manual relationships
+            const finalRelationIds = new Set<string>();
             for (const rel of relations) {
+                finalRelationIds.add(rel.id);
                 const relObj = {
                     case_id: caseId,
                     type: 'relationship',
@@ -470,6 +493,13 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                     target_ref: rel.targetId,
                 };
                 await api.post('/stix/relationships', relObj);
+            }
+
+            // 4. Delete removed relationships
+            for (const initialId of Array.from(initialRelationIds)) {
+                if (!finalRelationIds.has(initialId)) {
+                    await api.delete(`/stix/relationships/${initialId}`).catch(() => {});
+                }
             }
 
             onSuccess();
