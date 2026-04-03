@@ -287,8 +287,10 @@ async function restoreFromBackup(zipPath) {
     if (avatarEntries.length > 0) {
         if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
         for (const entry of avatarEntries) {
-            const relativePath = entry.entryName.replace(/^uploads\//, '');
+            const relativePath = entry.entryName.replace(/^avatars\//, '');
             const destPath = path.join(avatarsDir, relativePath);
+            const destDir = path.dirname(destPath);
+            if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
             fs.writeFileSync(destPath, entry.getData());
         }
         console.log(`[Restore] Restored ${avatarEntries.length} avatar files`);
