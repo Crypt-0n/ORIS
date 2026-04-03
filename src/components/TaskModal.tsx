@@ -40,6 +40,7 @@ export function TaskModal({ caseId, task, onClose, onSuccess }: TaskModalProps) 
   const [newStixType, setNewStixType] = useState('ipv4-addr');
   const [newStixValue, setNewStixValue] = useState('');
   const [stixSearch, setStixSearch] = useState('');
+  const [isAlert, setIsAlert] = useState(false);
 
   useEffect(() => {
     fetchTeamMembers();
@@ -65,6 +66,7 @@ export function TaskModal({ caseId, task, onClose, onSuccess }: TaskModalProps) 
     try {
       const caseData = await api.get(`/cases/${caseId}`);
       if (!caseData) return;
+      setIsAlert(caseData.type === 'alert');
 
       const members: TeamMember[] = [];
       const seenIds = new Set<string>();
@@ -181,7 +183,7 @@ export function TaskModal({ caseId, task, onClose, onSuccess }: TaskModalProps) 
       <div className="p-6">
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {!task && (
+          {!task && !isAlert && (
             <div className="space-y-4">
               <div className="flex gap-2 p-1 bg-gray-100 dark:bg-slate-800/80 mb-3 rounded-lg border border-gray-200 dark:border-slate-700/50">
                 <button
