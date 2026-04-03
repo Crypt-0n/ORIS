@@ -150,8 +150,21 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
       ]);
       const evts = Array.isArray(events) ? events : [];
       const stix = Array.isArray(stixObjects) ? stixObjects : [];
+      
+      const diamonds = stix.filter((o: any) => o && o.type === 'observed-data' && o.x_oris_diamond_axes);
+      const parsedDiamonds = diamonds.map((d: any) => ({
+         label: d.name || `Evenement ${d.id}`,
+         killChainPhaseLabel: d.kill_chain_phases?.[0]?.phase_name || 'Inconnu',
+         axes: {
+           adversary: d.x_oris_diamond_axes.adversary || [],
+           infrastructure: d.x_oris_diamond_axes.infrastructure || [],
+           capability: d.x_oris_diamond_axes.capability || [],
+           victim: d.x_oris_diamond_axes.victim || [],
+         }
+      }));
+
       setAiCaseContext({
-        caseTitle: caseData?.title || '',
+        caseTitle: `${caseData?.title || ''} - ${caseData?.description?.replace(/<[^>]*>?/gm, '') || ''}`,
         taskTitle: '',
         events: evts.map((e: any) => ({ description: e.notes || e.description || '', event_datetime: e.event_datetime, kill_chain: e.kill_chain })),
         systems: stix.filter((o: any) => o && o.type === 'infrastructure').map((s: any) => ({ name: s.name })),
@@ -159,7 +172,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
         accounts: stix.filter((o: any) => o && o.type === 'user-account').map((a: any) => ({ account_name: a.user_id || a.display_name })),
         indicators: stix.filter((o: any) => o && ['ipv4-addr', 'domain-name', 'url'].includes(o.type)).map((i: any) => ({ value: i.value, type: i.type })),
         exfiltrations: [],
-        diamondNodes: [],
+        diamondNodes: parsedDiamonds,
       });
     } catch (err) {
       console.error('[AI] Failed to fetch case context:', err);
