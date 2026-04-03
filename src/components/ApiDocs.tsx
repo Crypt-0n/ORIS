@@ -184,16 +184,23 @@ export function ApiDocs() {
                         method="GET"
                         path="/cases"
                         description="Lister tous les dossiers accessibles"
-                        response={`[
-  { 
-    "id": "uuid", 
-    "case_number": "2026-00001", 
-    "title": "...", 
-    "status": "open",
-    "tlp": { "code": "AMBER", "color": "#FFC000" },
-    "severity": { "label": "High", "color": "#ef4444" }
-  }
-]`}
+          response={`{
+  "data": [
+    { 
+      "id": "uuid", 
+      "case_number": "2026-00001", 
+      "title": "...", 
+      "status": "open",
+      "tlp": { "code": "AMBER", "color": "#FFC000" },
+      "severity": { "label": "High", "color": "#ef4444" }
+    }
+  ],
+  "statusCounts": {
+    "openCasesCount": 10,
+    "closedCasesCount": 5
+  },
+  "pagination": { "page": 1, "limit": 50, "total": 15, "totalPages": 1 }
+}`}
                     />
                     <Endpoint
                         method="GET"
@@ -276,15 +283,22 @@ export function ApiDocs() {
                         method="GET"
                         path="/cases?type=alert"
                         description="Lister toutes les alertes accessibles"
-                        response={`[
-  { 
-    "id": "uuid", 
-    "case_number": "2026-00001", 
-    "type": "alert",
-    "title": "...", 
-    "status": "open"
-  }
-]`}
+          response={`{
+  "data": [
+    { 
+      "id": "uuid", 
+      "case_number": "2026-00001", 
+      "type": "alert",
+      "title": "...", 
+      "status": "open"
+    }
+  ],
+  "statusCounts": {
+    "openAlertsCount": 3,
+    "unassignedAlertsCount": 1
+  },
+  "pagination": { "page": 1, "limit": 50, "total": 4, "totalPages": 1 }
+}`}
                     />
                     <Endpoint
                         method="POST"

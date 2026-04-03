@@ -221,7 +221,7 @@ router.put('/:id', validateRequest(updateCaseSchema), async (req: AuthenticatedR
  *         description: Filtrer par type
  *     responses:
  *       200:
- *         description: Liste paginée des cas/alertes
+ *         description: Objet contenant la liste paginée des cas/alertes, les compteurs de statuts (statusCounts), et les données de pagination
  *       403:
  *         description: Non autorisé
  *       500:
