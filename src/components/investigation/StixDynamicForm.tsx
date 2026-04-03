@@ -244,9 +244,10 @@ export function StixDynamicForm({ caseId, taskId, onClose, onCreated, initialDat
                       type="text"
                       value={name}
                       onChange={e => setName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-70 disabled:cursor-not-allowed"
                       placeholder="SRV-DC01"
-                      autoFocus
+                      autoFocus={!initialData}
+                      disabled={!!initialData}
                     />
                   </div>
                   <div>
@@ -290,9 +291,10 @@ export function StixDynamicForm({ caseId, taskId, onClose, onCreated, initialDat
                       type="text"
                       value={accountName}
                       onChange={e => setAccountName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-70 disabled:cursor-not-allowed"
                       placeholder="admin.user"
-                      autoFocus
+                      autoFocus={!initialData}
+                      disabled={!!initialData}
                     />
                   </div>
                   <div>
@@ -303,8 +305,9 @@ export function StixDynamicForm({ caseId, taskId, onClose, onCreated, initialDat
                       type="text"
                       value={domain}
                       onChange={e => setDomain(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-800 dark:text-white"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-800 dark:text-white disabled:opacity-70 disabled:cursor-not-allowed"
                       placeholder="CORP.LOCAL"
+                      disabled={!!initialData}
                     />
                   </div>
                 </div>
@@ -320,9 +323,10 @@ export function StixDynamicForm({ caseId, taskId, onClose, onCreated, initialDat
                       type="text"
                       value={name}
                       onChange={e => setName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-70 disabled:cursor-not-allowed"
                       placeholder="cobalt_strike.exe"
-                      autoFocus
+                      autoFocus={!initialData}
+                      disabled={!!initialData}
                     />
                   </div>
                   <div>
@@ -383,10 +387,11 @@ export function StixDynamicForm({ caseId, taskId, onClose, onCreated, initialDat
                       type="text"
                       value={indicatorValue}
                       onChange={e => setIndicatorValue(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-800 dark:text-white focus:ring-2 focus:ring-purple-500 font-mono disabled:opacity-70 disabled:cursor-not-allowed"
                       placeholder={category === 'ipv4-addr' ? 'ex: 192.168.1.1' : category === 'domain-name' ? 'ex: malicious.com' : 'ex: https://malicious.com/payload'}
                       required
-                      autoFocus
+                      autoFocus={!initialData}
+                      disabled={!!initialData}
                     />
                   </div>
                 </div>
