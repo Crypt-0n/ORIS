@@ -178,6 +178,15 @@ router.put('/:id', validateRequest(updateCaseSchema), async (req: AuthenticatedR
             }
         }
 
+        if (req.body.assigned_to !== undefined) {
+            const assignRepo = new BaseRepository(getDb(), 'case_assignments');
+            const existing = await assignRepo.findWhere({ case_id: (req.params.id as string) });
+            for (const a of existing) await assignRepo.delete(a.id);
+            if (req.body.assigned_to) {
+                await assignRepo.create({ id: nodeCrypto.randomUUID(), case_id: (req.params.id as string), user_id: req.body.assigned_to });
+            }
+        }
+
         res.json({ success: true, id: (req.params.id as string) });
     } catch (err) {
         console.error(err);

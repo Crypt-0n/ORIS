@@ -39,6 +39,7 @@ export interface EditCaseProps {
     author_id: string;
     beneficiary_id: string;
     adversary?: string | null;
+    assigned_to?: string | null;
   };
   onClose: () => void;
   onSuccess: () => void;
@@ -58,8 +59,10 @@ export function EditCase({ caseId, isAlert, initialData, onClose, onSuccess }: E
     author_id: initialData.author_id,
     beneficiary_id: initialData.beneficiary_id,
     adversary: initialData.adversary || '',
+    assigned_to: initialData.assigned_to || '',
   });
   const [beneficiaries, setBeneficiaries] = useState<{ id: string; name: string }[]>([]);
+  const [beneficiaryMembers, setBeneficiaryMembers] = useState<{ id: string; full_name: string }[]>([]);
   const [users, setUsers] = useState<{ id: string; full_name: string }[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState('');
@@ -73,6 +76,14 @@ export function EditCase({ caseId, isAlert, initialData, onClose, onSuccess }: E
     fetchBeneficiaries();
     checkAdmin();
   }, []);
+
+  useEffect(() => {
+    if (isAlert && formData.beneficiary_id) {
+       api.get(`/cases/beneficiary-members/${formData.beneficiary_id}`)
+         .then(res => setBeneficiaryMembers(res || []))
+         .catch(() => setBeneficiaryMembers([]));
+    }
+  }, [formData.beneficiary_id, isAlert]);
 
   const fetchBeneficiaries = async () => {
     try {
@@ -144,6 +155,7 @@ export function EditCase({ caseId, isAlert, initialData, onClose, onSuccess }: E
         author_id: formData.author_id,
         beneficiary_id: formData.beneficiary_id,
         adversary: formData.adversary,
+        assigned_to: formData.assigned_to,
       });
 
       onSuccess();
@@ -212,7 +224,27 @@ export function EditCase({ caseId, isAlert, initialData, onClose, onSuccess }: E
             </select>
           </div>
 
-          {isAdmin && (
+          {isAlert && formData.beneficiary_id && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
+                Responsable <span className="text-gray-500 font-normal">(optionnel)</span>
+              </label>
+              <select
+                value={formData.assigned_to}
+                onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-slate-800 dark:text-white"
+              >
+                <option value="">Aucun responsable</option>
+                {beneficiaryMembers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {isAdmin && !isAlert && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
                 {t('cases.author')} (Responsable)

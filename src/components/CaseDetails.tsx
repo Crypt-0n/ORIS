@@ -900,6 +900,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
       {showEditCase && caseData && (
         <EditCase
           caseId={caseId}
+          isAlert={isAlert}
           initialData={{
             title: caseData.title,
             description: caseData.description,
@@ -909,6 +910,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
             author_id: caseData.author_id,
             beneficiary_id: caseData.beneficiary_id,
             adversary: caseData.adversary,
+            assigned_to: teamMembers[0]?.user?.id || teamMembers[0]?.user_id || null,
           }}
           onClose={() => setShowEditCase(false)}
           onSuccess={() => { setShowEditCase(false); fetchCaseDetails(); }}
