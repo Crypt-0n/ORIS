@@ -406,6 +406,7 @@ export function UserAccessPanel() {
                   <input
                     type="text"
                     required
+                    autoComplete="name"
                     value={userFormData.fullName}
                     onChange={(e) => setUserFormData({ ...userFormData, fullName: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 dark:text-white transition"
@@ -416,6 +417,7 @@ export function UserAccessPanel() {
                   <input
                     type="email"
                     required
+                    autoComplete="email"
                     value={userFormData.email}
                     onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 dark:text-white transition"
@@ -428,6 +430,7 @@ export function UserAccessPanel() {
                   <input
                     type="password"
                     required={!editingUserForModal}
+                    autoComplete="new-password"
                     value={userFormData.password}
                     onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 dark:text-white transition"

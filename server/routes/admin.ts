@@ -36,10 +36,17 @@ router.get('/users', async (req: AuthenticatedRequest, res: Response) => {
 const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
-  fullName: z.string().min(1),
+  fullName: z.string().min(1).optional(),
+  full_name: z.string().min(1).optional(),
   roles: z.array(z.string()).optional(),
   beneficiaryIds: z.array(z.string()).optional(),
-});
+  beneficiary_ids: z.array(z.string()).optional(),
+}).refine(data => data.fullName || data.full_name, { message: "fullName or full_name is required" })
+.transform(data => ({
+  ...data,
+  fullName: data.fullName || data.full_name,
+  beneficiaryIds: data.beneficiaryIds || data.beneficiary_ids
+}));
 
 router.post('/users', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -63,11 +70,17 @@ router.post('/users', async (req: AuthenticatedRequest, res: Response): Promise<
 const updateUserSchema = z.object({
   email: z.string().email().optional(),
   full_name: z.string().min(1).optional(),
+  fullName: z.string().min(1).optional(),
   roles: z.array(z.string()).optional(),
   password: z.string().min(6).optional(),
   is_active: z.boolean().optional(),
   beneficiaryIds: z.array(z.string()).optional(),
-});
+  beneficiary_ids: z.array(z.string()).optional(),
+}).transform(data => ({
+  ...data,
+  full_name: data.full_name || data.fullName,
+  beneficiaryIds: data.beneficiaryIds || data.beneficiary_ids
+}));
 
 router.put('/users/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
