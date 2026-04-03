@@ -278,11 +278,6 @@ function AppContent() {
       {isLocked && <LockScreen />}
       <KillChainProvider>
         <AppLayout>
-          <Suspense fallback={
-            <div className="flex items-center justify-center min-h-[50vh]">
-              <div className="text-gray-500 dark:text-slate-400">{t('common.loading')}</div>
-            </div>
-          }>
             <RouteRestorer>
               <AnimatePresence mode="wait">
                 <Routes location={location} key={location.pathname}>
@@ -302,7 +297,6 @@ function AppContent() {
                 </Routes>
               </AnimatePresence>
             </RouteRestorer>
-          </Suspense>
         </AppLayout>
       </KillChainProvider>
     </>

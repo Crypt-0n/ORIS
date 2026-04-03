@@ -1,5 +1,6 @@
 import { motion, Variants } from 'framer-motion';
-import { ReactNode } from 'react';
+import { ReactNode, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface AnimatedPageProps {
   children: ReactNode;
@@ -13,6 +14,7 @@ const pageVariants: Variants = {
 };
 
 export const AnimatedPage = ({ children, className }: AnimatedPageProps) => {
+  const { t } = useTranslation();
   return (
     <motion.div
       initial="initial"
@@ -21,7 +23,13 @@ export const AnimatedPage = ({ children, className }: AnimatedPageProps) => {
       variants={pageVariants}
       className={className}
     >
-      {children}
+      <Suspense fallback={
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-gray-500 dark:text-slate-400">{t('common.loading')}</div>
+        </div>
+      }>
+        {children}
+      </Suspense>
     </motion.div>
   );
 };

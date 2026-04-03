@@ -14,7 +14,14 @@ class CaseRepository extends BaseRepository {
                 FOR b IN beneficiaries
                     FILTER b._key == m.beneficiary_id
                     SORT b.name ASC
-                    RETURN b
+                    LET members_list = (
+                        FOR mem IN beneficiary_members
+                            FILTER mem.beneficiary_id == b._key
+                            FOR u IN user_profiles
+                                FILTER u._key == mem.user_id
+                                RETURN { id: u._key, full_name: u.full_name, email: u.email }
+                    )
+                    RETURN MERGE(b, { members: members_list })
         `;
         return this.query(aql, { userId });
     }
