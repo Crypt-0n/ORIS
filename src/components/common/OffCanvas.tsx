@@ -53,7 +53,7 @@ export function OffCanvas({ isOpen, onClose, title, children, width = 'lg' }: Of
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className={`fixed inset-y-0 right-0 z-[101] flex flex-col bg-white dark:bg-slate-900 shadow-2xl border-l border-gray-200 dark:border-slate-800 ${widthClasses[width]}`}
+            className={`fixed inset-y-0 right-0 z-[101] flex flex-col bg-white dark:bg-slate-900 shadow-2xl border-l border-gray-200 dark:border-slate-800 max-w-[100vw] ${widthClasses[width]}`}
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-slate-800">
               <h2 className="text-xl font-bold text-gray-800 dark:text-white truncate pr-4">{title}</h2>
