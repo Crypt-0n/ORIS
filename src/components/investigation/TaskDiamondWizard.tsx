@@ -186,6 +186,12 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                         let sdoType = id.split('--')[0] as StixSDOType;
                         if (existingObj) {
                            label = ('name' in existingObj) ? (existingObj as any).name : ('value' in existingObj) ? (existingObj as any).value : existingObj.type;
+                           if (existingObj.type === 'attack-pattern' && (existingObj as any).external_references) {
+                               const extRef = (existingObj as any).external_references.find((r: any) => r.source_name === 'mitre-attack');
+                               if (extRef && extRef.external_id) {
+                                   label = `${extRef.external_id} - ${label}`;
+                               }
+                           }
                            sdoType = existingObj.type;
                         } else if (typeof val !== 'string' && val.label) {
                            label = val.label;
@@ -300,7 +306,13 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
             const mitreTtp = !obj ? mitrePatterns.find(p => p && p.id === targetId) : null;
             if (!obj && !mitreTtp) return;
             
-            const label = obj ? (('name' in obj) ? (obj as any).name : ('value' in obj) ? (obj as any).value : obj.type) : `${mitreTtp?.mitre_id} - ${mitreTtp?.name}`;
+            let label = obj ? (('name' in obj) ? (obj as any).name : ('value' in obj) ? (obj as any).value : obj.type) : `${mitreTtp?.mitre_id} - ${mitreTtp?.name}`;
+            if (obj && obj.type === 'attack-pattern' && (obj as any).external_references) {
+                const extRef = (obj as any).external_references.find((r: any) => r.source_name === 'mitre-attack');
+                if (extRef && extRef.external_id) {
+                    label = `${extRef.external_id} - ${label}`;
+                }
+            }
             const sdoType = obj ? obj.type : 'attack-pattern';
             
             // Avoid duplicates
