@@ -259,10 +259,8 @@ function AppContent() {
         setSystemError({ message: "Base de données non prête", detail: "La base de données (oris-arangodb) est en cours d'initialisation ou refuse la connexion. Veuillez patienter..." });
         setTimeout(checkInitialization, 5000);
       } else {
-        // Assume default status if unhandled error
-        setInitComplete(false);
-        setSystemError(null);
-        setCheckingInit(false);
+        setSystemError({ message: "Système en démarrage", detail: `Le système technique s'initialise ou rencontre une erreur (Code: ${err.status || msg}). Veuillez patienter...` });
+        setTimeout(checkInitialization, 5000);
       }
     }
   };
