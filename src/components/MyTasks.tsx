@@ -189,7 +189,7 @@ export function MyTasks() {
             <select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value as any)}
-              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer"
+              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer [&>option]:dark:bg-slate-900"
             >
               <option value="none">Ne pas grouper</option>
               <option value="case.beneficiary">Bénéficiaire du dossier</option>
@@ -205,7 +205,7 @@ export function MyTasks() {
             <select
               value={filterBeneficiary}
               onChange={(e) => { setFilterBeneficiary(e.target.value); setCurrentPage(1); }}
-              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate"
+              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate [&>option]:dark:bg-slate-900"
             >
               <option value="all">Bénéficiaire (Tous)</option>
               {availableBeneficiaries.map(([id, name]) => (
@@ -217,7 +217,7 @@ export function MyTasks() {
             <select
               value={filterSeverity}
               onChange={(e) => { setFilterSeverity(e.target.value); setCurrentPage(1); }}
-              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer"
+              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer [&>option]:dark:bg-slate-900"
             >
               <option value="all">Sévérité (Toutes)</option>
               {availableSeverities.map(([id, label]) => (
@@ -229,7 +229,7 @@ export function MyTasks() {
             <select
               value={filterAssignedTo}
               onChange={(e) => { setFilterAssignedTo(e.target.value); setCurrentPage(1); }}
-              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate"
+              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate [&>option]:dark:bg-slate-900"
             >
               <option value="all">Assigné à (Tous)</option>
               {availableAssignedTo.map(([id, name]) => (

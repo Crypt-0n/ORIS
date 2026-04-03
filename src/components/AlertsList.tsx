@@ -233,7 +233,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
             <select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value as any)}
-              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer"
+              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer [&>option]:dark:bg-slate-900"
             >
               <option value="none">Ne pas grouper</option>
               <option value="beneficiary">Par Bénéficiaire</option>
@@ -249,7 +249,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
             <select
               value={filterBeneficiary}
               onChange={(e) => { setFilterBeneficiary(e.target.value); setCurrentPage(1); }}
-              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate"
+              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate [&>option]:dark:bg-slate-900"
             >
               <option value="all">Bénéficiaire (Tous)</option>
               {availableBeneficiaries.map(({id, name}) => (
@@ -261,7 +261,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
             <select
               value={filterSeverity}
               onChange={(e) => { setFilterSeverity(e.target.value); setCurrentPage(1); }}
-              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer"
+              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer [&>option]:dark:bg-slate-900"
             >
               <option value="all">Sévérité (Toutes)</option>
               {availableSeverities.map(({id, label}) => (
@@ -273,7 +273,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
             <select
               value={filterAuthor}
               onChange={(e) => { setFilterAuthor(e.target.value); setCurrentPage(1); }}
-              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate"
+              className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate [&>option]:dark:bg-slate-900"
             >
               <option value="all">Auteur (Tous)</option>
               {availableAuthors.map(({id, full_name}) => (
