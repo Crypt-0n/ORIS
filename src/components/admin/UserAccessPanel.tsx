@@ -85,7 +85,7 @@ export function UserAccessPanel() {
       setDeletingUser(null);
       fetchUsers();
     } catch (err: any) {
-      setError(err.response?.data?.error || t('admin.errorDeletingUser'));
+      setError(err.message || t('admin.errorDeletingUser'));
     }
     setDeleting(false);
   };
@@ -119,7 +119,7 @@ export function UserAccessPanel() {
       setShowUserModal(false);
       fetchUsers();
     } catch (err: any) {
-      setError(err.response?.data?.error || t('admin.errorSavingUser'));
+      setError(err.message || t('admin.errorSavingUser'));
     }
     setUpdating(false);
   };
