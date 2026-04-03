@@ -27,8 +27,9 @@ interface PapLevel {
   color: string;
 }
 
-interface EditCaseProps {
+export interface EditCaseProps {
   caseId: string;
+  isAlert?: boolean;
   initialData: {
     title: string;
     description: string;
@@ -43,7 +44,7 @@ interface EditCaseProps {
   onSuccess: () => void;
 }
 
-export function EditCase({ caseId, initialData, onClose, onSuccess }: EditCaseProps) {
+export function EditCase({ caseId, isAlert, initialData, onClose, onSuccess }: EditCaseProps) {
   const { t } = useTranslation();
   const [severities, setSeverities] = useState<Severity[]>([]);
   const [tlpLevels, setTlpLevels] = useState<TlpLevel[]>([]);
@@ -138,8 +139,8 @@ export function EditCase({ caseId, initialData, onClose, onSuccess }: EditCasePr
         title: formData.title,
         description: formData.description,
         severity_id: formData.severity_id,
-        tlp_id: formData.tlp_id,
-        pap_id: formData.pap_id,
+        tlp: formData.tlp_id,
+        pap: formData.pap_id,
         author_id: formData.author_id,
         beneficiary_id: formData.beneficiary_id,
         adversary: formData.adversary,
@@ -177,18 +178,20 @@ export function EditCase({ caseId, initialData, onClose, onSuccess }: EditCasePr
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
-              Adversaire (Optionnel)
-            </label>
-            <input
-              type="text"
-              value={formData.adversary}
-              onChange={(e) => setFormData({ ...formData, adversary: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 dark:text-white"
-              placeholder="Ex: APT29, LockBit, Inconnu..."
-            />
-          </div>
+          {!isAlert && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
+                Adversaire (Optionnel)
+              </label>
+              <input
+                type="text"
+                value={formData.adversary}
+                onChange={(e) => setFormData({ ...formData, adversary: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 dark:text-white"
+                placeholder="Ex: APT29, LockBit, Inconnu..."
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">

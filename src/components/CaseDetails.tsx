@@ -26,6 +26,7 @@ import {
   Download,
   FolderOpen,
   ClipboardList,
+  User,
 } from 'lucide-react';
 import { TasksList } from './TasksList';
 import { TaskDetails } from './TaskDetails';
@@ -469,6 +470,20 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(caseData.description) }}
               />
             </div>
+            
+            {!isAlert && caseData.adversary && (
+              <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-transparent dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-lg">
+                    <User className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-slate-400">Adversaire</h3>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">{caseData.adversary}</p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {!isClosed && !isReadOnly && !isAlert && (
               <CaseOnboarding caseId={caseId} onNavigate={setActiveSection} />
