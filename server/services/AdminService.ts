@@ -8,9 +8,14 @@ import { isAdmin } from '../utils/access';
 export class AdminService {
   static async getSetupStatus() {
     const db = getDb();
-    const userRepo = new BaseRepository(db, 'user_profiles');
-    const users = await userRepo.findWhere({});
-    const hasAdmin = users.some((u: any) => isAdmin(u.role));
+    const adminCursor = await db.query(`
+      FOR u IN user_profiles
+      FILTER LIKE(u.role, "%admin%")
+      LIMIT 1
+      RETURN 1
+    `);
+    const hasAdminDoc = await adminCursor.next();
+    const hasAdmin = !!hasAdminDoc;
 
     const configRepo = new BaseRepository(db, 'system_config');
     const configRows = await configRepo.findWhere({ key: 'initialization_complete' });
