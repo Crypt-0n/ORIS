@@ -37,6 +37,7 @@ interface EditCaseProps {
     pap_id: string;
     author_id: string;
     beneficiary_id: string;
+    adversary?: string | null;
   };
   onClose: () => void;
   onSuccess: () => void;
@@ -55,6 +56,7 @@ export function EditCase({ caseId, initialData, onClose, onSuccess }: EditCasePr
     pap_id: initialData.pap_id,
     author_id: initialData.author_id,
     beneficiary_id: initialData.beneficiary_id,
+    adversary: initialData.adversary || '',
   });
   const [beneficiaries, setBeneficiaries] = useState<{ id: string; name: string }[]>([]);
   const [users, setUsers] = useState<{ id: string; full_name: string }[]>([]);
@@ -140,6 +142,7 @@ export function EditCase({ caseId, initialData, onClose, onSuccess }: EditCasePr
         pap_id: formData.pap_id,
         author_id: formData.author_id,
         beneficiary_id: formData.beneficiary_id,
+        adversary: formData.adversary,
       });
 
       onSuccess();
@@ -171,6 +174,19 @@ export function EditCase({ caseId, initialData, onClose, onSuccess }: EditCasePr
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 dark:text-white"
               placeholder={t('editCase.caseTitlePlaceholder')}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
+              Adversaire (Optionnel)
+            </label>
+            <input
+              type="text"
+              value={formData.adversary}
+              onChange={(e) => setFormData({ ...formData, adversary: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 dark:text-white"
+              placeholder="Ex: APT29, LockBit, Inconnu..."
             />
           </div>
 

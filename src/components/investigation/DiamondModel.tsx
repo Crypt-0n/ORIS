@@ -33,6 +33,7 @@ import { fetchStixObjects } from '../../lib/stixApi';
 interface DiamondModelProps {
   caseId: string;
   killChainType: string | null;
+  caseAdversary?: string | null;
   isClosed: boolean;
 }
 
@@ -51,7 +52,7 @@ interface TtpOption {
   phase_value: string;
 }
 
-export function DiamondModel({ caseId, killChainType }: DiamondModelProps) {
+export function DiamondModel({ caseId, killChainType, caseAdversary }: DiamondModelProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [nodes, setNodes] = useState<DiamondNode[]>([]);
@@ -120,9 +121,14 @@ export function DiamondModel({ caseId, killChainType }: DiamondModelProps) {
           };
 
           const explicitAxes = stixObj?.x_oris_diamond_axes || stixObj?._axes || {};
+          
+          let baseAdversary = mergeAxis(mapAxis(d.axes.adversary, 'account'), mapAxisRef(explicitAxes.adversary, 'account'));
+          if (caseAdversary) {
+            baseAdversary = mergeAxis(baseAdversary, [{ id: 'case-global-adversary', label: caseAdversary, type: 'account' }]);
+          }
 
           const axes = {
-            adversary: mergeAxis(mapAxis(d.axes.adversary, 'account'), mapAxisRef(explicitAxes.adversary, 'account')),
+            adversary: baseAdversary,
             infrastructure: mergeAxis(mapAxis(d.axes.infrastructure, 'system'), mapAxisRef(explicitAxes.infrastructure, 'system')),
             capability: mergeAxis(mapAxis(d.axes.capability, 'malware'), mapAxisRef(explicitAxes.capability, 'malware')),
             victim: mergeAxis(mapAxis(d.axes.victim, 'system'), mapAxisRef(explicitAxes.victim, 'system')),
@@ -155,7 +161,7 @@ export function DiamondModel({ caseId, killChainType }: DiamondModelProps) {
       console.error(err);
       setLoading(false);
     }
-  }, [caseId, killChainType]);
+  }, [caseId, killChainType, caseAdversary]);
 
   useEffect(() => {
     fetchData();

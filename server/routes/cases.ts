@@ -28,6 +28,7 @@ const createCaseSchema = z.object({
     kill_chain_type: z.string().optional(),
     type: z.enum(['case', 'alert']).optional(),
     assigned_to: z.array(z.string()).optional(),
+    adversary: z.string().optional().nullable(),
 });
 
 const updateCaseSchema = z.object({
@@ -44,6 +45,7 @@ const updateCaseSchema = z.object({
     kill_chain_type: z.string().optional(),
     beneficiary_id: z.string().optional().nullable(),
     author_id: z.string().optional(),
+    adversary: z.string().optional().nullable(),
 });
 
 
@@ -104,6 +106,7 @@ router.post('/', validateRequest(createCaseSchema), async (req: AuthenticatedReq
             id, case_number, type: entityType, title, description, author_id,
             severity_id, tlp: actualTlp, pap: actualPap, status: 'open',
             kill_chain_type: actualKillChain, beneficiary_id,
+            adversary: req.body.adversary || null
         }, assigned_to);
 
         logAudit(id, req.user.id, entityType === 'alert' ? 'alert_created' : 'case_created', 'case', id, { title });
@@ -119,7 +122,7 @@ router.post('/', validateRequest(createCaseSchema), async (req: AuthenticatedReq
 // Update case
 router.put('/:id', validateRequest(updateCaseSchema), async (req: AuthenticatedRequest, res: Response) => {
     try {
-        const { title, description, severity_id, status, closure_summary, closed_at, closed_by, tlp, pap, attacker_utc_offset, kill_chain_type, beneficiary_id, author_id } = req.body;
+        const { title, description, severity_id, status, closure_summary, closed_at, closed_by, tlp, pap, attacker_utc_offset, kill_chain_type, beneficiary_id, author_id, adversary } = req.body;
 
         const updateData: Record<string, any> = {};
         if (title !== undefined) updateData.title = title;
@@ -140,6 +143,7 @@ router.put('/:id', validateRequest(updateCaseSchema), async (req: AuthenticatedR
         if (pap !== undefined) updateData.pap = pap;
         if (attacker_utc_offset !== undefined) updateData.attacker_utc_offset = attacker_utc_offset;
         if (kill_chain_type !== undefined) updateData.kill_chain_type = kill_chain_type;
+        if (adversary !== undefined) updateData.adversary = adversary;
 
         if (beneficiary_id !== undefined && beneficiary_id !== null) {
             const userRepo = new BaseRepository(getDb(), 'user_profiles');

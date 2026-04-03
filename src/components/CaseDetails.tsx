@@ -68,6 +68,7 @@ interface CaseDetailsData {
   kill_chain_type?: string | null;
   beneficiary_id: string;
   beneficiary_name: string;
+  adversary?: string | null;
 }
 
 interface TeamMember {
@@ -562,14 +563,17 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
 
       case 'diamond_model':
         return (
-          <div className="bg-white dark:bg-slate-950 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-gray-200 dark:border-slate-800 min-h-[300px]">
-            <Suspense fallback={<Skeleton className="w-full h-[300px] rounded-lg" />}>
-              <DiamondModel
-                caseId={caseId}
-                killChainType={caseData.kill_chain_type ?? null}
-                isClosed={effectivelyClosed}
-              />
-            </Suspense>
+          <div className="bg-white dark:bg-slate-950 rounded-lg shadow dark:shadow-slate-800/50 p-6 border border-gray-200 dark:border-slate-800">
+            <div className="mt-6">
+              <Suspense fallback={<div className="h-48 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />}>
+                <DiamondModel 
+                  caseId={caseId} 
+                  killChainType={caseData?.kill_chain_type || null} 
+                  caseAdversary={caseData?.adversary || null}
+                  isClosed={isClosed} 
+                />
+              </Suspense>
+            </div>
           </div>
         );
 
@@ -889,6 +893,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
             pap_id: caseData.pap_id,
             author_id: caseData.author_id,
             beneficiary_id: caseData.beneficiary_id,
+            adversary: caseData.adversary,
           }}
           onClose={() => setShowEditCase(false)}
           onSuccess={() => { setShowEditCase(false); fetchCaseDetails(); }}
