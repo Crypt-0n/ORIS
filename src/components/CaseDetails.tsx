@@ -385,7 +385,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
             <div className="flex-1">
               <div className="font-medium text-gray-800 dark:text-white">{caseData.author.full_name}</div>
               <div className="text-xs text-gray-500 dark:text-slate-400">{caseData.author.email}</div>
-              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1">{t('auto.team_leader')}</div>
+              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1">{isAlert ? 'Assigné à' : t('auto.team_leader')}</div>
             </div>
             {isAdmin && !isClosed && (
               <button
@@ -399,7 +399,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
             )}
           </div>
 
-          {teamMembers.map((member) => (
+          {teamMembers.filter(m => m.user?.id !== caseData.author_id && m.user_id !== caseData.author_id).map((member) => (
             <div key={member.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg">
               <div className="w-8 h-8 bg-gray-400 dark:bg-slate-600 rounded-full flex items-center justify-center text-white font-medium" style={{ fontSize: '0.6rem' }}>
                 {getUserTrigram(member.user.full_name)}
