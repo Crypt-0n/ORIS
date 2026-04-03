@@ -32,27 +32,17 @@ ORIS est une application web auto-hébergée pour piloter les investigations de 
 - **Alertes** — événements précurseurs pouvant être escaladés en cases
 - **Dashboard** — vue d'ensemble en temps réel (dossiers critiques, statistiques, activité récente)
 
-### Investigation
-- **Systèmes** — inventaire des machines impliquées avec statut d'investigation (compromis, infecté, sain)
-- **Malwares / Outils** — référencement des fichiers malveillants (noms, hashes, classification)
-- **Comptes compromis** — suivi avec domaine, SID, privilèges, contexte
-- **Indicateurs réseau (IOC)** — IP, domaines, URLs liés à l'attaque
-- **Exfiltrations** — volumétrie, méthodes et destinations
-- **Infrastructure attaquant** — serveurs C2, VPN et infrastructure de l'adversaire
-- **Timeline** — chronologie interactive des événements par système
-- **Axes de progression** — recommandations de sécurité pour les systèmes et infrastructures
+### Investigation (Workspace STIX 2.1)
+- **Environnement unifié (Graphe & Nœuds)** — Espace visuel interactif pour créer, concevoir et relier de façon native les objets STIX (Systèmes, Malwares, IOCs, Comptes, Infrastructures C2).
+- **Timeline automatisée** — Chronologie interactive des événements, déduite automatiquement des données d'observation STIX (Observed Data).
+- **Assistant intégré** — Suggestions intelligentes contextuelles pour les entités et relations.
+- **Axes de progression** — Recommandations de sécurité et de remédiation (Workarounds) directement rattachables à l'investigation globale.
 
-### Modélisation des attaques
-- **Modèle Diamond** — visualisation adversaire / infrastructure / capacité / victime
-- **Kill Chain** — Lockheed Martin (7 phases), Unified Kill Chain (18 phases), MITRE ATT&CK (14 tactiques)
-- **Matrice Kill Chain × Systèmes** — croisement phases/systèmes en vue matricielle
-- **Activity Thread** — vue chronologique des segments d'activité par système avec légende et tags
-- **Graphe de propagation latérale** — visualisation interactive des chemins d'attaque entre systèmes
-- **Timeline visuelle** — représentation graphique des phases d'attaque avec code couleur par kill chain
-- **Graphiques d'activité** — diagrammes de distribution temporelle des événements
-- **Arbre chronologique** — vue hiérarchique Dagre des relations entre événements
-- **Transition de rôle** — détection des systèmes pivots (victime → infrastructure)
-- **TTPs MITRE ATT&CK** — référentiel intégré avec recherche, tagging et mapping
+### Modélisation et Analyste Visuel
+- **Modèle Diamond interactif** — Visualisation avancée des 4 axes (Adversaire, Infrastructure, Capacité, Victime) modélisés algorithmiquement depuis le Workspace.
+- **Propagation de flux** — Cheminement latéral, graphe nodal interactif (Dagre) et thread d'activité.
+- **Kill Chain & Matrice Systèmes** — Visualisation matricielle de la Kill Chain (MITRE ATT&CK, Unified Kill Chain) par système impacté.
+- **Base de connaissances MITRE (TTPs)** — Référentiel MITRE ATT&CK centralisé avec fonction de recherche rapide, clonage autonome par dossier (Sandboxing) et tagging.
 
 ### Interopérabilité
 - **STIX 2.1** — export complet des données d'investigation au format STIX 2.1 (bundles JSON)
