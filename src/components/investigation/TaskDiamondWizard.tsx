@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronRight, ChevronLeft, Check, Bug, Server, User, Globe, AlertCircle, Calendar, Zap, Link as LinkIcon, Plus, Trash2, ChevronDown } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, Bug, Server, Globe, AlertCircle, Calendar, Zap, Link as LinkIcon, Plus, Trash2, ChevronDown } from 'lucide-react';
 import type { StixSDO, StixSDOType } from '../../lib/stix.types';
 import { STIX_TYPE_META, RELATIONSHIP_TYPES } from '../../lib/stix.types';
 import { generateStixId, nowIso } from '../../lib/stixApi';
@@ -39,7 +39,6 @@ export interface ManualRelation {
 
 const STEPS: { key: StepKey; label: string; icon: any; types: string[]; defaultType: StixSDOType | 'relationship'; color: string; desc: string }[] = [
     { key: 'event', label: 'Événement', icon: Zap, types: [], defaultType: 'observed-data', color: 'text-cyan-500', desc: "L'événement central décrit l'action malveillante spécifique (ex: Exfiltration, Chiffrement, Phishing) au moment où elle s'est produite." },
-    { key: 'adversary', label: 'Adversaires', icon: User, types: ['threat-actor', 'intrusion-set', 'campaign'], defaultType: 'threat-actor', color: 'text-red-400', desc: "L'axe Socio-Politique : Qui est responsable de l'attaque. Peut inclure le groupe (Intrusion Set), l'opérateur (Threat Actor) ou la campagne." },
     { key: 'capability', label: 'Capacités', icon: Bug, types: ['malware', 'tool', 'attack-pattern'], defaultType: 'malware', color: 'text-purple-400', desc: "Les outils techniques, les modes opératoires (TTPs MITRE ATT&CK) ou les malwares utilisés par l'adversaire pour accomplir l'événement." },
     { key: 'infrastructure', label: 'Infrastructures', icon: Server, types: ['infrastructure', 'ipv4-addr', 'domain-name', 'url', 'mac-addr'], defaultType: 'infrastructure', color: 'text-blue-400', desc: "Les éléments matériels ou de communication utilisés pour héberger des capacités, envoyer des commandes (C2) ou lancer l'attaque." },
     { key: 'victim', label: 'Victimes', icon: Globe, types: ['identity', 'infrastructure', 'user-account', 'ipv4-addr', 'domain-name'], defaultType: 'identity', color: 'text-green-400', desc: "La cible de l'événement. Cela peut être une entité (Organisation, Secteur, Personne) ou l'infrastructure technique ciblée." },
@@ -227,7 +226,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
 
     // Get all valid objects defined across axes for relationships
     const allAvailableNodes = useMemo(() => {
-        return ['adversary', 'capability', 'infrastructure', 'victim'].flatMap(k => axesNodes[k]);
+        return ['capability', 'infrastructure', 'victim'].flatMap(k => axesNodes[k]);
     }, [axesNodes]);
 
     // Update draft mode and reset correctly when navigating
@@ -351,7 +350,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
         try {
             // 1. Create SDOs for new diamond nodes
             const now = nowIso();
-            const allNodes = ['adversary', 'capability', 'infrastructure', 'victim'].flatMap(k => axesNodes[k]);
+            const allNodes = ['capability', 'infrastructure', 'victim'].flatMap(k => axesNodes[k]);
             
             for (const node of allNodes) {
                 if (node.mode === 'new' && node.newData) {
@@ -545,7 +544,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                                 )}
 
                                 {/* OTHER STEPS: STIX NODES (Axes) */}
-                                {['adversary', 'capability', 'infrastructure', 'victim'].includes(currentStep.key) && (
+                                {['capability', 'infrastructure', 'victim'].includes(currentStep.key) && (
                                     <div className="space-y-6">
                                         {/* List of currently selected nodes */}
                                         <div className="space-y-2">
