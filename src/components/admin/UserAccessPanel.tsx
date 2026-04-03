@@ -101,7 +101,7 @@ export function UserAccessPanel() {
           email: userFormData.email,
           full_name: userFormData.fullName,
           roles: userFormData.roles,
-          beneficiary_ids: userFormData.beneficiaryIds
+          beneficiaryIds: userFormData.beneficiaryIds
         };
         if (userFormData.password) {
           payload.password = userFormData.password;
@@ -110,10 +110,10 @@ export function UserAccessPanel() {
       } else {
         await api.post('/admin/users', {
           email: userFormData.email,
-          full_name: userFormData.fullName,
+          fullName: userFormData.fullName,
           password: userFormData.password,
           roles: userFormData.roles,
-          beneficiary_ids: userFormData.beneficiaryIds
+          beneficiaryIds: userFormData.beneficiaryIds
         });
       }
       setShowUserModal(false);

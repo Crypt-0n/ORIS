@@ -217,9 +217,9 @@ const MentionList = forwardRef((props: MentionListProps, ref) => {
           ) : (
             <>
               <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-300">
-                {item.full_name.charAt(0)}
+                {(item.full_name || '?').charAt(0).toUpperCase()}
               </span>
-              <span>{item.full_name}</span>
+              <span>{item.full_name || 'Utilisateur inconnu'}</span>
             </>
           )}
         </button>
@@ -250,7 +250,7 @@ export function RichTextEditor({ value, onChange, placeholder, disabled = false 
 
   const suggestion = {
     items: ({ query }: { query: string }) => {
-      return users.filter((item) => item.full_name.toLowerCase().includes(query.toLowerCase())).slice(0, 10);
+      return users.filter((item) => (item.full_name || '').toLowerCase().includes(query.toLowerCase())).slice(0, 10);
     },
     render: () => {
       let reactRenderer: any;
