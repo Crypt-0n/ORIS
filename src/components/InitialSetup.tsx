@@ -501,9 +501,7 @@ export function InitialSetup({ onComplete }: InitialSetupProps) {
                 try {
                   const formData = new FormData();
                   formData.append('backup', file);
-                  const resp = await fetch('/api/backup/restore', { method: 'POST', body: formData });
-                  const data = await resp.json();
-                  if (!resp.ok) throw new Error(data.error || 'Restore failed');
+                  await api.post('/backup/restore', formData);
                   // Restore succeeded — go to login
                   onComplete();
                 } catch (err) {
