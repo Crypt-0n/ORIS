@@ -227,14 +227,14 @@ export function EditCase({ caseId, isAlert, initialData, onClose, onSuccess }: E
           {isAlert && formData.beneficiary_id && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
-                Responsable <span className="text-gray-500 font-normal">(optionnel)</span>
+                Assigné à <span className="text-gray-500 font-normal">(optionnel)</span>
               </label>
               <select
                 value={formData.assigned_to}
                 onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-slate-800 dark:text-white"
               >
-                <option value="">Aucun responsable</option>
+                <option value="">Non assigné</option>
                 {beneficiaryMembers.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.full_name}
