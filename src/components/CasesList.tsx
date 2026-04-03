@@ -70,11 +70,15 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
   const [availableBeneficiaries, setAvailableBeneficiaries] = useState<Array<{id: string, name: string}>>([]);
   const [availableSeverities, setAvailableSeverities] = useState<Array<{id: string, label: string, color: string}>>([]);
   const [availableAuthors, setAvailableAuthors] = useState<Array<{id: string, full_name: string}>>([]);
+  const [tabCounts, setTabCounts] = useState({ my: 0, backlog: 0, supervision: 0 });
   
   const ITEMS_PER_PAGE = 25;
 
   useEffect(() => {
     if (user) {
+      if (!showSupervision) fetchFiltersMetadata();
+      // always fetch filters metadata whenever a new render occurs across different tabs or on first load so we have the initial total amounts
+      // actually, just running it on first load and then fetchCases handles the exact number for activeTab
       fetchUserProfiles();
       fetchFiltersMetadata();
     }
@@ -103,6 +107,7 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
         setAvailableBeneficiaries(data.beneficiaries || []);
         setAvailableSeverities(data.severities || []);
         setAvailableAuthors(data.authors || []);
+        if (data.tabCounts) setTabCounts(data.tabCounts);
       }
     } catch (err) {
       console.error(err);
@@ -296,24 +301,24 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
       {isAdmin && (
         <div className="flex gap-2 border-b border-gray-200 dark:border-slate-700 pb-0">
           <button
-            onClick={() => { setShowSupervision(false); resetFilters(); }}
+            onClick={() => { setShowSupervision(false); resetFilters(); fetchFiltersMetadata(); }}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${!showSupervision
               ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
               : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
               }`}
           >
             <FolderOpen className="w-4 h-4" />
-            {t('cases.myFiles')}
+            {t('cases.myFiles')} <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${!showSupervision ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400'}`}>{!showSupervision ? totalItems : tabCounts.my}</span>
           </button>
           <button
-            onClick={() => { setShowSupervision(true); resetFilters(); }}
+            onClick={() => { setShowSupervision(true); resetFilters(); fetchFiltersMetadata(); }}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${showSupervision
               ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
               : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
               }`}
           >
             <Eye className="w-4 h-4" />
-            {t('cases.supervision')}
+            {t('cases.supervision')} <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${showSupervision ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400'}`}>{showSupervision ? totalItems : tabCounts.supervision}</span>
           </button>
         </div>
       )}

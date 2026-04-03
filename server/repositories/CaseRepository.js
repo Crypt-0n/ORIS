@@ -274,7 +274,29 @@ class CaseRepository extends BaseRepository {
                     RETURN { id: s._key, label: s.label, color: s.color }
             )
             
-            RETURN { beneficiaries, authors, severities }
+            LET tabCounts = {
+                my: LENGTH(
+                    FOR c IN accessibleCases
+                        LET isMyCase = c.author_id == @userId || (c._key IN assignedCaseIds)
+                        FILTER isMyCase
+                        RETURN 1
+                ),
+                backlog: LENGTH(
+                    FOR c IN accessibleCases
+                        LET isUnassigned = LENGTH(FOR ca IN case_assignments FILTER ca.case_id == c._key RETURN 1) == 0
+                        FILTER isUnassigned
+                        RETURN 1
+                ),
+                supervision: LENGTH(
+                    FOR c IN accessibleCases
+                        LET isMyCase = c.author_id == @userId || (c._key IN assignedCaseIds)
+                        LET isUnassigned = LENGTH(FOR ca IN case_assignments FILTER ca.case_id == c._key RETURN 1) == 0
+                        FILTER !isMyCase AND !isUnassigned
+                        RETURN 1
+                )
+            }
+            
+            RETURN { beneficiaries, authors, severities, tabCounts }
         `;
         
         const result = await this.query(aql, {
@@ -283,7 +305,7 @@ class CaseRepository extends BaseRepository {
             typeFilter: typeFilter || 'case'
         });
         
-        return result[0] || { beneficiaries: [], authors: [], severities: [] };
+        return result[0] || { beneficiaries: [], authors: [], severities: [], tabCounts: { my: 0, backlog: 0, supervision: 0 } };
     }
 
     async findByIdAccessible(id, userId, hasAdminAccessGlobal) {

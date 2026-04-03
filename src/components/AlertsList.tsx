@@ -69,11 +69,15 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
   const [availableBeneficiaries, setAvailableBeneficiaries] = useState<Array<{id: string, name: string}>>([]);
   const [availableSeverities, setAvailableSeverities] = useState<Array<{id: string, label: string, color: string}>>([]);
   const [availableAuthors, setAvailableAuthors] = useState<Array<{id: string, full_name: string}>>([]);
+  const [tabCounts, setTabCounts] = useState({ my: 0, backlog: 0, supervision: 0 });
   
   const ITEMS_PER_PAGE = 25;
 
   useEffect(() => {
     if (user) {
+      if (activeTab === 'my') fetchFiltersMetadata();
+      // always fetch filters metadata whenever a new render occurs across different tabs or on first load so we have the initial total amounts
+      // actually, just running it on first load and then fetchAlerts handles the exact number for activeTab
       fetchFiltersMetadata();
     }
   }, [user]);
@@ -91,6 +95,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
         setAvailableBeneficiaries(data.beneficiaries || []);
         setAvailableSeverities(data.severities || []);
         setAvailableAuthors(data.authors || []);
+        if (data.tabCounts) setTabCounts(data.tabCounts);
       }
     } catch (err) {
       console.error(err);
@@ -297,35 +302,35 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
       <div className="border-b border-gray-200 dark:border-slate-700/80 mb-6 sticky top-[57px] z-30 bg-[var(--app-bg)] px-2 sm:px-0">
         <div className="flex gap-4">
           <button
-            onClick={() => { setActiveTab('my'); resetFilters(); }}
+            onClick={() => { setActiveTab('my'); resetFilters(); fetchFiltersMetadata(); }}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === 'my'
               ? 'border-orange-600 text-orange-600 dark:text-orange-400 dark:border-orange-400'
               : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
               }`}
           >
             <AlertTriangle className="w-4 h-4" />
-            Mes alertes
+            Mes alertes <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${activeTab === 'my' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400'}`}>{activeTab === 'my' ? totalItems : tabCounts.my}</span>
           </button>
           <button
-            onClick={() => { setActiveTab('backlog'); resetFilters(); }}
+            onClick={() => { setActiveTab('backlog'); resetFilters(); fetchFiltersMetadata(); }}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === 'backlog'
               ? 'border-orange-600 text-orange-600 dark:text-orange-400 dark:border-orange-400'
               : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
               }`}
           >
             <Layers className="w-4 h-4" />
-            Backlog
+            Backlog <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${activeTab === 'backlog' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400'}`}>{activeTab === 'backlog' ? totalItems : tabCounts.backlog}</span>
           </button>
           {isAdmin && (
             <button
-              onClick={() => { setActiveTab('supervision'); resetFilters(); }}
+              onClick={() => { setActiveTab('supervision'); resetFilters(); fetchFiltersMetadata(); }}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === 'supervision'
                 ? 'border-orange-600 text-orange-600 dark:text-orange-400 dark:border-orange-400'
                 : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
                 }`}
             >
               <Eye className="w-4 h-4" />
-              Supervision
+              Supervision <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${activeTab === 'supervision' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400'}`}>{activeTab === 'supervision' ? totalItems : tabCounts.supervision}</span>
             </button>
           )}
         </div>
