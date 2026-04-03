@@ -1,4 +1,4 @@
-import { useEffect, useState, forwardRef, useImperativeHandle } from 'react';
+import { useEffect, useState, forwardRef, useImperativeHandle, useRef } from 'react';
 import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -240,6 +240,11 @@ interface RichTextEditorProps {
 
 export function RichTextEditor({ value, onChange, placeholder, disabled = false }: RichTextEditorProps) {
   const [users, setUsers] = useState<MentionUser[]>([]);
+  const usersRef = useRef<MentionUser[]>([]);
+
+  useEffect(() => {
+    usersRef.current = users;
+  }, [users]);
 
   useEffect(() => {
     api.get('/auth/users-list').then((data: unknown) => {
@@ -251,7 +256,7 @@ export function RichTextEditor({ value, onChange, placeholder, disabled = false 
 
   const suggestion = {
     items: ({ query }: { query: string }) => {
-      return users.filter((item) => (item.full_name || '').toLowerCase().includes(query.toLowerCase())).slice(0, 10);
+      return usersRef.current.filter((item) => (item.full_name || '').toLowerCase().includes(query.toLowerCase())).slice(0, 10);
     },
     render: () => {
       let reactRenderer: any;
@@ -276,6 +281,10 @@ export function RichTextEditor({ value, onChange, placeholder, disabled = false 
             trigger: 'manual',
             placement: 'bottom-start',
           });
+          
+          if (!props.items.length) {
+            popup?.[0].hide();
+          }
         },
         onUpdate(props: any) {
           reactRenderer?.updateProps(props);
@@ -287,6 +296,12 @@ export function RichTextEditor({ value, onChange, placeholder, disabled = false 
           popup?.[0].setProps({
             getReferenceClientRect: props.clientRect,
           });
+
+          if (!props.items.length) {
+            popup?.[0].hide();
+          } else {
+            popup?.[0].show();
+          }
         },
         onKeyDown(props: any) {
           if (props.event.key === 'Escape') {
