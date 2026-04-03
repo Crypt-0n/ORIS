@@ -456,7 +456,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
               />
             </div>
             
-            {!isClosed && !isReadOnly && (
+            {!isClosed && !isReadOnly && !isAlert && (
               <CaseOnboarding caseId={caseId} onNavigate={setActiveSection} />
             )}
             {!isClosed && !isReadOnly && (
