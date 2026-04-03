@@ -215,7 +215,34 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
     }, []);
 
     // State for manual relations
-    const [relations, setRelations] = useState<ManualRelation[]>([]);
+    const [relations, setRelations] = useState<ManualRelation[]>(() => {
+        if (!editingDiamond || !existingObjects) return [];
+        const nodeIds = new Set<string>();
+        const axes = editingDiamond.x_oris_diamond_axes || editingDiamond._axes || {};
+        ['adversary', 'capability', 'infrastructure', 'victim'].forEach(k => {
+             (axes[k] || []).forEach((val: any) => {
+                 const id = typeof val === 'string' ? val : val.id;
+                 if (id) nodeIds.add(id);
+             });
+        });
+        
+        const existingRels = existingObjects.filter(obj => {
+            const o = obj as any;
+            return o && o.type === 'relationship' && 
+            nodeIds.has(o.source_ref) && 
+            nodeIds.has(o.target_ref);
+        });
+        
+        return existingRels.map(rel => {
+            const r = rel as any;
+            return {
+                id: r.id,
+                sourceId: r.source_ref,
+                targetId: r.target_ref,
+                type: r.relationship_type
+            };
+        });
+    });
     const [draftRelSource, setDraftRelSource] = useState('');
     const [draftRelTarget, setDraftRelTarget] = useState('');
     const [draftRelType, setDraftRelType] = useState('uses');
