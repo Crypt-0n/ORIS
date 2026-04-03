@@ -48,20 +48,38 @@ export class CommentService {
       const author = await userRepo.findById(userId);
       const authorName = author?.full_name || "Quelqu'un";
 
+      const mentionHtmlRegex = /data-type="mention"\s+data-id="([^"]+)"/g;
+      let htmlMatch;
+      const mentionedIds = new Set<string>();
+      while ((htmlMatch = mentionHtmlRegex.exec(content)) !== null) {
+        mentionedIds.add(htmlMatch[1]);
+      }
+
       const plainContent = content.replace(/<[^>]+>/g, '');
-      const mentionRegex = /@([A-ZÀ-Ü][a-zà-ü-]+(?:\\s+[A-ZÀ-Ü][A-ZÀ-Üa-zà-ü-]*)+)/g;
+      const legacyMentionRegex = /@([A-ZÀ-Üa-zà-ü-]+(?:\s+[A-ZÀ-Üa-zà-ü-]+)+)/g;
       let match;
       const mentionedNames = new Set<string>();
-      while ((match = mentionRegex.exec(plainContent)) !== null) {
+      while ((match = legacyMentionRegex.exec(plainContent)) !== null) {
         mentionedNames.add(match[1].trim());
       }
 
-      if (mentionedNames.size > 0) {
-        const mentionedUsers = [];
-        for (const name of Array.from(mentionedNames)) {
-          const u = await userRepo.findFirst({ full_name: name });
+      const mentionedUsers = [];
+      
+      for (const id of Array.from(mentionedIds)) {
+        if (id !== '__case__') {
+          const u = await userRepo.findById(id);
           if (u) mentionedUsers.push(u);
         }
+      }
+
+      for (const name of Array.from(mentionedNames)) {
+        const u = await userRepo.findFirst({ full_name: name });
+        if (u && !mentionedUsers.some((existing) => existing.id === u.id)) {
+          mentionedUsers.push(u);
+        }
+      }
+
+      if (mentionedUsers.length > 0) {
 
         for (const mentionedUser of mentionedUsers) {
           if (mentionedUser.id !== userId) {
@@ -77,7 +95,7 @@ export class CommentService {
         }
       }
 
-      if (/@case\\b/i.test(plainContent) && task) {
+      if ((mentionedIds.has('__case__') || /@case\b/i.test(plainContent)) && task) {
         const caseRepo = new BaseRepository(getDb(), 'cases');
         const caseData = await caseRepo.findById(task.case_id);
         const assignRepo = new BaseRepository(getDb(), 'case_assignments');
