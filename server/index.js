@@ -53,7 +53,7 @@ const globalLimiter = rateLimit({
 app.use('/api/', globalLimiter);
 
 app.use(fileUpload({
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB
     useTempFiles: true,
     tempFileDir: '/tmp/',
     abortOnLimit: true,
