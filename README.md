@@ -80,9 +80,9 @@ ORIS est une application web auto-hébergée pour piloter les investigations de 
 
 ### Export et sauvegarde
 - **Rapport PDF** — page de garde, synthèse, chronologie, inventaire complet, graphes, annexes
-- **Rapports périodiques** — quotidiens ou hebdomadaires avec filtrage temporel
+- **Webhooks** — intégration en temps réel avec des systèmes tiers (création/mise à jour d'alertes)
 - **Backup intégré** — sauvegarde automatique planifiée (BDD seule ou complète avec fichiers)
-- **Import/Export** — restauration complète depuis une archive ZIP
+- **Import/Export** — restauration complète depuis une archive ZIP (jusqu'à 5 Go de données)
 
 ### PWA
 - **Progressive Web App** — installation sur mobile et bureau
@@ -113,7 +113,7 @@ ORIS est une application web auto-hébergée pour piloter les investigations de 
 docker compose up -d --build
 ```
 
-L'application est accessible sur **http://localhost:3456** (port frontal configurable dans `docker-compose.yml`).
+L'application est accessible sur **http://localhost:3456** (port frontal configurable via la variable `ORIS_PORT` dans le fichier `.env`).
 
 ### Architecture des services
 
@@ -121,7 +121,7 @@ L'application est accessible sur **http://localhost:3456** (port frontal configu
 |---|---|---|---|
 | `arangodb` | ArangoDB 3.12 | 8529 (admin UI) | 8529 |
 | `backend` | Node.js/Express | (non exposé publiquement) | 3001 |
-| `frontend` | Nginx + SPA React | **3456 → 80** | 80 |
+| `frontend` | Nginx + SPA React | **${ORIS_PORT:-3456} → 80** | 80 |
 
 ### Arrêter l'application
 
@@ -172,12 +172,14 @@ cd server && npm run dev
 npm run dev
 ```
 
-### Variables d'environnement (backend)
+### Variables d'environnement (depuis le fichier .env)
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `PORT` | `3001` | Port du serveur API |
-| `ARANGO_URL` | `http://localhost:8529` | URL ArangoDB |
+| `NODE_ENV` | `production` | Mode d'exécution (production ou development) |
+| `ORIS_PORT` | `3456` | Port sur lequel l'interface web (et l'API) est exposée |
+| `PORT` | `3001` | Port interne du serveur API |
+| `ARANGO_URL` | `http://localhost:8529` | URL de la base ArangoDB |
 | `ARANGO_DB` | `oris` | Nom de la base |
 | `ARANGO_USER` | `root` | Utilisateur ArangoDB |
 | `ARANGO_PASSWORD` | `oris_secret` | Mot de passe ArangoDB |
