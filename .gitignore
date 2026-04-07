@@ -1,0 +1,59 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+server/*.log
+
+# Dépendances
+node_modules/
+server/node_modules/
+
+# Environnement
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build
+dist/
+build/
+out/
+
+# Base de données
+/data/
+server/database.sqlite
+server/database.sqlite-shm
+server/database.sqlite-wal
+server/data/
+server/oris.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Fichiers uploadés
+uploads/
+server/uploads/
+
+# Avatars
+avatars/
+server/avatars/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Lighthouse / Audit
+lighthouse-report.*
+lighthouse-reports/
+lighthouse-audit.*
+
+# Backups
+server/backups/
+
+# E2E Tests
+playwright-report/
+test-results/
+

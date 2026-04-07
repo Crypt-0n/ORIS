@@ -1,0 +1,67 @@
+# PostgreSQL + ArangoDB stack for ORIS
+# Usage: docker compose up -d
+# IMPORTANT: Copier .env.example en .env et définir les variables sensibles avant de lancer
+
+services:
+
+  arangodb:
+    image: arangodb:3.12
+    restart: unless-stopped
+    environment:
+      ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD:?Variable ARANGO_ROOT_PASSWORD non définie dans .env}
+    volumes:
+      - oris_arangodata:/var/lib/arangodb3
+      - oris_arangoapps:/var/lib/arangodb3-apps
+    healthcheck:
+      test: [ "CMD", "arangosh", "--server.endpoint", "tcp://127.0.0.1:8529", "--server.password", "${ARANGO_ROOT_PASSWORD}", "--javascript.execute-string", "db._version()" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    environment:
+      - PORT=3001
+      - NODE_ENV=${NODE_ENV:-development}
+      - ARANGO_URL=http://arangodb:8529
+      - ARANGO_DB=${ARANGO_DB:-oris}
+      - ARANGO_USER=${ARANGO_USER:-root}
+      - ARANGO_PASSWORD=${ARANGO_ROOT_PASSWORD:?Variable ARANGO_ROOT_PASSWORD non définie dans .env}
+      - JWT_SECRET=${JWT_SECRET:?Variable JWT_SECRET non définie dans .env}
+      - CORS_ORIGIN=${CORS_ORIGIN:-}
+      - FRONTEND_URL=http://frontend:80
+    volumes:
+      - oris_uploads:/app/uploads
+      - oris_backups:/app/data/backups
+      - oris_avatars:/app/avatars
+    depends_on:
+      arangodb:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "${ORIS_PORT:-3456}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  oris_arangodata:
+  oris_arangoapps:
+  oris_uploads:
+  oris_backups:
+  oris_avatars:
