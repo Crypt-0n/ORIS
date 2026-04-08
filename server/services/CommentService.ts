@@ -189,8 +189,19 @@ export class CommentService {
         }
       }
     }
+    const historyEntry = {
+      content: comment.content,
+      edited_at: new Date().toISOString(),
+      edited_by: userId
+    };
+    const currentHistory = Array.isArray(comment.edit_history) ? comment.edit_history : [];
 
-    await commentRepo.update(commentId, { content, is_edited: 1, updated_at: new Date().toISOString() });
+    await commentRepo.update(commentId, { 
+      content, 
+      is_edited: 1, 
+      updated_at: new Date().toISOString(),
+      edit_history: [historyEntry, ...currentHistory]
+    });
 
     if (comment.task_id) {
       const taskRepo = new BaseRepository(getDb(), 'tasks');

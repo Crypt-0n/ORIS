@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { sanitizeHtml } from '../lib/sanitize';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Send, Edit, Trash2, X, Paperclip, Download, FileText, Image as ImageIcon, Reply, Plus } from 'lucide-react';
+import { Send, Edit, Trash2, X, Paperclip, Download, FileText, Image as ImageIcon, Reply, Plus, Clock } from 'lucide-react';
 import { RichTextEditor } from './RichTextEditor';
 import { OffCanvas } from './common/OffCanvas';
 import { useTranslation } from "react-i18next";
@@ -18,6 +18,12 @@ interface Attachment {
   storage_path: string;
 }
 
+interface CommentHistoryEntry {
+  content: string;
+  edited_at: string;
+  edited_by: string;
+}
+
 interface Comment {
   id: string;
   content: string;
@@ -30,6 +36,7 @@ interface Comment {
   attachments?: Attachment[];
   is_deleted?: number;
   is_edited?: number;
+  edit_history?: CommentHistoryEntry[];
 }
 
 interface TaskCommentsProps {
@@ -67,6 +74,17 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [allowCommentEditing, setAllowCommentEditing] = useState(true);
   const [allowCommentDeletion, setAllowCommentDeletion] = useState(true);
+  const [revealedComments, setRevealedComments] = useState<Set<string>>(new Set());
+  const [historyComment, setHistoryComment] = useState<Comment | null>(null);
+
+  const toggleReveal = (id: string) => {
+    setRevealedComments(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     fetchComments();
@@ -217,7 +235,16 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500 dark:text-slate-400">
             {new Date(comment.created_at).toLocaleString('fr-FR')}
-            {comment.is_edited === 1 && !comment.is_deleted && <span className="italic ml-1 opacity-70">({t('auto.modifie') || 'modifié'})</span>}
+            {comment.is_edited === 1 && !comment.is_deleted && (
+              <span className="inline-flex items-center gap-1">
+                <span className="italic ml-1 opacity-70">({t('auto.modifie') || 'modifié'})</span>
+                {comment.edit_history && comment.edit_history.length > 0 && (
+                  <button onClick={() => setHistoryComment(comment)} className="text-blue-500 hover:text-blue-600 text-xs hover:underline ml-1">
+                    (historique)
+                  </button>
+                )}
+              </span>
+            )}
           </span>
           {!comment.is_deleted && !isReadOnly && (canEditComment(comment) || canDeleteComment(comment) || !isClosed) && (
             <div className="flex gap-1">
@@ -255,14 +282,25 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
           )}
         </div>
       </div>
-      {comment.is_deleted ? (
-        <div className="text-sm italic text-gray-400 dark:text-slate-500 bg-gray-100/50 dark:bg-slate-800/50 p-2 rounded border border-dashed border-gray-200 dark:border-slate-700">
-          Ce commentaire a été supprimé.
+      {comment.is_deleted && !revealedComments.has(comment.id) ? (
+        <div className="text-sm italic text-gray-400 dark:text-slate-500 bg-gray-100/50 dark:bg-slate-800/50 p-2 rounded border border-dashed border-gray-200 dark:border-slate-700 flex items-center justify-between">
+          <span>Ce commentaire a été supprimé.</span>
+          <button onClick={() => toggleReveal(comment.id)} className="text-blue-500 hover:text-blue-600 hover:underline px-2 py-0.5 rounded text-xs bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 shadow-sm transition">
+            Voir quand même
+          </button>
         </div>
       ) : (
-        <>
+        <div className={comment.is_deleted ? "border-2 border-red-200 dark:border-red-900/50 rounded-lg p-2 bg-red-50/30 dark:bg-red-900/10 mt-2" : ""}>
+          {comment.is_deleted && (
+             <div className="flex justify-between items-center mb-3 px-3 py-1.5 bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 text-xs font-semibold rounded-md border border-red-200 dark:border-red-800">
+               <span>[Ce commentaire a été marqué comme supprimé]</span>
+               <button onClick={() => toggleReveal(comment.id)} className="hover:underline flex items-center gap-1 opacity-80 hover:opacity-100">
+                 <X className="w-3 h-3" /> Masquer
+               </button>
+             </div>
+          )}
           <div
-            className="text-sm text-gray-700 dark:text-slate-300 rich-text-content"
+            className={`text-sm text-gray-700 dark:text-slate-300 rich-text-content ${comment.is_deleted ? 'opacity-80' : ''}`}
             dangerouslySetInnerHTML={{ __html: sanitizeHtml(comment.content) }}
           />
           {comment.attachments && comment.attachments.length > 0 && (
@@ -299,7 +337,7 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -452,6 +490,47 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
               </div>
             </div>
           </form>
+        </div>
+      </OffCanvas>
+
+      {/* Historique Modal OffCanvas */}
+      <OffCanvas
+        isOpen={!!historyComment}
+        onClose={() => setHistoryComment(null)}
+        title="Historique des modifications"
+        width="md"
+      >
+        <div className="p-6 space-y-4">
+          <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-3 rounded-lg border border-blue-100 dark:border-blue-800/50 mb-6 flex gap-3 text-sm">
+            <div className="text-blue-600 dark:text-blue-400 mt-0.5">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div className="text-gray-700 dark:text-slate-300">
+              <p className="font-semibold text-gray-900 dark:text-white mb-1">Historique des modifications</p>
+              Les versions précédentes de ce commentaire sont affichées de la plus récente à la plus ancienne.
+            </div>
+          </div>
+          
+          {historyComment?.edit_history?.map((entry, idx) => (
+            <div key={idx} className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-gray-200 dark:border-slate-700 shadow-sm relative">
+              <div className="absolute top-0 right-0 p-2 text-xs font-mono text-gray-400 dark:text-slate-500 border-l border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 rounded-bl-lg rounded-tr-xl">
+                 V{(historyComment.edit_history?.length || 0) - idx}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-slate-400 mb-3 pb-3 border-b border-gray-100 dark:border-slate-800 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-slate-600"></span>
+                Modifié le <span className="font-medium text-gray-700 dark:text-slate-300">{new Date(entry.edited_at).toLocaleString('fr-FR')}</span>
+              </div>
+              <div
+                className="text-sm text-gray-600 dark:text-slate-400 rich-text-content opacity-90 line-through-variants overflow-x-auto"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(entry.content) }}
+              />
+            </div>
+          ))}
+          {(!historyComment?.edit_history || historyComment.edit_history.length === 0) && (
+            <div className="text-center p-8 bg-gray-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-gray-200 dark:border-slate-700">
+               <p className="text-sm text-gray-500 dark:text-slate-400">Aucun historique disponible pour ce commentaire.</p>
+            </div>
+          )}
         </div>
       </OffCanvas>
 
