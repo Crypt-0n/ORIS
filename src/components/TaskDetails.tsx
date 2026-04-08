@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { sanitizeHtml } from '../lib/sanitize';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { MessageCircle, X, ChevronDown, Columns, LayoutList, List, Diamond, Database, RotateCcw, Pencil } from 'lucide-react';
+import { MessageCircle, X, Columns, LayoutList, List, Diamond, Database, RotateCcw, Pencil } from 'lucide-react';
 import { TaskModal } from './TaskModal';
 import { TaskComments } from './TaskComments';
 import { CloseTask } from './CloseTask';
@@ -116,8 +116,6 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
 
   const [commentCount, setCommentCount] = useState(0);
   const [stixRefreshKey, setStixRefreshKey] = useState(0);
-  const [sectionOpen, setSectionOpen] = useState({ discussion: true, diamond: true, objects: true });
-  const toggleSection = (key: 'discussion' | 'diamond' | 'objects') => setSectionOpen(prev => ({ ...prev, [key]: !prev[key] }));
   // Diamond creation state
   const [showDiamondForm, setShowDiamondForm] = useState(false);
   const [caseKillChainType, setCaseKillChainType] = useState<string | null>(null);
@@ -127,6 +125,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
   const [editingStixObject, setEditingStixObject] = useState(false);
 
   const linkedStixObject = useMemo(() => {
+    if (!taskData) return null;
     const secondaryTypes = [
       'observed-data', 'relationship', 'report', 'note', 'grouping', 'opinion', 'identity', 
       'course-of-action', 'attack-pattern', 'threat-actor', 'campaign', 'intrusion-set',
@@ -136,19 +135,35 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
     
     const linked = caseStixObjects.filter(o => o.x_oris_task_id === taskId);
     
+    // Si la tâche a un système ou un malware explicitement lié, on le priorise
+    const explicitIdFragment = taskData.system_id || taskData.malware_id;
+    if (explicitIdFragment) {
+       const explicitObj = linked.find(o => o.id.includes(explicitIdFragment));
+       if (explicitObj) return explicitObj;
+    }
+
+    // Sinon on trie par date de création (le plus ancien d'abord, l'objet originel)
+    const sortedLinked = [...linked].sort((a, b) => {
+      const dateA = a.created ? new Date(a.created).getTime() : 0;
+      const dateB = b.created ? new Date(b.created).getTime() : 0;
+      return dateA - dateB;
+    });
+
     // 1. Chercher un objet SDO principal (Infrastructure, Malware, User-Account...)
-    const primary = linked.find(o => !secondaryTypes.includes(o.type));
+    const primary = sortedLinked.find(o => !secondaryTypes.includes(o.type));
     if (primary) return primary;
     
-    // 2. Si pas de SDO, fallback sur le permier objet valide (hors metadata pure)
-    return linked.find(o => !['observed-data', 'relationship', 'report', 'note', 'grouping', 'opinion', 'identity'].includes(o.type));
-  }, [caseStixObjects, taskId]);
-  type ViewMode = 'timeline' | 'split' | 'accordion';
+    // 2. Si pas de SDO, fallback sur le premier objet valide (hors metadata pure)
+    return sortedLinked.find(o => !['observed-data', 'relationship', 'report', 'note', 'grouping', 'opinion', 'identity'].includes(o.type));
+  }, [caseStixObjects, taskId, taskData]);
+  type ViewMode = 'timeline' | 'split' | 'tabs';
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('oris_task_view_mode');
-    return (saved === 'timeline' || saved === 'split' || saved === 'accordion') ? saved : 'split';
+    if (saved === 'accordion') return 'tabs';
+    return (saved === 'timeline' || saved === 'split' || saved === 'tabs') ? saved : 'split';
   });
   const changeViewMode = (mode: ViewMode) => { setViewMode(mode); localStorage.setItem('oris_task_view_mode', mode); };
+  const [activeTab, setActiveTab] = useState<'discussion' | 'diamond' | 'objects'>('discussion');
 
   const isCreator = taskData?.created_by === user?.id;
   const isAssignee = taskData?.assigned_to === user?.id;
@@ -438,7 +453,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
           {[
             { key: 'timeline', icon: List, label: 'Timeline' },
             { key: 'split', icon: Columns, label: 'Split' },
-            { key: 'accordion', icon: LayoutList, label: 'Accordéon' },
+            { key: 'tabs', icon: LayoutList, label: 'Onglets' },
           ].map(v => (
             <button
               key={v.key}
@@ -522,67 +537,71 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
           </div>
         )}
 
-        {/* ======================== VIEW C: ACCORDION ======================== */}
-        {viewMode === 'accordion' && (
-          <div className="space-y-4">
-            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-blue-500">
-              <button onClick={() => toggleSection('discussion')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
-                <div className="flex items-center gap-2.5">
-                  <MessageCircle className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm font-semibold text-gray-800 dark:text-white">Discussion</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">{commentCount}</span>
-                </div>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${sectionOpen.discussion ? '' : '-rotate-90'}`} />
+        {/* ======================== VIEW C: TABS ======================== */}
+        {viewMode === 'tabs' && (
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50">
+            <div className="flex flex-wrap border-b border-gray-200 dark:border-slate-800">
+              <button
+                onClick={() => setActiveTab('discussion')}
+                className={`flex items-center gap-2.5 px-6 py-4 text-sm font-semibold transition-colors relative ${activeTab === 'discussion' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-slate-500 dark:hover:text-slate-300'}`}
+              >
+                <MessageCircle className="w-4 h-4" />
+                Discussion
+                <span className={`text-xs px-2 py-0.5 rounded-full ${activeTab === 'discussion' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'}`}>{commentCount}</span>
+                {activeTab === 'discussion' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-t-full" />}
               </button>
-              {sectionOpen.discussion && (
-                <div className="px-5 pb-5 pt-1">
+
+              {!isAlert && (
+                <>
+                  <button
+                    onClick={() => setActiveTab('diamond')}
+                    className={`flex items-center gap-2.5 px-6 py-4 text-sm font-semibold transition-colors relative ${activeTab === 'diamond' ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-500 hover:text-gray-700 dark:text-slate-500 dark:hover:text-slate-300'}`}
+                  >
+                    <Diamond className="w-4 h-4" />
+                    Diamants
+                    {taskDiamonds.length > 0 && <span className={`text-xs px-2 py-0.5 rounded-full ${activeTab === 'diamond' ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400' : 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'}`}>{taskDiamonds.length}</span>}
+                    {activeTab === 'diamond' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500 rounded-t-full" />}
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('objects')}
+                    className={`flex items-center gap-2.5 px-6 py-4 text-sm font-semibold transition-colors relative ${activeTab === 'objects' ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 hover:text-gray-700 dark:text-slate-500 dark:hover:text-slate-300'}`}
+                  >
+                    <Database className="w-4 h-4" />
+                    {t('auto.elements_techniques', 'Éléments techniques')}
+                    {activeTab === 'objects' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500 rounded-t-full" />}
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div className="p-5 min-h-[400px]">
+              {activeTab === 'discussion' && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <TaskParticipants participants={participants} />
                   <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} isReadOnly={isReadOnly} />
                 </div>
               )}
+
+              {activeTab === 'diamond' && !isAlert && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <TaskDiamondEvents
+                    taskDiamonds={taskDiamonds}
+                    caseKillChainType={caseKillChainType}
+                    canEditDiamond={canEditDiamond}
+                    onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
+                    onEditDiamond={startEditDiamond}
+                    onDeleteDiamond={handleDeleteDiamond}
+                  />
+                </div>
+              )}
+
+              {activeTab === 'objects' && !isAlert && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
+                </div>
+              )}
             </div>
-
-            {!isAlert && (
-              <>
-                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-cyan-500">
-                  <button onClick={() => toggleSection('diamond')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
-                    <div className="flex items-center gap-2.5">
-                      <Diamond className="w-4 h-4 text-cyan-500" />
-                      <span className="text-sm font-semibold text-gray-800 dark:text-white">Diamants</span>
-                      {taskDiamonds.length > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">{taskDiamonds.length}</span>}
-                    </div>
-                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${sectionOpen.diamond ? '' : '-rotate-90'}`} />
-                  </button>
-                  {sectionOpen.diamond && (
-                    <div className="px-5 pb-5 pt-1">
-                      <TaskDiamondEvents
-                        taskDiamonds={taskDiamonds}
-                        caseKillChainType={caseKillChainType}
-                        canEditDiamond={canEditDiamond}
-                        onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
-                        onEditDiamond={startEditDiamond}
-                        onDeleteDiamond={handleDeleteDiamond}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500">
-                  <button onClick={() => toggleSection('objects')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
-                    <div className="flex items-center gap-2.5">
-                      <Database className="w-4 h-4 text-purple-500" />
-                      <span className="text-sm font-semibold text-gray-800 dark:text-white">{t('auto.elements_techniques', 'Éléments techniques')}</span>
-                    </div>
-                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${sectionOpen.objects ? '' : '-rotate-90'}`} />
-                  </button>
-                  {sectionOpen.objects && (
-                    <div className="px-5 pb-5 pt-1">
-                      <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
           </div>
         )}
       </div>
