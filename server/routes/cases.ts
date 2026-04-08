@@ -27,7 +27,7 @@ const createCaseSchema = z.object({
     pap: z.string().optional(),
     kill_chain_type: z.string().optional(),
     type: z.enum(['case', 'alert']).optional(),
-    assigned_to: z.array(z.string()).optional(),
+    assigned_to: z.union([z.string(), z.array(z.string())]).optional().nullable(),
     adversary: z.string().optional().nullable(),
 });
 
@@ -46,6 +46,7 @@ const updateCaseSchema = z.object({
     beneficiary_id: z.string().optional().nullable(),
     author_id: z.string().optional(),
     adversary: z.string().optional().nullable(),
+    assigned_to: z.union([z.string(), z.array(z.string())]).optional().nullable(),
 });
 
 
@@ -107,7 +108,7 @@ router.post('/', validateRequest(createCaseSchema), async (req: AuthenticatedReq
             severity_id, tlp: actualTlp, pap: actualPap, status: 'open',
             kill_chain_type: actualKillChain, beneficiary_id,
             adversary: req.body.adversary || null
-        }, assigned_to);
+        }, Array.isArray(assigned_to) ? assigned_to[0] : assigned_to);
 
         logAudit(id, req.user.id, entityType === 'alert' ? 'alert_created' : 'case_created', 'case', id, { title });
         
@@ -179,11 +180,12 @@ router.put('/:id', validateRequest(updateCaseSchema), async (req: AuthenticatedR
         }
 
         if (req.body.assigned_to !== undefined) {
+            const assignToValue = Array.isArray(req.body.assigned_to) ? req.body.assigned_to[0] : req.body.assigned_to;
             const assignRepo = new BaseRepository(getDb(), 'case_assignments');
             const existing = await assignRepo.findWhere({ case_id: (req.params.id as string) });
             for (const a of existing) await assignRepo.delete(a.id);
-            if (req.body.assigned_to) {
-                await assignRepo.create({ id: nodeCrypto.randomUUID(), case_id: (req.params.id as string), user_id: req.body.assigned_to });
+            if (assignToValue) {
+                await assignRepo.create({ id: nodeCrypto.randomUUID(), case_id: (req.params.id as string), user_id: assignToValue });
             }
         }
 
