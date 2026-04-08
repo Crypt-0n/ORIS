@@ -14,6 +14,8 @@ export function SystemOperationsPanel() {
   const [sessionLockTimeout, setSessionLockTimeout] = useState(5);
   const [allowApiTokens, setAllowApiTokens] = useState(true);
   const [allowDiamondDeletion, setAllowDiamondDeletion] = useState(false);
+  const [allowCommentEditing, setAllowCommentEditing] = useState(true);
+  const [allowCommentDeletion, setAllowCommentDeletion] = useState(true);
   const [defaultKillChainType, setDefaultKillChainType] = useState<KillChainType>('cyber_kill_chain');
 
   useEffect(() => {
@@ -28,6 +30,8 @@ export function SystemOperationsPanel() {
           if (row.key === 'default_kill_chain_type') setDefaultKillChainType((row.value as KillChainType) || 'cyber_kill_chain');
           if (row.key === 'allow_api_tokens') setAllowApiTokens(row.value === 'true');
           if (row.key === 'allow_diamond_deletion') setAllowDiamondDeletion(row.value === 'true');
+          if (row.key === 'allow_comment_editing') setAllowCommentEditing(row.value !== 'false'); // true by default
+          if (row.key === 'allow_comment_deletion') setAllowCommentDeletion(row.value !== 'false'); // true by default
           if (row.key === 'session_lock_enabled') setSessionLockEnabled(row.value === 'true');
           if (row.key === 'session_lock_timeout') setSessionLockTimeout(parseInt(row.value, 10) || 5);
         }
@@ -51,6 +55,26 @@ export function SystemOperationsPanel() {
     try {
       await api.put('/admin/config', { key: 'allow_diamond_deletion', value: String(newValue) });
       setAllowDiamondDeletion(newValue);
+    } catch (err) { console.error(err); }
+    setSavingConfig(false);
+  };
+
+  const toggleAllowCommentEditing = async () => {
+    const newValue = !allowCommentEditing;
+    setSavingConfig(true);
+    try {
+      await api.put('/admin/config', { key: 'allow_comment_editing', value: String(newValue) });
+      setAllowCommentEditing(newValue);
+    } catch (err) { console.error(err); }
+    setSavingConfig(false);
+  };
+
+  const toggleAllowCommentDeletion = async () => {
+    const newValue = !allowCommentDeletion;
+    setSavingConfig(true);
+    try {
+      await api.put('/admin/config', { key: 'allow_comment_deletion', value: String(newValue) });
+      setAllowCommentDeletion(newValue);
     } catch (err) { console.error(err); }
     setSavingConfig(false);
   };
@@ -140,6 +164,50 @@ export function SystemOperationsPanel() {
                 aria-checked={allowDiamondDeletion}
               >
                 <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${allowDiamondDeletion ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 dark:border-slate-800 pt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-slate-500" />
+                  Autoriser la modification des commentaires
+                </p>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mt-1 max-w-2xl">Si désactivé, les utilisateurs (y compris les auteurs) ne pourront plus éditer leurs commentaires sur les tâches.</p>
+              </div>
+              <button
+                type="button"
+                disabled={savingConfig}
+                onClick={toggleAllowCommentEditing}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${allowCommentEditing ? 'bg-blue-600' : 'bg-gray-300 dark:bg-slate-600'}`}
+                aria-label="Autoriser modification commentaires"
+                role="switch"
+                aria-checked={allowCommentEditing}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${allowCommentEditing ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-slate-500" />
+                  Autoriser la suppression des commentaires
+                </p>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mt-1 max-w-2xl">Si désactivé, il sera impossible de masquer/supprimer les commentaires existants.</p>
+              </div>
+              <button
+                type="button"
+                disabled={savingConfig}
+                onClick={toggleAllowCommentDeletion}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${allowCommentDeletion ? 'bg-blue-600' : 'bg-gray-300 dark:bg-slate-600'}`}
+                aria-label="Autoriser suppression commentaires"
+                role="switch"
+                aria-checked={allowCommentDeletion}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${allowCommentDeletion ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
           </div>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { sanitizeHtml } from '../lib/sanitize';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Send, Edit, Trash2, X, Check, Paperclip, Download, FileText, Image as ImageIcon, Reply, Plus } from 'lucide-react';
+import { Send, Edit, Trash2, X, Paperclip, Download, FileText, Image as ImageIcon, Reply, Plus } from 'lucide-react';
 import { RichTextEditor } from './RichTextEditor';
 import { OffCanvas } from './common/OffCanvas';
 import { useTranslation } from "react-i18next";
@@ -28,6 +28,8 @@ interface Comment {
     full_name: string;
   };
   attachments?: Attachment[];
+  is_deleted?: number;
+  is_edited?: number;
 }
 
 interface TaskCommentsProps {
@@ -54,8 +56,7 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState('');
+  const [editingComment, setEditingComment] = useState<Comment | null>(null);
   const [searchParams] = useSearchParams();
   const targetCommentId = searchParams.get('target');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -64,10 +65,25 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [allowCommentEditing, setAllowCommentEditing] = useState(true);
+  const [allowCommentDeletion, setAllowCommentDeletion] = useState(true);
 
   useEffect(() => {
     fetchComments();
+    fetchConfig();
   }, [taskId]);
+
+  const fetchConfig = async () => {
+    try {
+      const data = await api.get('/config');
+      if (data) {
+        if (data.allow_comment_editing !== undefined) setAllowCommentEditing(data.allow_comment_editing !== 'false');
+        if (data.allow_comment_deletion !== undefined) setAllowCommentDeletion(data.allow_comment_deletion !== 'false');
+      }
+    } catch (err) {
+      console.error('Erreur config:', err);
+    }
+  };
 
   const fetchComments = async () => {
     setLoading(true);
@@ -101,20 +117,25 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((isCommentEmpty(newComment) && selectedFiles.length === 0) || !user) return;
+    if ((isCommentEmpty(newComment) && selectedFiles.length === 0 && !editingComment) || !user) return;
 
     setPosting(true);
     try {
-      const formData = new FormData();
-      formData.append('task_id', taskId);
-      formData.append('content', newComment || '<p></p>');
-      if (replyingTo) formData.append('parent_id', replyingTo.id);
-      selectedFiles.forEach(f => formData.append('files', f));
+      if (editingComment) {
+        await api.put(`/comments/${editingComment.id}`, { content: newComment });
+      } else {
+        const formData = new FormData();
+        formData.append('task_id', taskId);
+        formData.append('content', newComment || '<p></p>');
+        if (replyingTo) formData.append('parent_id', replyingTo.id);
+        selectedFiles.forEach(f => formData.append('files', f));
 
-      await api.post('/comments', formData);
+        await api.post('/comments', formData);
+      }
       setNewComment('');
       setSelectedFiles([]);
       setReplyingTo(null);
+      setEditingComment(null);
       setIsFormOpen(false);
       fetchComments();
     } catch (error) {
@@ -136,26 +157,10 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
   };
 
   const handleEdit = (comment: Comment) => {
-    setEditingCommentId(comment.id);
-    setEditContent(comment.content);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingCommentId(null);
-    setEditContent('');
-  };
-
-  const handleSaveEdit = async (commentId: string) => {
-    if (isCommentEmpty(editContent)) return;
-
-    try {
-      await api.put(`/comments/${commentId}`, { content: editContent });
-      setEditingCommentId(null);
-      setEditContent('');
-      fetchComments();
-    } catch (error) {
-      console.error('Erreur:', error);
-    }
+    setEditingComment(comment);
+    setNewComment(comment.content);
+    setReplyingTo(null);
+    setIsFormOpen(true);
   };
 
   const handleDelete = async (commentId: string) => {
@@ -212,8 +217,9 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500 dark:text-slate-400">
             {new Date(comment.created_at).toLocaleString('fr-FR')}
+            {comment.is_edited === 1 && !comment.is_deleted && <span className="italic ml-1 opacity-70">({t('auto.modifie') || 'modifié'})</span>}
           </span>
-          {!isReadOnly && (canEditComment(comment) || canDeleteComment(comment) || !isClosed) && editingCommentId !== comment.id && (
+          {!comment.is_deleted && !isReadOnly && (canEditComment(comment) || canDeleteComment(comment) || !isClosed) && (
             <div className="flex gap-1">
               {!isClosed && !isReply && (
                 <button
@@ -227,7 +233,7 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
                   <Reply className="w-3.5 h-3.5 text-gray-500 dark:text-slate-400" />
                 </button>
               )}
-              {canEditComment(comment) && (
+              {canEditComment(comment) && allowCommentEditing && (
                 <button
                   onClick={() => handleEdit(comment)}
                   className="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition"
@@ -236,7 +242,7 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
                   <Edit className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 </button>
               )}
-              {canDeleteComment(comment) && (
+              {canDeleteComment(comment) && allowCommentDeletion && (
                 <button
                   onClick={() => handleDelete(comment.id)}
                   className="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition"
@@ -249,29 +255,9 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
           )}
         </div>
       </div>
-      {editingCommentId === comment.id ? (
-        <div className="space-y-2">
-          <RichTextEditor
-            value={editContent}
-            onChange={setEditContent}
-            placeholder={t('auto.modifier_le_commentaire')}
-            disabled={false}
-          />
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={handleCancelEdit}
-              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition flex items-center gap-1 dark:text-slate-300"
-            >
-              <X className="w-3.5 h-3.5" />
-              {t('auto.annuler')}</button>
-            <button
-              onClick={() => handleSaveEdit(comment.id)}
-              disabled={isCommentEmpty(editContent)}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-1"
-            >
-              <Check className="w-3.5 h-3.5" />
-              {t('auto.enregistrer')}</button>
-          </div>
+      {comment.is_deleted ? (
+        <div className="text-sm italic text-gray-400 dark:text-slate-500 bg-gray-100/50 dark:bg-slate-800/50 p-2 rounded border border-dashed border-gray-200 dark:border-slate-700">
+          Ce commentaire a été supprimé.
         </div>
       ) : (
         <>
@@ -358,8 +344,11 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
         onClose={() => {
           setIsFormOpen(false);
           setReplyingTo(null);
+          setEditingComment(null);
+          setNewComment('');
+          setSelectedFiles([]);
         }}
-        title={replyingTo ? "Répondre au commentaire" : "Nouveau commentaire"}
+        title={editingComment ? "Modifier le commentaire" : replyingTo ? "Répondre au commentaire" : "Nouveau commentaire"}
         width="md"
       >
         <div className="p-6">
@@ -415,29 +404,39 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
 
             <div className="flex justify-between items-center pt-2">
               <div className="flex items-center gap-1">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  accept="*/*"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 flex items-center gap-2 border border-gray-200 dark:border-slate-700"
-                  title="Joindre un fichier"
-                >
-                  <Paperclip className="w-4 h-4" />
-                  <span className="text-sm font-medium">Joindre...</span>
-                </button>
+                {!editingComment && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      accept="*/*"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 flex items-center gap-2 border border-gray-200 dark:border-slate-700"
+                      title="Joindre un fichier"
+                    >
+                      <Paperclip className="w-4 h-4" />
+                      <span className="text-sm font-medium">Joindre...</span>
+                    </button>
+                  </>
+                )}
               </div>
               
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsFormOpen(false)}
+                  onClick={() => {
+                    setIsFormOpen(false);
+                    setReplyingTo(null);
+                    setEditingComment(null);
+                    setNewComment('');
+                    setSelectedFiles([]);
+                  }}
                   className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition dark:text-slate-300 text-sm font-medium"
                 >
                   {t('auto.annuler')}

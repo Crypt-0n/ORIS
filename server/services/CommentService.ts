@@ -190,7 +190,7 @@ export class CommentService {
       }
     }
 
-    await commentRepo.update(commentId, { content });
+    await commentRepo.update(commentId, { content, is_edited: 1, updated_at: new Date().toISOString() });
 
     if (comment.task_id) {
       const taskRepo = new BaseRepository(getDb(), 'tasks');
@@ -231,14 +231,11 @@ export class CommentService {
       }
     }
 
-    const attRepo = new BaseRepository(getDb(), 'comment_attachments');
-    const attachments = await attRepo.findWhere({ comment_id: commentId });
-    for (const att of attachments) {
-      const filePath = path.join(UPLOADS_DIR, att.storage_path);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      await attRepo.delete(att.id);
-    }
-
-    await commentRepo.delete(commentId);
+    // Soft delete: keep attachments but flag the comment
+    await commentRepo.update(commentId, {
+      is_deleted: 1,
+      deleted_at: new Date().toISOString(),
+      deleted_by: userId
+    });
   }
 }

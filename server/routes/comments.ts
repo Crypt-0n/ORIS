@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import authenticateToken from '../middleware/auth';
 import { CommentService } from '../services/CommentService';
+import { AdminService } from '../services/AdminService';
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -54,6 +55,13 @@ const updateCommentSchema = z.object({
 
 router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    const config = await AdminService.getPublicConfig();
+    const allowEditing = config.allow_comment_editing !== 'false';
+    if (!allowEditing) {
+      res.status(403).json({ error: 'Comment editing is disabled by the administrator' });
+      return;
+    }
+
     const validation = updateCommentSchema.safeParse(req.body);
     if (!validation.success) {
       res.status(400).json({ error: 'Missing content' });
@@ -78,6 +86,13 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
 
 router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    const config = await AdminService.getPublicConfig();
+    const allowDeletion = config.allow_comment_deletion !== 'false';
+    if (!allowDeletion) {
+      res.status(403).json({ error: 'Comment deletion is disabled by the administrator' });
+      return;
+    }
+
     await CommentService.deleteComment((req.params.id as string), req.user.id);
     res.json({ success: true });
   } catch (err: any) {

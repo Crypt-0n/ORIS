@@ -109,6 +109,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
   const [savingClosureEdit, setSavingClosureEdit] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [caseAuthorId, setCaseAuthorId] = useState<string | null>(null);
+  const [caseType, setCaseType] = useState<string | null>(null);
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
@@ -177,6 +178,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
       if (data) {
         setCaseAuthorId(data.author_id);
         setCaseKillChainType(data.kill_chain_type ?? null);
+        setCaseType(data.type ?? 'case');
       }
     } catch (err) {
       console.error(err);
@@ -380,6 +382,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
 
   const isTaskClosed = taskData.status === 'closed';
   const isEffectivelyClosed = isClosed || isTaskClosed;
+  const isAlert = caseType === 'alert';
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -414,11 +417,13 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
       />
 
       <div className="space-y-6">
-        <TaskLinkedStixObject
-          linkedStixObject={linkedStixObject}
-          caseStixObjects={caseStixObjects}
-          setEditingStixObject={setEditingStixObject}
-        />
+        {!isAlert && (
+          <TaskLinkedStixObject
+            linkedStixObject={linkedStixObject}
+            caseStixObjects={caseStixObjects}
+            setEditingStixObject={setEditingStixObject}
+          />
+        )}
 
         <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 p-6">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">{t('auto.description')}</h3>
@@ -462,27 +467,31 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
               <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} isReadOnly={isReadOnly} />
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-cyan-500 p-5">
-              <TaskDiamondEvents
-                taskDiamonds={taskDiamonds}
-                caseKillChainType={caseKillChainType}
-                canEditDiamond={canEditDiamond}
-                onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
-                onEditDiamond={startEditDiamond}
-                onDeleteDiamond={handleDeleteDiamond}
-              />
-            </div>
+            {!isAlert && (
+              <>
+                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-cyan-500 p-5">
+                  <TaskDiamondEvents
+                    taskDiamonds={taskDiamonds}
+                    caseKillChainType={caseKillChainType}
+                    canEditDiamond={canEditDiamond}
+                    onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
+                    onEditDiamond={startEditDiamond}
+                    onDeleteDiamond={handleDeleteDiamond}
+                  />
+                </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500 p-5">
-              <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
-            </div>
+                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500 p-5">
+                  <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {/* ======================== VIEW B: SPLIT ======================== */}
         {viewMode === 'split' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-blue-500 p-5 min-w-0 overflow-hidden">
+            <div className={`bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-blue-500 p-5 min-w-0 overflow-hidden ${isAlert ? 'lg:col-span-3' : 'lg:col-span-2'}`}>
               <div className="flex items-center gap-2.5 mb-4">
                 <MessageCircle className="w-4 h-4 text-blue-500" />
                 <span className="text-sm font-semibold text-gray-800 dark:text-white">Discussion</span>
@@ -492,22 +501,24 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
               <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} isReadOnly={isReadOnly} />
             </div>
 
-            <div className="lg:col-span-1 space-y-6 min-w-0 overflow-hidden">
-              <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-cyan-500 p-5">
-                <TaskDiamondEvents
-                  taskDiamonds={taskDiamonds}
-                  caseKillChainType={caseKillChainType}
-                  canEditDiamond={canEditDiamond}
-                  onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
-                  onEditDiamond={startEditDiamond}
-                  onDeleteDiamond={handleDeleteDiamond}
-                />
-              </div>
+            {!isAlert && (
+              <div className="lg:col-span-1 space-y-6 min-w-0 overflow-hidden">
+                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-cyan-500 p-5">
+                  <TaskDiamondEvents
+                    taskDiamonds={taskDiamonds}
+                    caseKillChainType={caseKillChainType}
+                    canEditDiamond={canEditDiamond}
+                    onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
+                    onEditDiamond={startEditDiamond}
+                    onDeleteDiamond={handleDeleteDiamond}
+                  />
+                </div>
 
-              <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500 p-5">
-                <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
+                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500 p-5">
+                  <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -531,43 +542,47 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
               )}
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-cyan-500">
-              <button onClick={() => toggleSection('diamond')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
-                <div className="flex items-center gap-2.5">
-                  <Diamond className="w-4 h-4 text-cyan-500" />
-                  <span className="text-sm font-semibold text-gray-800 dark:text-white">Diamants</span>
-                  {taskDiamonds.length > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">{taskDiamonds.length}</span>}
+            {!isAlert && (
+              <>
+                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-cyan-500">
+                  <button onClick={() => toggleSection('diamond')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
+                    <div className="flex items-center gap-2.5">
+                      <Diamond className="w-4 h-4 text-cyan-500" />
+                      <span className="text-sm font-semibold text-gray-800 dark:text-white">Diamants</span>
+                      {taskDiamonds.length > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">{taskDiamonds.length}</span>}
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${sectionOpen.diamond ? '' : '-rotate-90'}`} />
+                  </button>
+                  {sectionOpen.diamond && (
+                    <div className="px-5 pb-5 pt-1">
+                      <TaskDiamondEvents
+                        taskDiamonds={taskDiamonds}
+                        caseKillChainType={caseKillChainType}
+                        canEditDiamond={canEditDiamond}
+                        onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
+                        onEditDiamond={startEditDiamond}
+                        onDeleteDiamond={handleDeleteDiamond}
+                      />
+                    </div>
+                  )}
                 </div>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${sectionOpen.diamond ? '' : '-rotate-90'}`} />
-              </button>
-              {sectionOpen.diamond && (
-                <div className="px-5 pb-5 pt-1">
-                  <TaskDiamondEvents
-                    taskDiamonds={taskDiamonds}
-                    caseKillChainType={caseKillChainType}
-                    canEditDiamond={canEditDiamond}
-                    onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
-                    onEditDiamond={startEditDiamond}
-                    onDeleteDiamond={handleDeleteDiamond}
-                  />
-                </div>
-              )}
-            </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500">
-              <button onClick={() => toggleSection('objects')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
-                <div className="flex items-center gap-2.5">
-                  <Database className="w-4 h-4 text-purple-500" />
-                  <span className="text-sm font-semibold text-gray-800 dark:text-white">{t('auto.elements_techniques', 'Éléments techniques')}</span>
+                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500">
+                  <button onClick={() => toggleSection('objects')} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition rounded-t-lg">
+                    <div className="flex items-center gap-2.5">
+                      <Database className="w-4 h-4 text-purple-500" />
+                      <span className="text-sm font-semibold text-gray-800 dark:text-white">{t('auto.elements_techniques', 'Éléments techniques')}</span>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${sectionOpen.objects ? '' : '-rotate-90'}`} />
+                  </button>
+                  {sectionOpen.objects && (
+                    <div className="px-5 pb-5 pt-1">
+                      <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
+                    </div>
+                  )}
                 </div>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${sectionOpen.objects ? '' : '-rotate-90'}`} />
-              </button>
-              {sectionOpen.objects && (
-                <div className="px-5 pb-5 pt-1">
-                  <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
-                </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
         )}
       </div>

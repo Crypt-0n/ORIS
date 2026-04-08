@@ -133,7 +133,9 @@ export class AdminService {
       'kill_chain_event_type_mapping', 
       'session_lock_enabled', 
       'session_lock_timeout',
-      'allow_diamond_deletion'
+      'allow_diamond_deletion',
+      'allow_comment_editing',
+      'allow_comment_deletion'
     ];
     const repo = new BaseRepository(getDb(), 'system_config');
     const items = await repo.findWhere({});
