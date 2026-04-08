@@ -885,6 +885,11 @@
     },
     "auto": {
         "modifie": "modifié",
+        "commentaire_supprime": "Ce commentaire a été supprimé.",
+        "voir_quand_meme": "(voir quand même)",
+        "historique_lien": "(historique)",
+        "commentaire_marque_supprime": "[Ce commentaire a été marqué comme supprimé]",
+        "masquer": "Masquer",
         "modele_diamond": "Modèle Diamond",
         "visualisations": "Visualisations",
         "rapports": "Rapports",

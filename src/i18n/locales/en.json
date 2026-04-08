@@ -884,6 +884,11 @@
     },
     "auto": {
         "modifie": "modified",
+        "commentaire_supprime": "This comment has been deleted.",
+        "voir_quand_meme": "(show anyway)",
+        "historique_lien": "(history)",
+        "commentaire_marque_supprime": "[This comment has been marked as deleted]",
+        "masquer": "Hide",
         "modele_diamond": "Diamond Model",
         "visualisations": "Visualizations",
         "rapports": "Reports",

@@ -221,15 +221,32 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
   const childComments = comments.filter(c => c.parent_id);
   const getReplies = (parentId: string) => childComments.filter(c => c.parent_id === parentId);
 
-  const renderComment = (comment: Comment, isReply = false) => (
-    <div
-      key={comment.id}
-      id={`comment-${comment.id}`}
-      className={`rounded-lg p-3 transition-all duration-500 ${isReply ? 'ml-6 border-l-2 border-blue-200 dark:border-blue-800' : ''} ${comment.id === targetCommentId
-        ? 'bg-amber-50 dark:bg-amber-900/20 ring-2 ring-amber-500/50'
-        : 'bg-gray-50 dark:bg-slate-800'
-        }`}
-    >
+  const renderComment = (comment: Comment, isReply = false) => {
+    if (comment.is_deleted && !revealedComments.has(comment.id)) {
+      return (
+        <div
+          key={comment.id}
+          id={`comment-${comment.id}`}
+          className={`flex items-center gap-2 text-xs text-gray-400 dark:text-slate-500 py-1.5 px-3 rounded-lg transition-all duration-500 ${isReply ? 'ml-6 border-l-2 !border-gray-200 dark:!border-slate-700' : ''}`}
+        >
+          <Trash2 className="w-3.5 h-3.5 opacity-40 -mt-0.5 flex-shrink-0" />
+          <span className="italic flex-grow">{t('auto.commentaire_supprime') || 'Ce commentaire a été supprimé.'}</span>
+          <button onClick={() => toggleReveal(comment.id)} className="hover:underline opacity-80 hover:opacity-100 text-blue-500 transition-colors">
+            {t('auto.voir_quand_meme') || '(voir quand même)'}
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={comment.id}
+        id={`comment-${comment.id}`}
+        className={`rounded-lg p-3 transition-all duration-500 ${isReply ? 'ml-6 border-l-2 border-blue-200 dark:border-blue-800' : ''} ${comment.id === targetCommentId
+          ? 'bg-amber-50 dark:bg-amber-900/20 ring-2 ring-amber-500/50'
+          : 'bg-gray-50 dark:bg-slate-800'
+          }`}
+      >
       <div className="flex items-start justify-between mb-2">
         <span className="text-sm font-medium text-gray-800 dark:text-white">{comment.author.full_name}</span>
         <div className="flex items-center gap-2">
@@ -240,7 +257,7 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
                 <span className="italic ml-1 opacity-70">({t('auto.modifie') || 'modifié'})</span>
                 {comment.edit_history && comment.edit_history.length > 0 && (
                   <button onClick={() => setHistoryComment(comment)} className="text-blue-500 hover:text-blue-600 text-xs hover:underline ml-1">
-                    (historique)
+                    {t('auto.historique_lien') || '(historique)'}
                   </button>
                 )}
               </span>
@@ -282,20 +299,12 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
           )}
         </div>
       </div>
-      {comment.is_deleted && !revealedComments.has(comment.id) ? (
-        <div className="text-sm italic text-gray-400 dark:text-slate-500 bg-gray-100/50 dark:bg-slate-800/50 p-2 rounded border border-dashed border-gray-200 dark:border-slate-700 flex items-center justify-between">
-          <span>Ce commentaire a été supprimé.</span>
-          <button onClick={() => toggleReveal(comment.id)} className="text-blue-500 hover:text-blue-600 hover:underline px-2 py-0.5 rounded text-xs bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 shadow-sm transition">
-            Voir quand même
-          </button>
-        </div>
-      ) : (
-        <div className={comment.is_deleted ? "border-2 border-red-200 dark:border-red-900/50 rounded-lg p-2 bg-red-50/30 dark:bg-red-900/10 mt-2" : ""}>
+      <div className={comment.is_deleted ? "border-2 border-red-200 dark:border-red-900/50 rounded-lg p-2 bg-red-50/30 dark:bg-red-900/10 mt-2" : ""}>
           {comment.is_deleted && (
              <div className="flex justify-between items-center mb-3 px-3 py-1.5 bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 text-xs font-semibold rounded-md border border-red-200 dark:border-red-800">
-               <span>[Ce commentaire a été marqué comme supprimé]</span>
+               <span>{t('auto.commentaire_marque_supprime') || '[Ce commentaire a été marqué comme supprimé]'}</span>
                <button onClick={() => toggleReveal(comment.id)} className="hover:underline flex items-center gap-1 opacity-80 hover:opacity-100">
-                 <X className="w-3 h-3" /> Masquer
+                 <X className="w-3 h-3" /> {t('auto.masquer') || 'Masquer'}
                </button>
              </div>
           )}
@@ -338,9 +347,9 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
             </div>
           )}
         </div>
-      )}
     </div>
   );
+};
 
   return (
     <div className="space-y-3">
