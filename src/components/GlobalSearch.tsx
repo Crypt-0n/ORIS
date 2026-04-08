@@ -18,7 +18,7 @@ const STIX_TYPE_LABELS: Record<string, string> = {
 };
 
 interface SearchResults {
-  cases: Array<{ id: string; case_number: string; title: string; status: string; severity?: { label: string; color: string } }>;
+  cases: Array<{ id: string; case_number: string; title: string; status: string; type?: 'alert' | 'case'; severity?: { label: string; color: string } }>;
   tasks: Array<{ id: string; case_id: string; title: string; status: string; case_number: string; case_title: string }>;
   stixObjects: Array<{ id: string; case_id: string; stix_type: string; name: string; description: string; case_number: string; case_title: string }>;
   comments: Array<{ id: string; case_id: string; task_id: string; content: string; task_title: string; case_number: string; case_title: string; author_name: string }>;
