@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, FolderOpen, ClipboardList, X, Database, MessageSquare } from 'lucide-react';
+import { Search, FolderOpen, ClipboardList, X, Database, MessageSquare, AlertTriangle } from 'lucide-react';
 import { api } from '../lib/api';
 import { useTranslation } from 'react-i18next';
 
@@ -40,7 +40,7 @@ export function GlobalSearch() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const allItems = results ? [
-    ...results.cases.map(c => ({ ...c, type: 'case' as const })),
+    ...results.cases.map(c => ({ ...c, type: c.type === 'alert' ? 'alert' as const : 'case' as const })),
     ...results.tasks.map(t => ({ ...t, type: 'task' as const })),
     ...(results.stixObjects || []).map(s => ({ ...s, type: 'stix' as const })),
     ...(results.comments || []).map(cm => ({ ...cm, type: 'comment' as const })),
@@ -120,7 +120,8 @@ export function GlobalSearch() {
 
   const navigateTo = (item: typeof allItems[0]) => {
     closeAll();
-    if (item.type === 'case') navigate(`/cases/${item.id}`);
+    if (item.type === 'alert') navigate(`/alerts/${item.id}`);
+    else if (item.type === 'case') navigate(`/cases/${item.id}`);
     else if (item.type === 'task') navigate(`/cases/${(item as any).case_id}?section=tasks&task=${item.id}`);
     else if (item.type === 'comment') navigate(`/cases/${(item as any).case_id}?section=tasks&task=${(item as any).task_id}`);
     else navigate(`/cases/${(item as any).case_id}`);
@@ -148,10 +149,26 @@ export function GlobalSearch() {
         {noResults && !loading && <div className="px-4 py-6 text-sm text-gray-500 dark:text-slate-400 text-center">{t('auto.aucun_resultat')}</div>}
         {hasResults && !loading && (
           <>
-            {results.cases.length > 0 && (
+            {results.cases.filter(c => c.type !== 'alert').length > 0 && (
               <ResultSection icon={FolderOpen} label={t('nav.cases')} color="text-blue-500">
-                {results.cases.map((c) => (
-                  <ResultItem key={c.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'case' && a.id === c.id)} onClick={() => navigateTo({ ...c, type: 'case' })}>
+                {results.cases.filter(c => c.type !== 'alert').map((c) => (
+                  <ResultItem key={c.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'case' && a.id === c.id)} onClick={() => navigateTo({ ...c, type: 'case' as const })}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-mono text-gray-500 dark:text-slate-400 flex-shrink-0">{c.case_number}</span>
+                      <span className="text-sm text-gray-800 dark:text-white truncate font-medium">{c.title}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {c.severity && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: `${c.severity.color}20`, color: c.severity.color }}>{c.severity.label}</span>}
+                      <StatusBadge status={c.status} />
+                    </div>
+                  </ResultItem>
+                ))}
+              </ResultSection>
+            )}
+            {results.cases.filter(c => c.type === 'alert').length > 0 && (
+              <ResultSection icon={AlertTriangle} label={t('nav.alerts') || 'Alertes'} color="text-orange-500">
+                {results.cases.filter(c => c.type === 'alert').map((c) => (
+                  <ResultItem key={c.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'alert' && a.id === c.id)} onClick={() => navigateTo({ ...c, type: 'alert' as const })}>
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-xs font-mono text-gray-500 dark:text-slate-400 flex-shrink-0">{c.case_number}</span>
                       <span className="text-sm text-gray-800 dark:text-white truncate font-medium">{c.title}</span>
