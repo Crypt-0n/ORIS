@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react';
 import { sanitizeHtml } from '../lib/sanitize';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Send, Edit, Trash2, X, Paperclip, Download, FileText, Image as ImageIcon, Reply, Plus, Clock } from 'lucide-react';
+import { Send, Edit, Trash2, X, Paperclip, Download, FileText, Image as ImageIcon, Reply, Plus, Clock, Diamond, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { RichTextEditor } from './RichTextEditor';
 import { OffCanvas } from './common/OffCanvas';
 import { useTranslation } from "react-i18next";
+import { getKillChainPhases } from '../lib/killChainDefinitions';
+import { getDiamondCompleteness } from './tasks/TaskDiamondEvents';
 import { useSearchParams } from 'react-router-dom';
 import { useRef } from 'react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-
+import { UserAvatar } from './UserAvatar';
 interface Attachment {
   id: string;
   file_name: string;
@@ -32,6 +34,7 @@ interface Comment {
   parent_id: string | null;
   author: {
     full_name: string;
+    avatar_url?: string;
   };
   attachments?: Attachment[];
   is_deleted?: number;
@@ -45,6 +48,12 @@ interface TaskCommentsProps {
   caseAuthorId: string | null;
   onCountChange?: (count: number) => void;
   isReadOnly?: boolean;
+  taskDiamonds?: any[];
+  caseKillChainType?: string | null;
+  canEditDiamond?: boolean;
+  onAddDiamond?: () => void;
+  onEditDiamond?: (d: any) => void;
+  onDeleteDiamond?: (id: string) => void;
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -55,7 +64,11 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
 }
 
-export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, isReadOnly }: TaskCommentsProps) {
+export function TaskComments({ 
+  taskId, isClosed, caseAuthorId, onCountChange, isReadOnly,
+  taskDiamonds = [], caseKillChainType = null, canEditDiamond = false,
+  onAddDiamond, onEditDiamond, onDeleteDiamond
+}: TaskCommentsProps) {
   const { t } = useTranslation();
   const { user, hasAnyRole } = useAuth();
   const isOnline = useOnlineStatus();
@@ -221,6 +234,12 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
   const childComments = comments.filter(c => c.parent_id);
   const getReplies = (parentId: string) => childComments.filter(c => c.parent_id === parentId);
 
+  const unifiedTimeline = [...rootComments, ...taskDiamonds].sort((a: any, b: any) => {
+    const dateA = new Date(a.created_at || a.first_observed || a.created || 0).getTime();
+    const dateB = new Date(b.created_at || b.first_observed || b.created || 0).getTime();
+    return dateA - dateB;
+  });
+
   const renderComment = (comment: Comment, isReply = false) => {
     if (comment.is_deleted && !revealedComments.has(comment.id)) {
       return (
@@ -248,7 +267,10 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
           }`}
       >
       <div className="flex items-start justify-between mb-2">
-        <span className="text-sm font-medium text-gray-800 dark:text-white">{comment.author.full_name}</span>
+        <div className="flex items-center gap-2">
+          <UserAvatar name={comment.author.full_name} avatarUrl={comment.author.avatar_url} size="sm" />
+          <span className="text-sm font-medium text-gray-800 dark:text-white">{comment.author.full_name}</span>
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500 dark:text-slate-400">
             {new Date(comment.created_at).toLocaleString('fr-FR')}
@@ -353,34 +375,114 @@ export function TaskComments({ taskId, isClosed, caseAuthorId, onCountChange, is
 
   return (
     <div className="space-y-3">
-      {comments.length === 0 ? (
+      {unifiedTimeline.length === 0 && childComments.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-slate-400 text-center py-4">{t('auto.aucun_commentaire')}</p>
       ) : (
         <div ref={scrollContainerRef} className="space-y-3 pr-1">
-          {rootComments.map((comment) => (
-            <div key={comment.id}>
-              {renderComment(comment)}
-              {getReplies(comment.id).length > 0 && (
-                <div className="space-y-2 mt-2">
-                  {getReplies(comment.id).map(reply => renderComment(reply, true))}
-                </div>
-              )}
-            </div>
-          ))}
+          {unifiedTimeline.map((item: any) => {
+            if (item.type === 'observed-data') {
+               const d = item;
+               const phases = getKillChainPhases(caseKillChainType || 'lockheed-martin');
+               const phase = phases.find(p => p.value === d.x_oris_kill_chain);
+               const { complete, missing } = getDiamondCompleteness(d);
+               return (
+                  <div key={d.id} className="relative overflow-hidden p-3 rounded-lg bg-gray-50 dark:bg-slate-800 border-[0.5px] border-cyan-200/50 dark:border-cyan-800/50 border-l-[4px] border-l-cyan-500 transition group shadow-sm">
+                    {/* Decorative watermark */}
+                    <Diamond className="absolute -bottom-6 -right-2 w-28 h-28 text-cyan-500/5 dark:text-cyan-400/5 rotate-12 pointer-events-none" />
+
+                    <div className="flex items-start justify-between mb-2 relative z-10">
+                      <div className="flex items-center gap-2">
+                         <div className="w-8 h-8 flex flex-shrink-0 items-center justify-center bg-cyan-100 dark:bg-cyan-900/50 rounded-full text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800">
+                           <Diamond className="w-4 h-4" />
+                         </div>
+                         <div className="flex flex-col">
+                           <span className="text-sm font-medium text-gray-800 dark:text-white flex items-center gap-2">
+                             Diamant d'investigation
+                             {complete ? (
+                               <span title="Diamant complet" className="flex items-center text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded-full font-semibold">
+                                 <CheckCircle2 className="w-3 h-3 mr-0.5" /> Complet
+                               </span>
+                             ) : (
+                               <span title={missing.join('\n')} className="flex items-center text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded-full font-semibold cursor-help">
+                                 <AlertTriangle className="w-3 h-3 mr-0.5" /> Incomplet ({missing.length})
+                               </span>
+                             )}
+                           </span>
+                           <span className="text-xs text-gray-500 dark:text-slate-400 font-medium">
+                             {d.x_oris_description || d.name}
+                           </span>
+                         </div>
+                      </div>
+                      <div className="flex items-center gap-2 relative z-10">
+                        <span className="text-xs text-gray-500 dark:text-slate-400">
+                          {d.first_observed || d.created ? new Date(d.first_observed || d.created).toLocaleString('fr-FR') : ''}
+                        </span>
+                        {canEditDiamond && !isReadOnly && (
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-900 rounded p-0.5 shadow-sm border border-gray-200 dark:border-slate-700">
+                            <button onClick={() => onEditDiamond?.(d)} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-800 rounded transition" title={t('auto.modifier', 'Modifier')}>
+                              <Edit className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                            </button>
+                            <button onClick={() => onDeleteDiamond?.(d.id)} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-800 rounded transition" title={t('auto.supprimer', 'Supprimer')}>
+                              <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {phase && (
+                      <div className="flex items-center gap-2 ml-10 relative z-10 mt-1">
+                        <span className="text-[10px] px-2 py-0.5 rounded border shadow-sm font-medium flex items-center gap-1.5" style={{ backgroundColor: `${phase.hexColor}15`, borderColor: phase.hexColor, color: phase.hexColor }}>
+                           <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: phase.hexColor }} />
+                           Phase: {phase.label}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+               );
+            }
+
+            return (
+              <div key={item.id}>
+                {renderComment(item)}
+                {getReplies(item.id).length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    {getReplies(item.id).map((reply: any) => renderComment(reply, true))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
       {!isClosed && !isReadOnly && (
-        <div className="border-t dark:border-slate-700 pt-4 flex justify-end">
+        <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40 items-end">
+          {onAddDiamond && canEditDiamond && (
+            <button
+              onClick={onAddDiamond}
+              className="group flex flex-row-reverse items-center justify-start h-14 bg-cyan-600 text-white rounded-full shadow-lg hover:shadow-cyan-500/50 hover:bg-cyan-700 focus:outline-none transition-all duration-300"
+            >
+              <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+                <Diamond className="w-6 h-6" />
+              </div>
+              <div className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-[250px] transition-all duration-300 ease-in-out font-medium">
+                <span className="pl-6 pr-2 block">Ajouter un diamant</span>
+              </div>
+            </button>
+          )}
           <button
             onClick={() => {
               setReplyingTo(null);
               setIsFormOpen(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm text-sm"
+            className="group flex flex-row-reverse items-center justify-start h-14 bg-blue-600 text-white rounded-full shadow-lg hover:shadow-blue-500/50 hover:bg-blue-700 focus:outline-none transition-all duration-300"
           >
-            <Plus className="w-4 h-4" />
-            Ajouter un commentaire
+            <div className="w-14 h-14 flex items-center justify-center flex-shrink-0">
+              <Plus className="w-6 h-6" />
+            </div>
+            <div className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-[250px] transition-all duration-300 ease-in-out font-medium">
+              <span className="pl-6 pr-2 block">Ajouter un commentaire</span>
+            </div>
           </button>
         </div>
       )}

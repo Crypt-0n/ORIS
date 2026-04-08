@@ -27,7 +27,7 @@ class CommentRepository extends BaseRepository {
                 RETURN MERGE(c, {
                     id: c._key,
                     parent_id: c.parent_id || null,
-                    author: { full_name: author.full_name },
+                    author: { full_name: author.full_name, avatar_url: author.avatar_url },
                     attachments: attachments
                 })
         `;

@@ -1,13 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronRight, ChevronLeft, Check, Bug, Server, Globe, AlertCircle, Calendar, Zap, Link as LinkIcon, Plus, Trash2, ChevronDown } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, AlertCircle, Calendar, Zap, Link as LinkIcon, ChevronDown } from 'lucide-react';
 import type { StixSDO, StixSDOType } from '../../lib/stix.types';
-import { STIX_TYPE_META, RELATIONSHIP_TYPES } from '../../lib/stix.types';
 import { generateStixId, nowIso } from '../../lib/stixApi';
 import { Tooltip } from '../common/Tooltip';
 import { getKillChainPhases } from '../../lib/killChainDefinitions';
 import { api } from '../../lib/api';
 import { OffCanvas } from '../common/OffCanvas';
+import { DiamondRelationsEditor } from './DiamondRelationsEditor';
 
 interface TaskDiamondWizardProps {
     taskId?: string;
@@ -19,8 +19,8 @@ interface TaskDiamondWizardProps {
     onClose: () => void;
 }
 
-type StepKey = 'event' | 'adversary' | 'capability' | 'infrastructure' | 'victim' | 'relations';
-type SelectionMode = 'none' | 'existing' | 'new';
+type StepKey = 'event' | 'relations';
+
 
 export interface SelectedNode {
     mode: 'existing' | 'new';
@@ -39,10 +39,7 @@ export interface ManualRelation {
 
 const STEPS: { key: StepKey; label: string; icon: any; types: string[]; defaultType: StixSDOType | 'relationship'; color: string; desc: string }[] = [
     { key: 'event', label: 'Événement', icon: Zap, types: [], defaultType: 'observed-data', color: 'text-cyan-500', desc: "L'événement central décrit l'action malveillante spécifique (ex: Exfiltration, Chiffrement, Phishing) au moment où elle s'est produite." },
-    { key: 'capability', label: 'Capacités', icon: Bug, types: ['malware', 'tool', 'attack-pattern'], defaultType: 'malware', color: 'text-purple-400', desc: "Les outils techniques, les modes opératoires (TTPs MITRE ATT&CK) ou les malwares utilisés par l'adversaire pour accomplir l'événement." },
-    { key: 'infrastructure', label: 'Infrastructures', icon: Server, types: ['infrastructure', 'ipv4-addr', 'domain-name', 'url', 'mac-addr'], defaultType: 'infrastructure', color: 'text-blue-400', desc: "Les éléments matériels ou de communication utilisés pour héberger des capacités, envoyer des commandes (C2) ou lancer l'attaque." },
-    { key: 'victim', label: 'Victimes', icon: Globe, types: ['identity', 'infrastructure', 'user-account', 'ipv4-addr', 'domain-name'], defaultType: 'identity', color: 'text-green-400', desc: "La cible de l'événement. Cela peut être une entité (Organisation, Secteur, Personne) ou l'infrastructure technique ciblée." },
-    { key: 'relations', label: 'Liens', icon: LinkIcon, types: [], defaultType: 'relationship', color: 'text-amber-500', desc: "Génération automatique ou manuelle des relations STIX unissant tous les objets sélectionnés au centre de ce Diamant." },
+    { key: 'relations', label: 'Diamant', icon: LinkIcon, types: [], defaultType: 'relationship', color: 'text-amber-500', desc: "Gérez les sommets du Modèle Diamant et les relations STIX entre les objets en cliquant directement sur le graphe interactif." },
 ];
 
 const SearchableSelect = ({ value, onChange, options, placeholder = "Sélectionner..." }: {
@@ -153,6 +150,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
     const [stepIndex, setStepIndex] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [warningModalConfig, setWarningModalConfig] = useState<{ action: 'close' | 'save', items: string[] } | null>(null);
 
     // Event specific state
     const [eventDate, setEventDate] = useState(() => {
@@ -209,10 +207,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
         return defaultNodes;
     });
 
-    // Draft state for adding a new node in the current step
-    const [draftMode, setDraftMode] = useState<SelectionMode>('none');
-    const [draftExistingId, setDraftExistingId] = useState('');
-    const [draftNewData, setDraftNewData] = useState<any>({ sdoType: 'threat-actor', name: '', description: '', tlp: '', isFamily: false, hashes: [] });
+
     
     // Mitre Patterns
     const [mitrePatterns, setMitrePatterns] = useState<{ id: string; name: string; mitre_id: string }[]>([]);
@@ -223,6 +218,10 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
     // State for manual relations
     const [initialRelationIds] = useState<Set<string>>(() => {
         if (!editingDiamond || !existingObjects) return new Set();
+        if (editingDiamond.x_oris_diamond_relations) {
+            return new Set(editingDiamond.x_oris_diamond_relations);
+        }
+        
         const nodeIds = new Set<string>();
         const axes = editingDiamond.x_oris_diamond_axes || editingDiamond._axes || {};
         ['adversary', 'capability', 'infrastructure', 'victim'].forEach(k => {
@@ -244,21 +243,31 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
 
     const [relations, setRelations] = useState<ManualRelation[]>(() => {
         if (!editingDiamond || !existingObjects) return [];
-        const nodeIds = new Set<string>();
-        const axes = editingDiamond.x_oris_diamond_axes || editingDiamond._axes || {};
-        ['adversary', 'capability', 'infrastructure', 'victim'].forEach(k => {
-             (axes[k] || []).forEach((val: any) => {
-                 const id = typeof val === 'string' ? val : val.id;
-                 if (id) nodeIds.add(id);
-             });
-        });
-        
-        const existingRels = existingObjects.filter(obj => {
-            const o = obj as any;
-            return o && o.type === 'relationship' && 
-            nodeIds.has(o.source_ref) && 
-            nodeIds.has(o.target_ref);
-        });
+        let existingRels: any[] = [];
+        if (Array.isArray(editingDiamond.x_oris_diamond_relations)) {
+            existingRels = existingObjects.filter(obj => {
+                const o = obj as any;
+                return o && o.type === 'relationship' && editingDiamond.x_oris_diamond_relations.includes(o.id);
+            });
+        } else if (editingDiamond.x_oris_diamond_axes) {
+            existingRels = [];
+        } else {
+            const nodeIds = new Set<string>();
+            const axes = editingDiamond.x_oris_diamond_axes || editingDiamond._axes || {};
+            ['adversary', 'capability', 'infrastructure', 'victim'].forEach(k => {
+                 (axes[k] || []).forEach((val: any) => {
+                     const id = typeof val === 'string' ? val : val.id;
+                     if (id) nodeIds.add(id);
+                 });
+            });
+            
+            existingRels = existingObjects.filter(obj => {
+                const o = obj as any;
+                return o && o.type === 'relationship' && 
+                nodeIds.has(o.source_ref) && 
+                nodeIds.has(o.target_ref);
+            });
+        }
         
         return existingRels.map(rel => {
             const r = rel as any;
@@ -278,71 +287,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
     const currentStep = !isSummary ? STEPS[stepIndex] : null;
     const phases = getKillChainPhases(caseKillChainType);
 
-    // Get all valid objects defined across axes for relationships
-    const allAvailableNodes = useMemo(() => {
-        return ['capability', 'infrastructure', 'victim'].flatMap(k => axesNodes[k]);
-    }, [axesNodes]);
 
-    // Update draft mode and reset correctly when navigating
-    // Reset draft state when opening step
-    React.useEffect(() => {
-        if (currentStep && currentStep.key !== 'event' && currentStep.key !== 'relations') {
-            setDraftMode('none');
-            setDraftExistingId('');
-            setDraftNewData({ sdoType: currentStep.defaultType, name: '', description: '', tlp: '', isFamily: false, hashes: [] });
-        }
-    }, [stepIndex]);
-
-    const handleAddNode = (directId?: any) => {
-        const isEvent = directId && typeof directId === 'object' && 'preventDefault' in directId;
-        const targetId = (!isEvent && typeof directId === 'string') ? directId : draftExistingId;
-
-        setError(null);
-        if (!currentStep) return;
-        
-        if (draftMode === 'existing') {
-            if (!targetId) { setError('Veuillez sélectionner un objet.'); return; }
-            const obj = existingObjects.find(o => o && o.id === targetId);
-            const mitreTtp = !obj ? mitrePatterns.find(p => p && p.id === targetId) : null;
-            if (!obj && !mitreTtp) return;
-            
-            let label = obj ? (('name' in obj) ? (obj as any).name : ('value' in obj) ? (obj as any).value : obj.type) : `${mitreTtp?.mitre_id} - ${mitreTtp?.name}`;
-            if (obj && obj.type === 'attack-pattern' && (obj as any).external_references) {
-                const extRef = (obj as any).external_references.find((r: any) => r.source_name === 'mitre-attack');
-                if (extRef && extRef.external_id) {
-                    label = `${extRef.external_id} - ${label}`;
-                }
-            }
-            const sdoType = obj ? obj.type : 'attack-pattern';
-            
-            // Avoid duplicates
-            if (axesNodes[currentStep.key].some(n => n.id === targetId)) {
-                setError('Cet objet est déjà ajouté à cet axe.');
-                return;
-            }
-
-            // Clone to case seamlessly if it's a TTP
-            if (mitreTtp && currentStep.key === 'capability') {
-                api.post('/kb/mitre/clone-to-case', { case_id: caseId, stix_id: mitreTtp.id }).catch(() => {});
-            }
-
-            setAxesNodes(prev => ({
-                ...prev,
-                [currentStep.key]: [...prev[currentStep.key], { mode: 'existing', id: targetId, label, sdoType }]
-            }));
-            // Restes en mode 'existing' pour permettre les ajouts multiples rapides
-            setDraftExistingId('');
-        } else if (draftMode === 'new') {
-            if (!draftNewData.name.trim()) { setError('Le nom est requis.'); return; }
-            const newId = generateStixId(draftNewData.sdoType);
-            setAxesNodes(prev => ({
-                ...prev,
-                [currentStep.key]: [...prev[currentStep.key], { mode: 'new', id: newId, label: draftNewData.name.trim(), sdoType: draftNewData.sdoType, newData: {...draftNewData} }]
-            }));
-            setDraftMode('none');
-            setDraftNewData({ sdoType: currentStep.defaultType, name: '', description: '', tlp: '', isFamily: false, hashes: [] });
-        }
-    };
 
     const handleRemoveNode = (stepKey: string, id: string) => {
         setAxesNodes(prev => ({
@@ -353,29 +298,37 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
         setRelations(prev => prev.filter(r => r.sourceId !== id && r.targetId !== id));
     };
 
-    const handleAddRelation = () => {
+    const handleAddRelation = (sourceId?: string, targetId?: string, relType?: string): boolean => {
         setError(null);
-        if (!draftRelSource || !draftRelTarget || !draftRelType) {
+        const src = sourceId || draftRelSource;
+        const tgt = targetId || draftRelTarget;
+        const rt = relType || draftRelType;
+        if (!src || !tgt || !rt) {
             setError('Veuillez remplir tous les champs de la relation.');
-            return;
+            return false;
         }
-        if (draftRelSource === draftRelTarget) {
+        if (src === tgt) {
             setError('La source et la cible doivent être différentes.');
-            return;
+            return false;
         }
         // Avoid duplicate
-        if (relations.some(r => r.sourceId === draftRelSource && r.targetId === draftRelTarget && r.type === draftRelType)) {
+        if (relations.some(r => r.sourceId === src && r.targetId === tgt && r.type === rt)) {
             setError('Cette relation existe déjà.');
-            return;
+            return false;
         }
-        setRelations(prev => [...prev, { id: generateStixId('relationship'), sourceId: draftRelSource, targetId: draftRelTarget, type: draftRelType }]);
+        setRelations(prev => [...prev, { id: generateStixId('relationship'), sourceId: src, targetId: tgt, type: rt }]);
         setDraftRelSource('');
         setDraftRelTarget('');
         setDraftRelType('uses');
+        return true;
     };
 
     const handleRemoveRelation = (id: string) => {
         setRelations(prev => prev.filter(r => r.id !== id));
+    };
+
+    const handleUpdateRelationType = (id: string, newType: string) => {
+        setRelations(prev => prev.map(r => r.id === id ? { ...r, type: newType } : r));
     };
 
     const validateStep = (): boolean => {
@@ -394,7 +347,8 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
     const handleNext = () => {
         setError(null);
         if (validateStep()) {
-            if (currentStep && currentStep.key === 'victim') {
+            if (currentStep && currentStep.key === 'event') {
+                // Auto-generate relations between adversary and capability before entering diamond step
                 const newRels: ManualRelation[] = [];
                 axesNodes.adversary.forEach(adv => {
                     axesNodes.capability.forEach(cap => {
@@ -425,7 +379,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
         setStepIndex(prev => Math.max(0, prev - 1));
     };
 
-    const handleSubmit = async () => {
+    const processSubmit = async () => {
         setLoading(true);
         setError(null);
 
@@ -482,6 +436,8 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
             };
             const hasAxes = Object.values(diamondAxes).some((arr: any) => arr.length > 0);
 
+            const finalRelationIds = new Set<string>(relations.map(r => r.id));
+
             if (editingDiamond) {
                 await api.put(`/stix/objects/${editingDiamond.id}`, {
                     ...editingDiamond,
@@ -493,6 +449,7 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                     x_oris_description: eventDescription.trim(),
                     name: eventDescription.trim(),
                     x_oris_diamond_axes: hasAxes ? diamondAxes : {},
+                    x_oris_diamond_relations: Array.from(finalRelationIds),
                 });
             } else {
                 await api.post('/stix/objects', {
@@ -509,11 +466,11 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                     x_oris_task_id: taskId,
                     created: now,
                     ...(hasAxes ? { x_oris_diamond_axes: diamondAxes } : {}),
+                    x_oris_diamond_relations: Array.from(finalRelationIds),
                 });
             }
 
             // 3. Create manual relationships
-            const finalRelationIds = new Set<string>();
             for (const rel of relations) {
                 finalRelationIds.add(rel.id);
                 const relObj = {
@@ -543,10 +500,67 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
         }
     };
 
+    const getDiamondMissing = (): string[] => {
+        const missing: string[] = [];
+        const requiredAxes = [
+            { key: 'capability', label: 'Capacité' },
+            { key: 'infrastructure', label: 'Infrastructure' },
+            { key: 'victim', label: 'Victime' },
+        ];
+        for (const { key, label } of requiredAxes) {
+            if (!axesNodes[key] || axesNodes[key].length === 0) {
+                missing.push(`Sommet "${label}" vide`);
+            }
+        }
+        const requiredEdges: { from: string; to: string; label: string }[] = [
+            { from: 'capability', to: 'infrastructure', label: 'Capacité ↔ Infrastructure' },
+            { from: 'capability', to: 'victim', label: 'Capacité ↔ Victime' },
+            { from: 'infrastructure', to: 'victim', label: 'Infrastructure ↔ Victime' },
+        ];
+        if (axesNodes.adversary && axesNodes.adversary.length > 0) {
+            requiredEdges.push(
+                { from: 'adversary', to: 'capability', label: 'Adversaire ↔ Capacité' },
+                { from: 'adversary', to: 'infrastructure', label: 'Adversaire ↔ Infrastructure' },
+                { from: 'adversary', to: 'victim', label: 'Adversaire ↔ Victime' }
+            );
+        }
+        for (const edge of requiredEdges) {
+            const fromIds = new Set((axesNodes[edge.from] || []).map(n => n.id));
+            const toIds = new Set((axesNodes[edge.to] || []).map(n => n.id));
+            const hasRelation = relations.some(r =>
+                (fromIds.has(r.sourceId) && toIds.has(r.targetId)) ||
+                (toIds.has(r.sourceId) && fromIds.has(r.targetId))
+            );
+            if (!hasRelation) {
+                missing.push(`Lien "${edge.label}" manquant`);
+            }
+        }
+        return missing;
+    };
+
+    const handleClose = () => {
+        const missing = getDiamondMissing();
+        if (missing.length > 0) {
+            setWarningModalConfig({ action: 'close', items: missing });
+        } else {
+            onClose();
+        }
+    };
+
+    const handleSubmit = () => {
+        const missing = getDiamondMissing();
+        if (missing.length > 0) {
+            setWarningModalConfig({ action: 'save', items: missing });
+        } else {
+            processSubmit();
+        }
+    };
+
     return (
+        <>
         <OffCanvas
             isOpen={true}
-            onClose={onClose}
+            onClose={handleClose}
             title={editingDiamond ? 'Modifier le Diamant' : 'Ajouter un Diamant'}
             width="lg"
         >
@@ -634,235 +648,35 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                                     </div>
                                 )}
 
-                                {/* OTHER STEPS: STIX NODES (Axes) */}
-                                {['capability', 'infrastructure', 'victim'].includes(currentStep.key) && (
-                                    <div className="space-y-6">
-                                        {/* List of currently selected nodes */}
-                                        <div className="space-y-2">
-                                            {axesNodes[currentStep.key].length > 0 ? (
-                                                <ul className="space-y-2">
-                                                    {axesNodes[currentStep.key].map(node => (
-                                                        <li key={node.id} className={`flex items-center justify-between p-3 rounded-lg border ${node.mode === 'new' ? 'bg-cyan-50 dark:bg-cyan-900/10 border-cyan-200 dark:border-cyan-800' : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'}`}>
-                                                            <div className="flex flex-col">
-                                                                <span className="text-sm font-medium text-gray-900 dark:text-white">{node.label}</span>
-                                                                <span className="text-[10px] text-gray-500 dark:text-slate-400 flex items-center gap-1">
-                                                                    <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">{STIX_TYPE_META[node.sdoType]?.label || node.sdoType}</span>
-                                                                    {node.mode === 'new' && <span className="text-cyan-600 dark:text-cyan-400">(Nouveau)</span>}
-                                                                </span>
-                                                            </div>
-                                                            <button onClick={() => handleRemoveNode(currentStep.key, node.id)} className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition">
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            ) : (
-                                                <p className="text-sm text-gray-500 dark:text-slate-400 italic text-center py-4 bg-gray-50 dark:bg-slate-800/30 rounded-lg border border-dashed border-gray-200 dark:border-slate-700">Aucun élément ajouté pour cet axe.</p>
-                                            )}
-                                        </div>
 
-                                        <div className="border border-gray-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                                            <div className="bg-gray-50 dark:bg-slate-800/50 px-4 py-3 border-b border-gray-200 dark:border-slate-700">
-                                                <h4 className="text-sm font-medium text-gray-700 dark:text-slate-300">Ajouter un objet</h4>
-                                            </div>
-                                            <div className="p-4 bg-white dark:bg-slate-900 space-y-4">
-                                                {/* Draft Mode toggles */}
-                                                <div className="flex gap-2 p-1 bg-gray-100 dark:bg-slate-800 rounded-lg">
-                                                    <button onClick={() => setDraftMode('existing')} className={`flex-1 py-1.5 text-xs font-medium rounded-md transition ${draftMode === 'existing' ? 'bg-white dark:bg-slate-700 text-cyan-600 dark:text-cyan-400 shadow-sm' : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white'}`}>Utiliser un existant</button>
-                                                    <button onClick={() => setDraftMode('new')} className={`flex-1 py-1.5 text-xs font-medium rounded-md transition ${draftMode === 'new' ? 'bg-white dark:bg-slate-700 text-cyan-600 dark:text-cyan-400 shadow-sm' : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white'}`}>Créer un nouveau</button>
-                                                </div>
-
-                                                {draftMode === 'existing' && (
-                                                    <div className="space-y-4">
-                                                        <div>
-                                                            <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Sélectionner dans l'affaire</label>
-                                                            <SearchableSelect
-                                                                value={draftExistingId}
-                                                                onChange={(val) => {
-                                                                    setDraftExistingId(val);
-                                                                    if (val) handleAddNode(val);
-                                                                }}
-                                                                options={(() => {
-                                                                    const opts = existingObjects.filter(o => o && currentStep.types.includes(o.type)).map(o => ({
-                                                                        value: o.id,
-                                                                        label: ('name' in o ? (o as any).name : ('value' in o ? (o as any).value : o.type))
-                                                                    }));
-                                                                    if (currentStep.key === 'capability') {
-                                                                        const existingIds = new Set(opts.map(o => o.value));
-                                                                        mitrePatterns.filter(p => p && !existingIds.has(p.id)).forEach(p => {
-                                                                            opts.push({ value: p.id, label: `${p.mitre_id} - ${p.name}` });
-                                                                        });
-                                                                    }
-                                                                    return opts;
-                                                                })()}
-                                                                placeholder="Sélectionnez un objet..."
-                                                            />
-                                                        </div>
-                                                        <button onClick={handleAddNode} disabled={!draftExistingId} className="w-full py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-1">
-                                                            <Plus className="w-4 h-4" /> Ajouter
-                                                        </button>
-                                                    </div>
-                                                )}
-
-                                                {draftMode === 'new' && (
-                                                    <div className="space-y-4">
-                                                        {currentStep.types.filter(t => t !== 'attack-pattern').length > 1 && (
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Type STIX exact</label>
-                                                                <SearchableSelect
-                                                                    value={draftNewData.sdoType}
-                                                                    onChange={(v) => setDraftNewData((p:any) => ({...p, sdoType: v}))}
-                                                                    options={currentStep.types.filter(t => t !== 'attack-pattern').map(t => ({ value: t, label: STIX_TYPE_META[t as StixSDOType]?.label || t }))}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                        <div>
-                                                            <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Nom *</label>
-                                                            <input
-                                                                type="text"
-                                                                value={draftNewData.name}
-                                                                onChange={e => setDraftNewData((p:any) => ({...p, name: e.target.value}))}
-                                                                className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
-                                                                placeholder={draftNewData.sdoType === 'infrastructure' ? "ex: Serveur Web" : "ex: APT28"}
-                                                            />
-                                                        </div>
-
-                                                        {(draftNewData.sdoType === 'malware' || draftNewData.sdoType === 'tool') && (
-                                                            <div className="space-y-3 pt-2">
-                                                                <label className="block text-xs font-medium text-gray-700 dark:text-slate-300">Hashes associés</label>
-                                                                {draftNewData.hashes && draftNewData.hashes.length > 0 && (
-                                                                    <div className="space-y-2">
-                                                                        {draftNewData.hashes.map((h: any, idx: number) => (
-                                                                            <div key={idx} className="flex gap-2 items-center">
-                                                                                <select
-                                                                                    value={h.type}
-                                                                                    onChange={e => {
-                                                                                        const newHashes = [...draftNewData.hashes];
-                                                                                        newHashes[idx].type = e.target.value;
-                                                                                        setDraftNewData((p:any) => ({...p, hashes: newHashes}));
-                                                                                    }}
-                                                                                    className="px-2 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg text-xs text-gray-900 dark:text-white"
-                                                                                >
-                                                                                    {['MD5', 'SHA-1', 'SHA-256', 'SHA-512', 'SSDEEP', 'IMPHASH', 'Autre'].map(t => <option key={t} value={t}>{t}</option>)}
-                                                                                </select>
-                                                                                <input
-                                                                                    type="text"
-                                                                                    value={h.value}
-                                                                                    onChange={e => {
-                                                                                        const newHashes = [...draftNewData.hashes];
-                                                                                        newHashes[idx].value = e.target.value;
-                                                                                        setDraftNewData((p:any) => ({...p, hashes: newHashes}));
-                                                                                    }}
-                                                                                    className="flex-1 px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg text-xs text-gray-900 dark:text-white font-mono"
-                                                                                    placeholder="Valeur du hash..."
-                                                                                />
-                                                                                <button type="button" onClick={() => {
-                                                                                    setDraftNewData((p:any) => ({...p, hashes: p.hashes.filter((_:any, i:number) => i !== idx)}));
-                                                                                }} className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition">
-                                                                                    <Trash2 className="w-4 h-4" />
-                                                                                </button>
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                                <button type="button" onClick={() => setDraftNewData((p:any) => ({...p, hashes: [...(p.hashes || []), { type: 'SHA-256', value: '' }]}))} className="flex items-center gap-1 text-xs text-cyan-600 dark:text-cyan-400 font-medium hover:text-cyan-700 transition w-fit px-2 py-1 rounded bg-cyan-50 dark:bg-cyan-900/20">
-                                                                    <Plus className="w-3.5 h-3.5" /> Ajouter un hash
-                                                                </button>
-                                                            </div>
-                                                        )}
-
-                                                        <div>
-                                                            <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Description (Optionnel)</label>
-                                                            <textarea
-                                                                value={draftNewData.description}
-                                                                onChange={e => setDraftNewData((p:any) => ({...p, description: e.target.value}))}
-                                                                rows={2}
-                                                                className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 resize-none"
-                                                            />
-                                                        </div>
-                                                        <button onClick={handleAddNode} disabled={!draftNewData.name.trim()} className="w-full py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-1">
-                                                            <Plus className="w-4 h-4" /> Créer et Ajouter
-                                                        </button>
-                                                    </div>
-                                                )}
-
-                                                {draftMode === 'none' && (
-                                                    <p className="text-xs text-center text-gray-500 dark:text-slate-400">Sélectionnez une option ci-dessus pour ajouter un objet.</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
 
                                 {/* RELATIONS STEP */}
                                 {currentStep.key === 'relations' && (
-                                    <div className="space-y-6">
-                                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-lg">
-                                            <p className="text-sm text-amber-800 dark:text-amber-400">
-                                                Vous pouvez déclarer les relations spécifiques entre les objets de ce diamant. Elles seront matérialisées dans le graphe analytique de l'investigation.
-                                            </p>
-                                        </div>
-
-                                        {/* New Relation Form */}
-                                        <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg border border-gray-200 dark:border-slate-700 space-y-4">
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Source</label>
-                                                    <SearchableSelect
-                                                        value={draftRelSource}
-                                                        onChange={setDraftRelSource}
-                                                        options={allAvailableNodes.map(n => ({ value: n.id, label: n.label }))}
-                                                        placeholder="Sélectionner..."
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Relation</label>
-                                                    <SearchableSelect
-                                                        value={draftRelType}
-                                                        onChange={setDraftRelType}
-                                                        options={RELATIONSHIP_TYPES.map(rt => ({ value: rt.value, label: rt.label }))}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Cible</label>
-                                                    <SearchableSelect
-                                                        value={draftRelTarget}
-                                                        onChange={setDraftRelTarget}
-                                                        options={allAvailableNodes.map(n => ({ value: n.id, label: n.label }))}
-                                                        placeholder="Sélectionner..."
-                                                    />
-                                                </div>
-                                            </div>
-                                            <button onClick={handleAddRelation} className="w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm transition flex justify-center items-center gap-2">
-                                                <Plus className="w-4 h-4"/> Ajouter le lien
-                                            </button>
-                                        </div>
-
-                                        {/* Existing Relations List */}
-                                        <div className="space-y-2">
-                                            {relations.length > 0 ? (
-                                                <ul className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                                                    {relations.map(rel => {
-                                                        const src = allAvailableNodes.find(n => n.id === rel.sourceId);
-                                                        const tgt = allAvailableNodes.find(n => n.id === rel.targetId);
-                                                        const rtLabel = RELATIONSHIP_TYPES.find(r => r.value === rel.type)?.label || rel.type;
-                                                        return (
-                                                            <li key={rel.id} className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg">
-                                                                <div className="flex items-center gap-2 text-xs text-gray-800 dark:text-gray-200">
-                                                                    <span className="font-semibold">{src?.label || '?'}</span>
-                                                                    <span className="text-gray-500">-{rtLabel}-&gt;</span>
-                                                                    <span className="font-semibold">{tgt?.label || '?'}</span>
-                                                                </div>
-                                                                <button onClick={() => handleRemoveRelation(rel.id)} className="p-1 text-gray-500 hover:text-red-500 rounded transition"><Trash2 className="w-3.5 h-3.5" /></button>
-                                                            </li>
-                                                        )
-                                                    })}
-                                                </ul>
-                                            ) : (
-                                                <p className="text-center text-xs text-gray-500 italic py-2">Aucune relation définie.</p>
-                                            )}
-                                        </div>
-                                    </div>
+                                    <DiamondRelationsEditor
+                                        axesNodes={axesNodes}
+                                        relations={relations}
+                                        onAddRelation={(sourceId, targetId, type) => handleAddRelation(sourceId, targetId, type)}
+                                        onRemoveRelation={handleRemoveRelation}
+                                        onUpdateRelationType={handleUpdateRelationType}
+                                        existingObjects={existingObjects}
+                                        onAddNode={(axisKey, node) => {
+                                            setAxesNodes(prev => ({
+                                                ...prev,
+                                                [axisKey]: [...prev[axisKey], node]
+                                            }));
+                                        }}
+                                        onRemoveNode={(axisKey, id) => {
+                                            handleRemoveNode(axisKey, id);
+                                        }}
+                                        axisTypes={{
+                                            adversary: { types: ['threat-actor', 'intrusion-set', 'campaign'], defaultType: 'threat-actor' },
+                                            capability: { types: ['malware', 'tool', 'attack-pattern'], defaultType: 'malware' },
+                                            infrastructure: { types: ['infrastructure', 'ipv4-addr', 'domain-name', 'url', 'mac-addr'], defaultType: 'infrastructure' },
+                                            victim: { types: ['identity', 'infrastructure', 'user-account', 'ipv4-addr', 'domain-name'], defaultType: 'identity' },
+                                        }}
+                                        mitrePatterns={mitrePatterns}
+                                        caseId={caseId}
+                                    />
                                 )}
 
                             </div>
@@ -943,5 +757,53 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                 </div>
             </div>
         </OffCanvas>
+
+        {/* Close/Save warning modal */}
+        {warningModalConfig && (
+            <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+                    <div className="p-5 border-b border-gray-200 dark:border-slate-700">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                                <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Diamant incomplet</h3>
+                                <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">Des éléments manquent pour considérer ce diamant complet.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-5">
+                        <ul className="space-y-1.5 mb-5">
+                            {warningModalConfig.items.map((item, i) => (
+                                <li key={i} className="flex items-center gap-2 text-xs text-gray-700 dark:text-slate-300">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                                    {item}
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setWarningModalConfig(null)}
+                                className="flex-1 py-2 px-4 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-300 rounded-lg text-sm font-medium transition"
+                            >
+                                Continuer l'édition
+                            </button>
+                            <button
+                                onClick={() => { 
+                                    const action = warningModalConfig.action;
+                                    setWarningModalConfig(null); 
+                                    if (action === 'close') onClose(); else processSubmit();
+                                }}
+                                className="flex-1 py-2 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition"
+                            >
+                                {warningModalConfig.action === 'close' ? 'Fermer quand même' : 'Enregistrer quand même'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 };

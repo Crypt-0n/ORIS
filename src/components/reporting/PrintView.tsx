@@ -15,8 +15,7 @@ import {
   CompromisedAccountsSection,
   MalwareSection,
   NetworkIndicatorsSection,
-  ExfiltrationsSection,
-  ActivityHistorySection
+  ExfiltrationsSection
 } from './CaseReport/components/Sections';
 import { ReportType } from './CaseReport/types';
 import logoUrl from '../../assets/Logo.png';
@@ -44,7 +43,6 @@ export function PrintView() {
     filteredMalware,
     filteredExfiltrations,
     filteredAttackerInfra,
-    filteredAuditLogs,
   } = useCaseReportData(caseId!, reportType, selectedDate, weekCount, lng, formatDate);
 
   if (!caseId) return <div>Missing case ID</div>;
@@ -183,9 +181,7 @@ export function PrintView() {
         <NetworkIndicatorsSection indicators={filteredIndicators} />
         <ExfiltrationsSection exfiltrations={filteredExfiltrations} />
         
-        <div className="break-after-page">
-          <ActivityHistorySection logs={filteredAuditLogs} />
-        </div>
+
 
         <div className="px-8 py-6 border-t border-gray-100 break-inside-avoid">
           <SectionHeader icon={Network} title={t('auto.mouvements_lateraux')} />

@@ -8,11 +8,12 @@ interface CloseTaskProps {
   taskId: string;
   initialComment?: string;
   stixObjects?: any[];
+  hasIncompleteDiamonds?: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function CloseTask({ taskId, initialComment = '', stixObjects = [], onClose, onSuccess }: CloseTaskProps) {
+export function CloseTask({ taskId, initialComment = '', stixObjects = [], hasIncompleteDiamonds = false, onClose, onSuccess }: CloseTaskProps) {
   const { t } = useTranslation();
   const [comment, setComment] = useState(initialComment);
   const [objectStatuses, setObjectStatuses] = useState<Record<string, string>>({});
@@ -22,6 +23,11 @@ export function CloseTask({ taskId, initialComment = '', stixObjects = [], onClo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!comment.trim()) return;
+
+    if (hasIncompleteDiamonds) {
+      setError("Tous les diamants liés à cette tâche doivent être complets pour pouvoir la fermer.");
+      return;
+    }
 
     if (stixObjects.some(obj => !objectStatuses[obj.id])) {
       setError("Vous devez sélectionner un statut pour tous les éléments techniques de cette tâche.");

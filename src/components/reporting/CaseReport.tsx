@@ -22,8 +22,7 @@ import {
   CompromisedAccountsSection,
   MalwareSection,
   NetworkIndicatorsSection,
-  ExfiltrationsSection,
-  ActivityHistorySection
+  ExfiltrationsSection
 } from './CaseReport/components/Sections';
 
 // Types
@@ -56,7 +55,6 @@ export function CaseReport({ caseId }: CaseReportProps) {
     filteredMalware,
     filteredExfiltrations,
     filteredAttackerInfra,
-    filteredAuditLogs,
   } = useCaseReportData(caseId, reportType, selectedDate, weekCount, reportLanguage, formatDate);
 
   // Custom Export Hook
@@ -267,7 +265,7 @@ export function CaseReport({ caseId }: CaseReportProps) {
         <MalwareSection items={filteredMalware} />
         <NetworkIndicatorsSection indicators={filteredIndicators} />
         <ExfiltrationsSection exfiltrations={filteredExfiltrations} />
-        <ActivityHistorySection logs={filteredAuditLogs} />
+
 
         <div className="px-8 py-6 border-t border-gray-100">
           <SectionHeader icon={Network} title={t('auto.mouvements_lateraux')} />

@@ -20,8 +20,8 @@ import { useTranslation } from "react-i18next";
 import { TaskHeader } from './tasks/TaskHeader';
 import { TaskClosureDetails } from './tasks/TaskClosureDetails';
 import { TaskLinkedStixObject } from './tasks/TaskLinkedStixObject';
-import { TaskParticipants } from './tasks/TaskParticipants';
-import { TaskDiamondEvents } from './tasks/TaskDiamondEvents';
+
+import { TaskDiamondEvents, getDiamondCompleteness } from './tasks/TaskDiamondEvents';
 
 
 interface TaskDetailsData {
@@ -78,12 +78,7 @@ interface TaskDetailsData {
   can_edit_task?: boolean;
 }
 
-interface Participant {
-  id: string;
-  full_name: string;
-  email: string;
-  role: string;
-}
+
 
 interface TaskDetailsProps {
   taskId: string;
@@ -99,7 +94,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
   const { user, hasAnyRole } = useAuth();
 
   const [taskData, setTaskData] = useState<TaskDetailsData | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -202,11 +197,31 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
 
   const fetchTaskDiamonds = async () => {
     try {
-      const objects = await api.get(`/stix/objects/by-case/${caseId}`);
-      const diamonds = (objects || []).filter((o: any) => o && o.type === 'observed-data' && o.x_oris_task_id === taskId);
+      const objects = await api.get(`/stix/objects/by-case/${caseId}`) || [];
+      const rels = await api.get(`/stix/relationships/by-case/${caseId}`) || [];
+      const allItems = [...objects, ...rels];
+      const diamonds = allItems.filter((o: any) => o && o.type === 'observed-data' && o.x_oris_task_id === taskId);
+      const allRelations = allItems.filter((o: any) => o && o.type === 'relationship');
       const merged = diamonds.map((d: any) => {
         const axes = d.x_oris_diamond_axes || {};
-        return { ...d, _axes: { adversary: axes.adversary || [], infrastructure: axes.infrastructure || [], capability: axes.capability || [], victim: axes.victim || [] } };
+        const axesData = { adversary: axes.adversary || [], infrastructure: axes.infrastructure || [], capability: axes.capability || [], victim: axes.victim || [] };
+        // Collect all node IDs to find relevant relations
+        const nodeIds = new Set<string>();
+        Object.values(axesData).forEach((arr: any) => arr.forEach((v: any) => {
+          const id = typeof v === 'string' ? v : v.id;
+          if (id) nodeIds.add(id);
+        }));
+        let diamondRelations = [];
+        if (Array.isArray(d.x_oris_diamond_relations)) {
+          diamondRelations = allRelations.filter((r: any) => d.x_oris_diamond_relations.includes(r.id));
+        } else if (d.x_oris_diamond_axes) {
+          // It's a modernized diamond but maybe somehow the array was stripped. Default to empty to prevent global relations.
+          diamondRelations = [];
+        } else {
+          // Legacy inherited diamonds fallback to global inference
+          diamondRelations = allRelations.filter((r: any) => nodeIds.has(r.source_ref) && nodeIds.has(r.target_ref));
+        }
+        return { ...d, _axes: axesData, _relations: diamondRelations };
       });
       setTaskDiamonds(merged);
     } catch (err) {
@@ -254,29 +269,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
         setTaskData(taskRes);
         if (onTaskLoad) onTaskLoad(taskRes);
 
-        // Participants
-        const participantsList: Participant[] = [];
-        const addedIds = new Set<string>();
-        if (taskRes.created_by_user) {
-          participantsList.push({
-            id: taskRes.created_by_user.id,
-            full_name: taskRes.created_by_user.full_name,
-            email: taskRes.created_by_user.email,
-            role: 'Créateur',
-          });
-          addedIds.add(taskRes.created_by_user.id);
-        }
-        if (taskRes.assigned_to_user) {
-          if (!addedIds.has(taskRes.assigned_to_user.id)) {
-            participantsList.push({
-              id: taskRes.assigned_to_user.id,
-              full_name: taskRes.assigned_to_user.full_name,
-              email: taskRes.assigned_to_user.email,
-              role: 'Assigné',
-            });
-          }
-        }
-        setParticipants(participantsList);
+
       }
 
 
@@ -478,23 +471,23 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
                 <span className="text-sm font-semibold text-gray-800 dark:text-white">Discussion</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">{commentCount}</span>
               </div>
-              <TaskParticipants participants={participants} />
-              <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} isReadOnly={isReadOnly} />
+              <TaskComments 
+                taskId={taskId} 
+                isClosed={isEffectivelyClosed} 
+                caseAuthorId={caseAuthorId} 
+                onCountChange={setCommentCount} 
+                isReadOnly={isReadOnly}
+                taskDiamonds={taskDiamonds}
+                caseKillChainType={caseKillChainType}
+                canEditDiamond={canEditDiamond}
+                onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
+                onEditDiamond={startEditDiamond}
+                onDeleteDiamond={handleDeleteDiamond}
+              />
             </div>
 
             {!isAlert && (
               <>
-                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-cyan-500 p-5">
-                  <TaskDiamondEvents
-                    taskDiamonds={taskDiamonds}
-                    caseKillChainType={caseKillChainType}
-                    canEditDiamond={canEditDiamond}
-                    onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
-                    onEditDiamond={startEditDiamond}
-                    onDeleteDiamond={handleDeleteDiamond}
-                  />
-                </div>
-
                 <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500 p-5">
                   <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
                 </div>
@@ -512,23 +505,23 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
                 <span className="text-sm font-semibold text-gray-800 dark:text-white">Discussion</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">{commentCount}</span>
               </div>
-              <TaskParticipants participants={participants} />
-              <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} isReadOnly={isReadOnly} />
+              <TaskComments 
+                taskId={taskId} 
+                isClosed={isEffectivelyClosed} 
+                caseAuthorId={caseAuthorId} 
+                onCountChange={setCommentCount} 
+                isReadOnly={isReadOnly}
+                taskDiamonds={taskDiamonds}
+                caseKillChainType={caseKillChainType}
+                canEditDiamond={canEditDiamond}
+                onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
+                onEditDiamond={startEditDiamond}
+                onDeleteDiamond={handleDeleteDiamond}
+              />
             </div>
 
             {!isAlert && (
               <div className="lg:col-span-1 space-y-6 min-w-0 overflow-hidden">
-                <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-cyan-500 p-5">
-                  <TaskDiamondEvents
-                    taskDiamonds={taskDiamonds}
-                    caseKillChainType={caseKillChainType}
-                    canEditDiamond={canEditDiamond}
-                    onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
-                    onEditDiamond={startEditDiamond}
-                    onDeleteDiamond={handleDeleteDiamond}
-                  />
-                </div>
-
                 <div className="bg-white dark:bg-slate-900 rounded-lg shadow dark:shadow-slate-800/50 border-l-4 border-purple-500 p-5">
                   <StixObjectsList key={stixRefreshKey} taskId={taskId} caseId={caseId} isClosed={isEffectivelyClosed} />
                 </div>
@@ -578,8 +571,19 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
             <div className="p-5 min-h-[400px]">
               {activeTab === 'discussion' && (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <TaskParticipants participants={participants} />
-                  <TaskComments taskId={taskId} isClosed={isEffectivelyClosed} caseAuthorId={caseAuthorId} onCountChange={setCommentCount} isReadOnly={isReadOnly} />
+                  <TaskComments 
+                    taskId={taskId} 
+                    isClosed={isEffectivelyClosed} 
+                    caseAuthorId={caseAuthorId} 
+                    onCountChange={setCommentCount} 
+                    isReadOnly={isReadOnly}
+                    taskDiamonds={taskDiamonds}
+                    caseKillChainType={caseKillChainType}
+                    canEditDiamond={canEditDiamond}
+                    onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
+                    onEditDiamond={startEditDiamond}
+                    onDeleteDiamond={handleDeleteDiamond}
+                  />
                 </div>
               )}
 
@@ -628,6 +632,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
           taskId={taskId}
           initialComment={taskData.closure_comment || ''}
           stixObjects={caseStixObjects.filter(o => o.x_oris_task_id === taskId && !['report', 'observed-data', 'relationship', 'grouping', 'note', 'opinion', 'identity', 'course-of-action', 'attack-pattern', 'threat-actor', 'campaign', 'intrusion-set'].includes(o.type))}
+          hasIncompleteDiamonds={taskDiamonds.some((d: any) => !getDiamondCompleteness(d).complete)}
           onClose={() => setShowCloseModal(false)}
           onSuccess={() => {
             setShowCloseModal(false);
