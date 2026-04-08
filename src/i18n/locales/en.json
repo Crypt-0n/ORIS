@@ -883,6 +883,7 @@
         "comingSoon": "This section will be available soon"
     },
     "auto": {
+        "modifie": "modified",
         "modele_diamond": "Diamond Model",
         "visualisations": "Visualizations",
         "rapports": "Reports",
