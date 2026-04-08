@@ -1630,6 +1630,23 @@
         }
     },
     "dashboard": {
+        "greeting": "Bonjour, {{name}} 👋",
+        "subtitle": "Voici l'état vital du centre d'investigation. Naviguez rapidement vers vos urgences.",
+        "openCases": "Dossiers ouverts",
+        "alerts": "Alertes",
+        "myTasks": "Mes tâches",
+        "unassignedTasks": "Non assignées",
+        "resolutionRate": "Résolution",
+        "criticalCases": "Dossiers à haut risque",
+        "noCriticalCases": "Aucune urgence",
+        "perimeterSecured": "Le périmètre est sécurisé.",
+        "created": "Créé",
+        "activityStream": "Flux d'activité en direct",
+        "noActivity": "Aucune activité récente",
+        "justNow": "À l'instant",
+        "minsAgo": "Il y a {{count}} min",
+        "hoursAgo": "Il y a {{count}}h",
+        "daysAgo": "Il y a {{count}}j",
         "actions": {
             "case_created": "a créé un dossier",
             "case_closed": "a fermé un dossier",
@@ -1670,5 +1687,37 @@
             "stix_relationship_deleted_with_changes": "a supprimé un lien STIX",
             "timezone_changed": "a modifié le fuseau horaire"
         }
+    },
+    "alerts": {
+        "newAlert": "Nouvelle alerte",
+        "supervision": "Supervision des alertes",
+        "backlog": "Backlog",
+        "myAlerts": "Mes alertes",
+        "title": "Alertes de sécurité"
+    },
+    "filters": {
+        "groupNone": "Ne pas grouper",
+        "groupBeneficiary": "Par Bénéficiaire",
+        "groupBeneficiaryCase": "Bénéficiaire du dossier",
+        "groupSeverity": "Par Sévérité",
+        "groupSeverityCase": "Sévérité du dossier",
+        "groupStatus": "Par Statut",
+        "groupStatusTask": "Statut de la tâche",
+        "groupAuthor": "Par Auteur",
+        "groupAssignee": "Assigné à",
+        "unknown": "Inconnu",
+        "noBeneficiary": "Aucun bénéficiaire",
+        "noSeverity": "Aucune sévérité",
+        "openPluralFem": "Ouvertes",
+        "closedPluralFem": "Clôturées",
+        "openPluralMasc": "Ouverts",
+        "closedPluralMasc": "Clôturés",
+        "unassigned": "Non assigné",
+        "allBeneficiaries": "Bénéficiaire (Tous)",
+        "allSeverities": "Sévérité (Toutes)",
+        "allAuthors": "Auteur (Tous)",
+        "allAssignees": "Assigné à (Tous)",
+        "allFem": "Toutes",
+        "allMasc": "Tous"
     }
 }

@@ -1595,6 +1595,23 @@
         }
     },
     "dashboard": {
+        "greeting": "Hello, {{name}} 👋",
+        "subtitle": "Here is the vital state of the investigation center. Quickly navigate to your emergencies.",
+        "openCases": "Open cases",
+        "alerts": "Alerts",
+        "myTasks": "My tasks",
+        "unassignedTasks": "Unassigned",
+        "resolutionRate": "Resolution",
+        "criticalCases": "High risk cases",
+        "noCriticalCases": "No emergencies",
+        "perimeterSecured": "The perimeter is secure.",
+        "created": "Created",
+        "activityStream": "Live activity stream",
+        "noActivity": "No recent activity",
+        "justNow": "Just now",
+        "minsAgo": "{{count}} min ago",
+        "hoursAgo": "{{count}}h ago",
+        "daysAgo": "{{count}}d ago",
         "actions": {
             "case_created": "created a case",
             "case_closed": "closed a case",
@@ -1629,11 +1646,43 @@
             "stix_object_deleted_with_changes": "deleted a STIX element",
             "stix_relationship_created": "linked two STIX elements",
             "stix_relationship_created_with_changes": "linked two STIX elements",
-            "stix_relationship_updated": "updated a STIX relationship",
-            "stix_relationship_updated_with_changes": "updated a STIX relationship",
-            "stix_relationship_deleted": "deleted a STIX relationship",
-            "stix_relationship_deleted_with_changes": "deleted a STIX relationship",
-            "timezone_changed": "changed the timezone"
+            "stix_relationship_updated": "updated a STIX link",
+            "stix_relationship_updated_with_changes": "updated a STIX link",
+            "stix_relationship_deleted": "deleted a STIX link",
+            "stix_relationship_deleted_with_changes": "deleted a STIX link",
+            "timezone_changed": "changed timezone"
         }
+    },
+    "alerts": {
+        "newAlert": "New alert",
+        "supervision": "Alerts supervision",
+        "backlog": "Backlog",
+        "myAlerts": "My alerts",
+        "title": "Security alerts"
+    },
+    "filters": {
+        "groupNone": "No grouping",
+        "groupBeneficiary": "By Beneficiary",
+        "groupBeneficiaryCase": "Case beneficiary",
+        "groupSeverity": "By Severity",
+        "groupSeverityCase": "Case severity",
+        "groupStatus": "By Status",
+        "groupStatusTask": "Task status",
+        "groupAuthor": "By Author",
+        "groupAssignee": "Assigned to",
+        "unknown": "Unknown",
+        "noBeneficiary": "No beneficiary",
+        "noSeverity": "No severity",
+        "openPluralFem": "Open",
+        "closedPluralFem": "Closed",
+        "openPluralMasc": "Open",
+        "closedPluralMasc": "Closed",
+        "unassigned": "Unassigned",
+        "allBeneficiaries": "Beneficiary (All)",
+        "allSeverities": "Severity (All)",
+        "allAuthors": "Author (All)",
+        "allAssignees": "Assigned to (All)",
+        "allFem": "All",
+        "allMasc": "All"
     }
 }

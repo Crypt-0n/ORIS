@@ -122,7 +122,7 @@ class CaseRepository extends BaseRepository {
                     
                     LET isUnassigned = LENGTH(FOR ca IN case_assignments FILTER ca.case_id == c._key RETURN 1) == 0
                     LET isMyCase = c.author_id == @userId || (c._key IN assignedCaseIds)
-                    FILTER @supervision == null OR (@supervision == 'backlog' ? isUnassigned : (@supervision == true ? (!isMyCase AND !isUnassigned) : isMyCase))
+                    FILTER @supervision == null OR (@supervision == 'backlog' ? isUnassigned : (@supervision == true ? (@typeFilter == 'case' ? !isMyCase : (!isMyCase AND !isUnassigned)) : isMyCase))
                     
                     RETURN c
             )
@@ -301,7 +301,7 @@ class CaseRepository extends BaseRepository {
                     FOR c IN accessibleCases
                         LET isMyCase = c.author_id == @userId || (c._key IN assignedCaseIds)
                         LET isUnassigned = LENGTH(FOR ca IN case_assignments FILTER ca.case_id == c._key RETURN 1) == 0
-                        FILTER !isMyCase AND !isUnassigned
+                        FILTER @typeFilter == 'case' ? !isMyCase : (!isMyCase AND !isUnassigned)
                         RETURN 1
                 )
             }

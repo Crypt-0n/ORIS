@@ -120,11 +120,11 @@ export function MyTasks() {
   
   if (groupBy !== 'none') {
     groupedTasks = currentTasks.reduce((acc, curr) => {
-      let key = 'Inconnu';
-      if (groupBy === 'case.beneficiary') key = (curr.case as any).beneficiary?.name || 'Aucun bénéficiaire';
-      else if (groupBy === 'case.severity') key = curr.case.severity?.label || 'Aucune sévérité';
-      else if (groupBy === 'status') key = curr.status === 'open' ? 'Ouvertes' : 'Clôturées';
-      else if (groupBy === 'assigned_to') key = curr.assigned_to_user?.full_name || 'Non assigné';
+      let key = t('filters.unknown');
+      if (groupBy === 'case.beneficiary') key = (curr.case as any).beneficiary?.name || t('filters.noBeneficiary');
+      else if (groupBy === 'case.severity') key = curr.case.severity?.label || t('filters.noSeverity');
+      else if (groupBy === 'status') key = curr.status === 'open' ? t('filters.openPluralFem') : t('filters.closedPluralFem');
+      else if (groupBy === 'assigned_to') key = curr.assigned_to_user?.full_name || t('filters.unassigned');
       
       if (!acc[key]) acc[key] = [];
       acc[key].push(curr);
@@ -191,11 +191,11 @@ export function MyTasks() {
               onChange={(e) => setGroupBy(e.target.value as any)}
               className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer [&>option]:dark:bg-slate-900"
             >
-              <option value="none">Ne pas grouper</option>
-              <option value="case.beneficiary">Bénéficiaire du dossier</option>
-              <option value="case.severity">Sévérité du dossier</option>
-              <option value="status">Statut de la tâche</option>
-              <option value="assigned_to">Assigné à</option>
+              <option value="none">{t('filters.groupNone')}</option>
+              <option value="case.beneficiary">{t('filters.groupBeneficiaryCase')}</option>
+              <option value="case.severity">{t('filters.groupSeverityCase')}</option>
+              <option value="status">{t('filters.groupStatusTask')}</option>
+              <option value="assigned_to">{t('filters.groupAssignee')}</option>
             </select>
           </div>
 
@@ -207,7 +207,7 @@ export function MyTasks() {
               onChange={(e) => { setFilterBeneficiary(e.target.value); setCurrentPage(1); }}
               className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate [&>option]:dark:bg-slate-900"
             >
-              <option value="all">Bénéficiaire (Tous)</option>
+              <option value="all">{t('filters.allBeneficiaries')}</option>
               {availableBeneficiaries.map(([id, name]) => (
                 <option key={id} value={id}>{name}</option>
               ))}
@@ -219,7 +219,7 @@ export function MyTasks() {
               onChange={(e) => { setFilterSeverity(e.target.value); setCurrentPage(1); }}
               className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer [&>option]:dark:bg-slate-900"
             >
-              <option value="all">Sévérité (Toutes)</option>
+              <option value="all">{t('filters.allSeverities')}</option>
               {availableSeverities.map(([id, label]) => (
                 <option key={id} value={id}>{label}</option>
               ))}
@@ -231,7 +231,7 @@ export function MyTasks() {
               onChange={(e) => { setFilterAssignedTo(e.target.value); setCurrentPage(1); }}
               className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate [&>option]:dark:bg-slate-900"
             >
-              <option value="all">Assigné à (Tous)</option>
+              <option value="all">{t('filters.allAssignees')}</option>
               {availableAssignedTo.map(([id, name]) => (
                 <option key={id} value={id}>{name}</option>
               ))}

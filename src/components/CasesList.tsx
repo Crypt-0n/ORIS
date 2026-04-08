@@ -163,10 +163,10 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
   
   if (groupBy !== 'none' && cases.length > 0) {
     groupedCases = cases.reduce((acc, curr) => {
-      let key = 'Inconnu';
-      if (groupBy === 'beneficiary') key = curr.beneficiary?.name || 'Aucun bénéficiaire';
+      let key = t('filters.unknown');
+      if (groupBy === 'beneficiary') key = curr.beneficiary?.name || t('filters.noBeneficiary');
       else if (groupBy === 'severity') key = curr.severity.label;
-      else if (groupBy === 'status') key = curr.status === 'open' ? 'Ouverts' : 'Clôturés';
+      else if (groupBy === 'status') key = curr.status === 'open' ? t('filters.openPluralMasc') : t('filters.closedPluralMasc');
       else if (groupBy === 'author') key = curr.author.full_name;
       
       if (!acc[key]) acc[key] = [];
@@ -240,11 +240,11 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
               onChange={(e) => setGroupBy(e.target.value as any)}
               className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer [&>option]:dark:bg-slate-900"
             >
-              <option value="none">Ne pas grouper</option>
-              <option value="beneficiary">Par Bénéficiaire</option>
-              <option value="severity">Par Sévérité</option>
-              <option value="status">Par Statut</option>
-              <option value="author">Par Auteur</option>
+              <option value="none">{t('filters.groupNone')}</option>
+              <option value="beneficiary">{t('filters.groupBeneficiary')}</option>
+              <option value="severity">{t('filters.groupSeverity')}</option>
+              <option value="status">{t('filters.groupStatus')}</option>
+              <option value="author">{t('filters.groupAuthor')}</option>
             </select>
           </div>
 
@@ -256,7 +256,7 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
               onChange={(e) => { setFilterBeneficiary(e.target.value); setCurrentPage(1); }}
               className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate [&>option]:dark:bg-slate-900"
             >
-              <option value="all">Bénéficiaire (Tous)</option>
+              <option value="all">{t('filters.allBeneficiaries')}</option>
               {availableBeneficiaries.map(({id, name}) => (
                 <option key={id} value={id}>{name}</option>
               ))}
@@ -268,7 +268,7 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
               onChange={(e) => { setFilterSeverity(e.target.value); setCurrentPage(1); }}
               className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer [&>option]:dark:bg-slate-900"
             >
-              <option value="all">Sévérité (Toutes)</option>
+              <option value="all">{t('filters.allSeverities')}</option>
               {availableSeverities.map(({id, label}) => (
                 <option key={id} value={id}>{label}</option>
               ))}
@@ -280,7 +280,7 @@ export function CasesList({ onSelectCase, onCreateCase }: CasesListProps) {
               onChange={(e) => { setFilterAuthor(e.target.value); setCurrentPage(1); }}
               className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate [&>option]:dark:bg-slate-900"
             >
-              <option value="all">Auteur (Tous)</option>
+              <option value="all">{t('filters.allAuthors')}</option>
               {availableAuthors.map(({id, full_name}) => (
                 <option key={id} value={id}>{full_name}</option>
               ))}

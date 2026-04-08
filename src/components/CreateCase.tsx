@@ -171,7 +171,7 @@ export function CreateCase({ onClose, onSuccess, type = 'case' }: CreateCaseProp
     <OffCanvas 
       isOpen={true} 
       onClose={onClose} 
-      title={isAlert ? 'Nouvelle alerte' : t('createCase.title')}
+      title={isAlert ? t('alerts.newAlert') : t('createCase.title')}
       width="lg"
     >
       <div className="p-6">

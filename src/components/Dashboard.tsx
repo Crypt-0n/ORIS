@@ -53,7 +53,7 @@ const itemVariants: Variants = {
 };
 
 export function Dashboard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
@@ -82,11 +82,11 @@ export function Dashboard() {
     const diffH = Math.floor(diffMs / 3600000);
     const diffD = Math.floor(diffMs / 86400000);
 
-    if (diffMin < 1) return 'À l\'instant';
-    if (diffMin < 60) return `Il y a ${diffMin} min`;
-    if (diffH < 24) return `Il y a ${diffH}h`;
-    if (diffD < 7) return `Il y a ${diffD}j`;
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    if (diffMin < 1) return t('dashboard.justNow');
+    if (diffMin < 60) return t('dashboard.minsAgo', { count: diffMin });
+    if (diffH < 24) return t('dashboard.hoursAgo', { count: diffH });
+    if (diffD < 7) return t('dashboard.daysAgo', { count: diffD });
+    return d.toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short' });
   };
 
   if (loading) {
@@ -105,7 +105,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6 lg:space-y-8 pb-10 overflow-x-hidden">
       <Helmet>
-        <title>Tableau de bord | ORIS</title>
+        <title>{t('dashboard.title', 'Tableau de bord')} | ORIS</title>
         <meta name="description" content="Aperçu global de votre activité, dossiers, alertes et tâches sur ORIS." />
       </Helmet>
       
@@ -113,10 +113,10 @@ export function Dashboard() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-3xl font-heading font-extrabold text-gray-900 dark:text-white tracking-tight">
-            Bonjour, {profile?.full_name?.split(' ')[0]} 👋
+            {t('dashboard.greeting', { name: profile?.full_name?.split(' ')[0] })}
           </h1>
           <p className="text-gray-500 dark:text-slate-400 mt-2 text-sm lg:text-base max-w-xl leading-relaxed">
-            Voici l'état vital du centre d'investigation. Naviguez rapidement vers vos urgences.
+            {t('dashboard.subtitle')}
           </p>
         </div>
       </motion.div>
@@ -128,17 +128,17 @@ export function Dashboard() {
         animate="show" 
         className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-5 pb-4"
       >
-        <StatCard icon={FolderOpen} label="Dossiers ouverts" value={data.stats.openCases} color="blue" onClick={() => navigate('/cases')} />
-        {(data as any).canSeeAlerts !== false && <StatCard icon={AlertTriangle} label="Alertes" value={data.stats.openAlerts || 0} color="rose" onClick={() => navigate('/alerts')} />}
-        <StatCard icon={ClipboardList} label="Mes tâches" value={data.stats.myOpenTasks} color="emerald" onClick={() => navigate('/tasks')} />
-        <StatCard icon={UserX} label="Non assignées" value={data.stats.unassignedTasks} color="amber" onClick={() => navigate('/tasks')} />
+        <StatCard icon={FolderOpen} label={t('dashboard.openCases')} value={data.stats.openCases} color="blue" onClick={() => navigate('/cases')} />
+        {(data as any).canSeeAlerts !== false && <StatCard icon={AlertTriangle} label={t('dashboard.alerts')} value={data.stats.openAlerts || 0} color="rose" onClick={() => navigate('/alerts')} />}
+        <StatCard icon={ClipboardList} label={t('dashboard.myTasks')} value={data.stats.myOpenTasks} color="emerald" onClick={() => navigate('/tasks')} />
+        <StatCard icon={UserX} label={t('dashboard.unassignedTasks')} value={data.stats.unassignedTasks} color="amber" onClick={() => navigate('/tasks')} />
         
         {/* Taux de résolution Visuel */}
         <motion.div variants={itemVariants} className="col-span-2 md:col-span-3 lg:col-span-1 bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 rounded-2xl p-6 shadow-xl shadow-blue-900/20 relative overflow-hidden text-white flex items-center justify-between group">
             <div className="z-10">
                 <Target className="w-5 h-5 text-indigo-200 mb-3 drop-shadow-sm group-hover:scale-110 transition-transform" />
                 <div className="text-3xl font-heading font-bold drop-shadow-md">{closureRate}%</div>
-                <div className="text-[11px] text-indigo-100 uppercase tracking-widest font-semibold mt-1">Résolution</div>
+                <div className="text-[11px] text-indigo-100 uppercase tracking-widest font-semibold mt-1">{t('dashboard.resolutionRate')}</div>
             </div>
             
             <div className="relative w-16 h-16 z-10 drop-shadow-lg">
@@ -172,7 +172,7 @@ export function Dashboard() {
           <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/30">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <Shield className={`w-4 h-4 ${data.criticalCases.length > 0 ? 'text-rose-500' : 'text-gray-400'}`} />
-              Dossiers à haut risque
+              {t('dashboard.criticalCases')}
             </h2>
           </div>
 
@@ -182,8 +182,8 @@ export function Dashboard() {
                     <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-3">
                         <Shield className="w-5 h-5 text-emerald-500" />
                     </div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Aucune urgence</p>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">Le périmètre est sécurisé.</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{t('dashboard.noCriticalCases')}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">{t('dashboard.perimeterSecured')}</p>
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -207,7 +207,7 @@ export function Dashboard() {
                                 {c.title}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 flex items-center justify-between">
-                                Créé {formatDate(c.created_at)}
+                                {t('dashboard.created')} {formatDate(c.created_at)}
                                 <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all text-rose-500" />
                             </p>
                         </div>
@@ -227,13 +227,13 @@ export function Dashboard() {
             <div className="p-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/30 flex justify-between items-center">
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <Activity className="w-4 h-4 text-blue-500" />
-                    Flux d'activité en direct
+                    {t('dashboard.activityStream')}
                 </h2>
             </div>
             
             <div className="p-5 flex-1 max-h-[400px] overflow-y-auto">
                 {data.recentActivity.length === 0 ? (
-                    <p className="text-sm text-gray-500 dark:text-slate-400 text-center py-8">Aucune activité récente</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400 text-center py-8">{t('dashboard.noActivity')}</p>
                 ) : (
                     <div className="space-y-0 relative before:absolute before:inset-0 before:ml-[1.125rem] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-px before:bg-gradient-to-b before:from-gray-200 before:via-gray-200 dark:before:from-slate-700 dark:before:via-slate-700 before:to-transparent">
                         {data.recentActivity.map((item, i) => {

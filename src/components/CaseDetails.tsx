@@ -611,12 +611,12 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
 
   const caseBaseUrl = `/cases/${caseId}`;
   
-  const breadcrumbsItems: BreadcrumbItem[] = [
-    { label: t('nav.cases', 'Dossiers'), path: '/cases', icon: FolderOpen }
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: caseData?.type === 'alert' ? t('nav.alerts', 'Alertes') : t('nav.cases', 'Dossiers'), path: caseData?.type === 'alert' ? '/alerts' : '/cases', icon: FolderOpen }
   ];
 
   if (caseData) {
-    breadcrumbsItems.push({
+    breadcrumbItems.push({
       label: caseData.title || caseData.case_number,
       path: activeSection === 'description' && !selectedTaskId ? undefined : caseBaseUrl,
       icon: isAlert ? AlertTriangle : FolderOpen
@@ -634,14 +634,14 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
         reports: t('auto.rapports')
       };
       
-      breadcrumbsItems.push({
+      breadcrumbItems.push({
         label: SECTION_LABELS[activeSection] || activeSection,
         path: selectedTaskId ? `${caseBaseUrl}?section=${activeSection}` : undefined
       });
     }
 
     if (selectedTaskId && activeSection === 'tasks') {
-      breadcrumbsItems.push({
+      breadcrumbItems.push({
         label: activeTaskTitle || t('auto.chargement', 'Chargement...'),
         icon: ClipboardList
       });
@@ -651,7 +651,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
   return (
     <div className="mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-3 sm:py-6">
       <div className="mb-6 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-4 sm:p-6 shadow-sm">
-        <Breadcrumbs items={breadcrumbsItems} className="mb-4" />
+        <Breadcrumbs items={breadcrumbItems} className="mb-4" />
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <button
             onClick={onBack}
@@ -693,6 +693,11 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
                     <AlertCircle className="w-3 h-3" />
                     {caseData.severity.label}
                   </span>
+                  {caseData.type === 'alert' && (
+                    <span className="px-2 py-1 rounded text-xs font-semibold bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">
+                      {t('cases.alert', 'Alerte')}
+                    </span>
+                  )}
                   <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 flex items-center gap-1 flex-shrink-0">
                     <Building className="w-3 h-3" />
                     {caseData.beneficiary_name}
@@ -836,7 +841,7 @@ export function CaseDetails({ caseId, onBack }: CaseDetailsProps) {
                 <AiChatPanel
                   context={{
                     ...aiCaseContext,
-                    taskTitle: selectedTaskId ? `Tâche sélectionnée (ID: ${selectedTaskId})` : '(Vue globale du dossier)',
+                    taskTitle: selectedTaskId ? `${t('tasks.selectedTask', 'Tâche sélectionnée')} (ID: ${selectedTaskId})` : `(${t('cases.globalView', 'Vue globale du dossier')})`,
                   }}
                   onClose={() => setShowAiChat(false)}
                 />

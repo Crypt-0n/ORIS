@@ -167,10 +167,10 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
   
   if (groupBy !== 'none' && alerts.length > 0) {
     groupedAlerts = alerts.reduce((acc, curr) => {
-      let key = 'Inconnu';
-      if (groupBy === 'beneficiary') key = curr.beneficiary?.name || 'Aucun bénéficiaire';
+      let key = t('filters.unknown');
+      if (groupBy === 'beneficiary') key = curr.beneficiary?.name || t('filters.noBeneficiary');
       else if (groupBy === 'severity') key = curr.severity.label;
-      else if (groupBy === 'status') key = curr.status === 'open' ? 'Ouvertes' : 'Clôturées';
+      else if (groupBy === 'status') key = curr.status === 'open' ? t('filters.openPluralFem') : t('filters.closedPluralFem');
       else if (groupBy === 'author') key = curr.author.full_name;
       
       if (!acc[key]) acc[key] = [];
@@ -201,14 +201,14 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
   return (
     <div className="space-y-4 sm:space-y-6">
       <Helmet>
-        <title>Alertes de sécurité | ORIS</title>
+        <title>{t('alerts.title')} | ORIS</title>
         <meta name="description" content="Gestion des alertes de sécurité entrantes et conversion en dossiers." />
       </Helmet>
       
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">
-            {activeTab === 'supervision' ? 'Supervision des alertes' : (activeTab === 'backlog' ? 'Backlog' : 'Mes alertes')}
+            {activeTab === 'supervision' ? t('alerts.supervision') : (activeTab === 'backlog' ? t('alerts.backlog') : t('alerts.myAlerts'))}
           </h2>
         </div>
         
@@ -219,19 +219,19 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
               onClick={() => { setFilter('all'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md font-medium transition-all text-xs sm:text-sm ${filter === 'all' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`}
             >
-              Toutes <span className="ml-1 opacity-70 text-[10px] font-mono">({statusCounts.all})</span>
+              {t('filters.allFem')} <span className="ml-1 opacity-70 text-[10px] font-mono">({statusCounts.all})</span>
             </button>
             <button
               onClick={() => { setFilter('open'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md font-medium transition-all text-xs sm:text-sm ${filter === 'open' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`}
             >
-              Ouvertes <span className="ml-1 opacity-70 text-[10px] font-mono">({statusCounts.open})</span>
+              {t('filters.openPluralFem')} <span className="ml-1 opacity-70 text-[10px] font-mono">({statusCounts.open})</span>
             </button>
             <button
               onClick={() => { setFilter('closed'); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-md font-medium transition-all text-xs sm:text-sm ${filter === 'closed' ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`}
             >
-               Clôturées <span className="ml-1 opacity-70 text-[10px] font-mono">({statusCounts.closed})</span>
+               {t('filters.closedPluralFem')} <span className="ml-1 opacity-70 text-[10px] font-mono">({statusCounts.closed})</span>
             </button>
           </div>
 
@@ -243,11 +243,11 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
               onChange={(e) => setGroupBy(e.target.value as any)}
               className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer [&>option]:dark:bg-slate-900"
             >
-              <option value="none">Ne pas grouper</option>
-              <option value="beneficiary">Par Bénéficiaire</option>
-              <option value="severity">Par Sévérité</option>
-              <option value="status">Par Statut</option>
-              <option value="author">Par Auteur</option>
+              <option value="none">{t('filters.groupNone')}</option>
+              <option value="beneficiary">{t('filters.groupBeneficiary')}</option>
+              <option value="severity">{t('filters.groupSeverity')}</option>
+              <option value="status">{t('filters.groupStatus')}</option>
+              <option value="author">{t('filters.groupAuthor')}</option>
             </select>
           </div>
 
@@ -259,7 +259,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
               onChange={(e) => { setFilterBeneficiary(e.target.value); setCurrentPage(1); }}
               className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate [&>option]:dark:bg-slate-900"
             >
-              <option value="all">Bénéficiaire (Tous)</option>
+              <option value="all">{t('filters.allBeneficiaries')}</option>
               {availableBeneficiaries.map(({id, name}) => (
                 <option key={id} value={id}>{name}</option>
               ))}
@@ -271,7 +271,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
               onChange={(e) => { setFilterSeverity(e.target.value); setCurrentPage(1); }}
               className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer [&>option]:dark:bg-slate-900"
             >
-              <option value="all">Sévérité (Toutes)</option>
+              <option value="all">{t('filters.allSeverities')}</option>
               {availableSeverities.map(({id, label}) => (
                 <option key={id} value={id}>{label}</option>
               ))}
@@ -283,7 +283,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
               onChange={(e) => { setFilterAuthor(e.target.value); setCurrentPage(1); }}
               className="bg-transparent text-sm font-medium text-gray-900 dark:text-white border-0 py-0 pl-1 pr-6 focus:ring-0 cursor-pointer max-w-[140px] truncate [&>option]:dark:bg-slate-900"
             >
-              <option value="all">Auteur (Tous)</option>
+              <option value="all">{t('filters.allAuthors')}</option>
               {availableAuthors.map(({id, full_name}) => (
                 <option key={id} value={id}>{full_name}</option>
               ))}
@@ -296,7 +296,7 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
               className="bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 transition flex items-center justify-center gap-2 text-sm font-medium flex-shrink-0"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Nouvelle alerte</span>
+              <span className="hidden sm:inline">{t('alerts.newAlert')}</span>
             </button>
           )}
         </div>
@@ -307,33 +307,33 @@ export function AlertsList({ onSelectAlert, onCreateAlert }: AlertsListProps) {
           <button
             onClick={() => { setActiveTab('my'); resetFilters(); fetchFiltersMetadata(); }}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === 'my'
-              ? 'border-orange-600 text-orange-600 dark:text-orange-400 dark:border-orange-400'
+              ? 'border-rose-600 text-rose-600 dark:text-rose-400 dark:border-rose-400'
               : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
               }`}
           >
             <AlertTriangle className="w-4 h-4" />
-            Mes alertes <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${activeTab === 'my' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400'}`}>{activeTab === 'my' ? totalItems : tabCounts.my}</span>
+            {t('alerts.myAlerts')} <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${activeTab === 'my' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400'}`}>{activeTab === 'my' ? totalItems : tabCounts.my}</span>
           </button>
           <button
             onClick={() => { setActiveTab('backlog'); resetFilters(); fetchFiltersMetadata(); }}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === 'backlog'
-              ? 'border-orange-600 text-orange-600 dark:text-orange-400 dark:border-orange-400'
+              ? 'border-rose-600 text-rose-600 dark:text-rose-400 dark:border-rose-400'
               : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
               }`}
           >
             <Layers className="w-4 h-4" />
-            Backlog <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${activeTab === 'backlog' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400'}`}>{activeTab === 'backlog' ? totalItems : tabCounts.backlog}</span>
+            {t('alerts.backlog')} <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${activeTab === 'backlog' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400'}`}>{activeTab === 'backlog' ? totalItems : tabCounts.backlog}</span>
           </button>
           {isAdmin && (
             <button
               onClick={() => { setActiveTab('supervision'); resetFilters(); fetchFiltersMetadata(); }}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab === 'supervision'
-                ? 'border-orange-600 text-orange-600 dark:text-orange-400 dark:border-orange-400'
+                ? 'border-rose-600 text-rose-600 dark:text-rose-400 dark:border-rose-400'
                 : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'
                 }`}
             >
               <Eye className="w-4 h-4" />
-              Supervision <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${activeTab === 'supervision' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400'}`}>{activeTab === 'supervision' ? totalItems : tabCounts.supervision}</span>
+              {t('alerts.supervision')} <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${activeTab === 'supervision' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400'}`}>{activeTab === 'supervision' ? totalItems : tabCounts.supervision}</span>
             </button>
           )}
         </div>
