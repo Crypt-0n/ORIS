@@ -83,6 +83,41 @@ const StixAuditEntry = ({ item, diamondName }: { item: any, diamondName: string 
   const diffs = hasDiff ? computeDiff() : null;
   const hasActualDiffs = diffs && Object.keys(diffs).length > 0;
 
+  const translateKey = (k: string) => {
+    const dict: Record<string, string> = {
+      x_oris_description: 'Description détaillée',
+      name: 'Nom du diamant',
+      description: 'Description globale',
+      x_oris_kill_chain: 'Étape de la Kill Chain',
+      x_oris_diamond_axes: 'Axes du diamant',
+      labels: 'Étiquettes STIX',
+      confidence: 'Niveau de confiance',
+    };
+    return dict[k] || k;
+  };
+
+  const formatValue = (v: any, k: string) => {
+    if (v === undefined || v === null) return <em className="opacity-50">Vide</em>;
+    if (k === 'x_oris_diamond_axes' && typeof v === 'object') {
+      const axisDict: Record<string, string> = { adversary: 'Adversaire', capability: 'Capacité', infrastructure: 'Infrastructure', victim: 'Victime' };
+      return (
+        <div className="space-y-1">
+          {Object.entries(v).map(([axis, ids]: any) => (
+            <div key={axis} className="flex justify-between border-b border-white/10 last:border-0 pb-1">
+              <span className="font-semibold">{axisDict[axis] || axis}</span>
+              <span className="bg-white/20 dark:bg-black/20 px-1.5 py-0.5 rounded text-[10px]">{Array.isArray(ids) ? ids.length : 0} élément(s)</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    if (typeof v === 'object') {
+      return <pre className="text-[10px] m-0 bg-transparent truncate max-w-xs">{JSON.stringify(v)}</pre>;
+    }
+    if (typeof v === 'string' && v.trim() === '') return <em className="opacity-50">Vide</em>;
+    return String(v);
+  };
+
   return (
     <div key={item.id} className="mb-2">
       <div className="flex items-center gap-2 py-1.5 px-3 bg-transparent border-[0.5px] border-dashed border-gray-200 dark:border-slate-800 rounded-lg">
@@ -100,12 +135,26 @@ const StixAuditEntry = ({ item, diamondName }: { item: any, diamondName: string 
          <span className="text-[10px] text-gray-400 flex-shrink-0">{new Date(item.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
       </div>
       {showDiff && hasActualDiffs && (
-        <div className="ml-10 mt-1 p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-mono overflow-auto max-h-64 shadow-inner">
+        <div className="ml-10 mt-2 space-y-2 max-w-3xl">
            {Object.entries(diffs).map(([key, val]) => (
-             <div key={key} className="mb-3 last:mb-0">
-               <div className="font-semibold text-purple-600 dark:text-purple-400 mb-1">{key}:</div>
-               <div className="text-red-500/80 dark:text-red-400/80 pl-2 break-all line-through decoration-red-500/30">- {JSON.stringify(val.old) ?? 'null'}</div>
-               <div className="text-green-600/90 dark:text-green-400/90 pl-2 break-all font-medium">+ {JSON.stringify(val.new) ?? 'null'}</div>
+             <div key={key} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded overflow-hidden shadow-sm">
+                <div className="bg-slate-100 dark:bg-slate-900/50 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700 flex items-center">
+                  <span className="font-medium text-[11px] text-slate-600 dark:text-slate-400 uppercase tracking-wider">{translateKey(key)}</span>
+                </div>
+                <div className="grid grid-cols-2 divide-x divide-slate-200 dark:divide-slate-700">
+                  <div className="p-2.5 bg-red-50/40 dark:bg-red-950/20">
+                    <div className="text-[9px] text-red-500 uppercase font-semibold mb-1 opacity-80">Avant</div>
+                    <div className="text-xs text-red-800 dark:text-red-300 whitespace-pre-wrap font-mono relative">
+                       {formatValue(val.old, key)}
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-green-50/40 dark:bg-green-950/20">
+                    <div className="text-[9px] text-green-600 uppercase font-semibold mb-1 opacity-80">Après</div>
+                    <div className="text-xs text-green-800 dark:text-green-300 whitespace-pre-wrap font-mono relative">
+                       {formatValue(val.new, key)}
+                    </div>
+                  </div>
+                </div>
              </div>
            ))}
         </div>
