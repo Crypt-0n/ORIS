@@ -14,7 +14,13 @@ const { Database } = require('arangojs');
 const ARANGO_URL = process.env.ARANGO_URL || 'http://localhost:8529';
 const ARANGO_DB = process.env.ARANGO_DB || 'oris';
 const ARANGO_USER = process.env.ARANGO_USER || 'root';
-const ARANGO_PASSWORD = process.env.ARANGO_PASSWORD || 'oris_secret';
+const ARANGO_PASSWORD = process.env.ARANGO_PASSWORD;
+
+if (!ARANGO_PASSWORD) {
+    if (process.env.NODE_ENV !== 'test') { // Allow tests to mock DB
+        console.warn("\x1b[33m[ArangoDB] AVERTISSEMENT: ARANGO_PASSWORD n'est pas défini dans l'environnement.\x1b[0m");
+    }
+}
 
 let _db = null;
 let _sysDb = null;

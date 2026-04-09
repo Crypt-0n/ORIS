@@ -6,12 +6,7 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 // Extends Vitest's expect method with methods from react-testing-library
 expect.extend(matchers as any);
 
-// Mock global APIs and libraries that cause issues in jsdom
-vi.mock('html2canvas', () => ({
-  default: vi.fn().mockResolvedValue({
-    toDataURL: () => 'data:image/png;base64,mockedbase64'
-  })
-}));
+
 
 // Provide a mock for matchMedia (often missing in jsdom but used by Tailwind/charts)
 Object.defineProperty(window, 'matchMedia', {

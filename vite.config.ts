@@ -87,7 +87,10 @@ export default defineConfig({
           if (id.includes('node_modules')) {
             if (id.includes('react/') || id.includes('react-dom/') || id.includes('react-router-dom/') || id.includes('react-helmet-async/')) return 'react-vendor';
             if (id.includes('lucide-react/') || id.includes('framer-motion/') || id.includes('tippy.js/')) return 'ui-vendor';
-            if (id.includes('@tiptap/')) return 'editor-vendor';
+            if (id.includes('@tiptap/') || id.includes('prosemirror')) return 'editor-vendor';
+            if (id.includes('@xyflow/') || id.includes('dagre')) return 'graph-vendor';
+            if (id.includes('i18next') || id.includes('react-i18next')) return 'i18n-vendor';
+            if (id.includes('dompurify') || id.includes('marked')) return 'sanitize-vendor';
             return 'vendor';
           }
         }
