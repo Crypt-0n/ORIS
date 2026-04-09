@@ -223,7 +223,7 @@ router.put('/password', async (req: AuthenticatedRequest, res: Response): Promis
 });
 
 const updatePreferencesSchema = z.object({
-  preferences: z.record(z.any()),
+  preferences: z.record(z.string(), z.any()),
 });
 
 router.put('/preferences', async (req: AuthenticatedRequest, res: Response): Promise<void> => {

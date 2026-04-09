@@ -1,6 +1,6 @@
 import { getDb } from '../db-arango';
 
-export const AI_CONFIG_KEYS = [
+const AI_CONFIG_KEYS = [
   'ai_enabled',
   'ai_provider',
   'ai_api_url',
@@ -12,7 +12,7 @@ export const AI_CONFIG_KEYS = [
   'ai_quick_prompts',
 ];
 
-export const DEFAULT_QUICK_PROMPTS = [
+const DEFAULT_QUICK_PROMPTS = [
   { label: 'Résumer la timeline', prompt: 'Résume cette chronologie en 5 points clés pour le rapport de réponse à incident.' },
   { label: 'Analyser le Diamant', prompt: 'Analyse le Modèle Diamant de ce dossier. Identifie les axes incomplets, les corrélations entre événements, et les relations adversaire-infrastructure qui pourraient passer inaperçues.' },
   { label: 'Points aveugles', prompt: 'En tant qu\'expert CTI, quels sont les angles morts de cette investigation ? Quelles pistes l\'analyste n\'a peut-être pas explorées ? Quels événements manquent potentiellement dans la chronologie ?' },
@@ -20,12 +20,12 @@ export const DEFAULT_QUICK_PROMPTS = [
   { label: 'Rédiger la synthèse', prompt: 'Rédige une synthèse technique de ce cas au format ANSSI/CERT-FR, incluant : le résumé, la chronologie, les IOCs, et les recommandations.' },
 ];
 
-export const DEFAULT_SYSTEM_PROMPT = `Tu es un analyste CTI (Cyber Threat Intelligence) senior spécialisé en réponse à incident.
+const DEFAULT_SYSTEM_PROMPT = `Tu es un analyste CTI (Cyber Threat Intelligence) senior spécialisé en réponse à incident.
 Tu aides l'analyste à investiguer en te basant sur le contexte du dossier fourni.
 Réponds toujours en français, de manière concise et technique.
 Utilise le vocabulaire ANSSI/CERT-FR quand c'est pertinent.`;
 
-export const ObjectProviders = {
+const ObjectProviders = {
   openai: {
     label: 'OpenAI (GPT)',
     defaultUrl: 'https://api.openai.com/v1',

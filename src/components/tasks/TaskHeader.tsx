@@ -4,7 +4,7 @@ import { ArrowLeft, Edit, Lock, Share2, Trash2, Server, Pencil, ArrowRight, Bug,
 import { ActiveUsers } from '../ActiveUsers';
 import { ShieldCheck, ShieldAlert, ShieldX, ShieldQuestion } from 'lucide-react';
 
-export const INVESTIGATION_STATUS_MAP: Record<string, { label: string; icon: any; textClass: string; bgClass: string; borderClass: string }> = {
+const INVESTIGATION_STATUS_MAP: Record<string, { label: string; icon: any; textClass: string; bgClass: string; borderClass: string }> = {
   unknown: { label: 'Inconnu', icon: ShieldQuestion, textClass: 'text-slate-500 dark:text-slate-400', bgClass: 'bg-slate-100 dark:bg-slate-800', borderClass: 'border-slate-300 dark:border-slate-600' },
   clean: { label: 'Sain', icon: ShieldCheck, textClass: 'text-green-700 dark:text-green-400', bgClass: 'bg-green-50 dark:bg-green-900/20', borderClass: 'border-green-200 dark:border-green-800' },
   compromised: { label: 'Compromis / Accede', icon: ShieldAlert, textClass: 'text-amber-700 dark:text-amber-400', bgClass: 'bg-amber-50 dark:bg-amber-900/20', borderClass: 'border-amber-200 dark:border-amber-800' },

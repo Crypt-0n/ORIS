@@ -1,7 +1,7 @@
 import { Monitor, Server, Smartphone, Tablet, Tv, Router, Cpu, HelpCircle, Skull } from 'lucide-react';
 import { SystemNode, LateralEdge } from './types';
 
-export const FALLBACK_COLOR = '#94a3b8';
+const FALLBACK_COLOR = '#94a3b8';
 
 export const STATUS_COLORS: Record<string, string> = {
   infected: '#ef4444',
@@ -23,8 +23,8 @@ export const SYSTEM_ICONS: Record<string, typeof Monitor> = {
 
 export const VW = 900;
 export const NODE_R = 26;
-export const PAD = 80;
-export const ROW_SPACING = 120;
+const PAD = 80;
+const ROW_SPACING = 120;
 
 export function computeVH(nodeCount: number): number {
   return Math.max(550, PAD * 2 + (nodeCount - 1) * ROW_SPACING + 60);

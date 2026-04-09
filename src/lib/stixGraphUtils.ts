@@ -22,7 +22,7 @@ export interface StixNodeStyle {
   shape: 'rectangle' | 'hexagon' | 'diamond' | 'circle' | 'octagon';
 }
 
-export const STIX_NODE_STYLES: Record<string, StixNodeStyle> = {
+const STIX_NODE_STYLES: Record<string, StixNodeStyle> = {
   'threat-actor': {
     bgColor: '#fef2f2', borderColor: '#ef4444', textColor: '#991b1b',
     darkBgColor: '#450a0a', darkBorderColor: '#f87171', darkTextColor: '#fca5a5',
@@ -120,7 +120,7 @@ export function getStixNodeStyle(type: string): StixNodeStyle {
 
 // ─── Edge Style by Relationship Type ─────────────────────────
 
-export interface StixEdgeStyle {
+interface StixEdgeStyle {
   color: string;
   darkColor: string;
   label: string;
@@ -158,7 +158,7 @@ export function getObjectLabel(obj: any): string {
 
 // ─── Build React Flow Graph Data ─────────────────────────────
 
-export interface GraphData {
+interface GraphData {
   nodes: Node[];
   edges: Edge[];
 }

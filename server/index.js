@@ -53,7 +53,7 @@ const globalLimiter = rateLimit({
 app.use('/api/', globalLimiter);
 
 app.use(fileUpload({
-    limits: { fileSize: 5000 * 1024 * 1024 }, // 5000 MB (5 GB)
+    limits: { fileSize: 5000 * 1024 * 1024 }, // 5000 MB (5 GB) per user request for large logs
     useTempFiles: true,
     tempFileDir: '/tmp/',
     abortOnLimit: true,

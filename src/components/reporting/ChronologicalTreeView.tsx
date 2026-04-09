@@ -108,7 +108,7 @@ const nodeTypes = { systemTree: SystemTreeNode };
 
 // ─── Dagre Layout ────────────────────────────────────────────────────────────
 
-export function runDagreLayout(nodes: { id: string; data: SystemNodeData }[], edgePairs: { source: string; target: string }[]) {
+function runDagreLayout(nodes: { id: string; data: SystemNodeData }[], edgePairs: { source: string; target: string }[]) {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
   g.setGraph({ rankdir: 'TB', ranksep: 120, nodesep: 80, marginx: 40, marginy: 40 });
@@ -140,7 +140,7 @@ function formatEdgeDate(datetime: string): string {
 
 // ─── Shared data fetching ────────────────────────────────────────────────────
 
-export async function fetchTreeData(caseId: string, endDate?: string) {
+async function fetchTreeData(caseId: string, endDate?: string) {
   const [lateralRes, bundleRes] = await Promise.all([
     api.get(`/stix/lateral/${caseId}`),
     api.get(`/stix/bundle/${caseId}`)

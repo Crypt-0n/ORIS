@@ -52,8 +52,9 @@ router.post('/upload', authenticateToken, async (req: AuthenticatedRequest, res:
         const uploadedFile = req.files.file;
 
         // SEC-04: Validate real MIME type via magic bytes, not client-declared header
-        const fileType = require('file-type');
-        const detectedType = fileType(uploadedFile.data);
+        // SEC-04: Validate real MIME type via magic bytes, not client-declared header
+        const fileTypePkg = await (eval(`import('file-type')`) as Promise<any>);
+        const detectedType = await fileTypePkg.fileTypeFromBuffer(uploadedFile.data);
         const effectiveMime = detectedType?.mime || uploadedFile.mimetype;
 
         if (!ALLOWED_MIME_TYPES.includes(effectiveMime)) {

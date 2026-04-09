@@ -2,7 +2,7 @@
  * STIX 2.1 API client — wraps the existing ApiClient for STIX-specific endpoints.
  */
 import { api } from './api';
-import type { StixSDO, Relationship, StixBundle } from './stix.types';
+import type { StixSDO, Relationship } from './stix.types';
 
 // ─── STIX Objects ───────────────────────────────────────────────
 
@@ -30,20 +30,6 @@ export async function deleteStixObject(id: string): Promise<void> {
 
 export async function fetchStixRelationships(caseId: string): Promise<Relationship[]> {
     return api.get(`/stix/relationships/by-case/${caseId}`);
-}
-
-export async function createStixRelationship(caseId: string, data: Omit<Relationship, 'type'>): Promise<Relationship> {
-    return api.post('/stix/relationships', { case_id: caseId, type: 'relationship', ...data });
-}
-
-export async function deleteStixRelationship(id: string): Promise<void> {
-    await api.delete(`/stix/relationships/${id}`);
-}
-
-// ─── STIX Bundle ────────────────────────────────────────────────
-
-export async function fetchStixBundle(caseId: string): Promise<StixBundle> {
-    return api.get(`/stix/bundle/${caseId}`);
 }
 
 // ─── Helpers ────────────────────────────────────────────────────
