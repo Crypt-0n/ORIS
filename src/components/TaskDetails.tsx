@@ -118,6 +118,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
   const [editingDiamond, setEditingDiamond] = useState<any | null>(null);
   const [caseStixObjects, setCaseStixObjects] = useState<any[]>([]);
   const [editingStixObject, setEditingStixObject] = useState(false);
+  const [diamondAuditLogs, setDiamondAuditLogs] = useState<any[]>([]);
 
   const linkedStixObject = useMemo(() => {
     if (!taskData) return null;
@@ -224,6 +225,22 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
         return { ...d, _axes: axesData, _relations: diamondRelations };
       });
       setTaskDiamonds(merged);
+      
+      // Fetch audit logs for this case to get creation/modification history and authors for these diamonds
+      try {
+        const auditRes = await api.get(`/audit/case/${caseId}`);
+        if (Array.isArray(auditRes)) {
+          const diamondIds = new Set(merged.map((d: any) => d.id));
+          const filteredAudits = auditRes.filter(log => 
+            log.entity_type === 'stix' && 
+            diamondIds.has(log.entity_id) && 
+            (log.action === 'stix_object_created' || log.action === 'stix_object_updated')
+          );
+          setDiamondAuditLogs(filteredAudits);
+        }
+      } catch (err) {
+        console.error('Failed to load audit logs for diamonds:', err);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -578,6 +595,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
                     onCountChange={setCommentCount} 
                     isReadOnly={isReadOnly}
                     taskDiamonds={taskDiamonds}
+                    diamondAuditLogs={diamondAuditLogs}
                     caseKillChainType={caseKillChainType}
                     canEditDiamond={canEditDiamond}
                     onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}

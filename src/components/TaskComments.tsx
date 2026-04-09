@@ -49,6 +49,7 @@ interface TaskCommentsProps {
   onCountChange?: (count: number) => void;
   isReadOnly?: boolean;
   taskDiamonds?: any[];
+  diamondAuditLogs?: any[];
   caseKillChainType?: string | null;
   canEditDiamond?: boolean;
   onAddDiamond?: () => void;
@@ -66,7 +67,7 @@ function formatFileSize(bytes: number): string {
 
 export function TaskComments({ 
   taskId, isClosed, caseAuthorId, onCountChange, isReadOnly,
-  taskDiamonds = [], caseKillChainType = null, canEditDiamond = false,
+  taskDiamonds = [], diamondAuditLogs = [], caseKillChainType = null, canEditDiamond = false,
   onAddDiamond, onEditDiamond, onDeleteDiamond
 }: TaskCommentsProps) {
   const { t } = useTranslation();
@@ -234,7 +235,13 @@ export function TaskComments({
   const childComments = comments.filter(c => c.parent_id);
   const getReplies = (parentId: string) => childComments.filter(c => c.parent_id === parentId);
 
-  const unifiedTimeline = [...rootComments, ...taskDiamonds].sort((a: any, b: any) => {
+  const auditEvents = (diamondAuditLogs || []).filter((log: any) => log.action === 'stix_object_updated').map((log: any) => ({
+    ...log,
+    is_audit: true,
+    created_at: log.created_at
+  }));
+
+  const unifiedTimeline = [...rootComments, ...taskDiamonds, ...auditEvents].sort((a: any, b: any) => {
     const dateA = new Date(a.created_at || a.first_observed || a.created || 0).getTime();
     const dateB = new Date(b.created_at || b.first_observed || b.created || 0).getTime();
     return dateA - dateB;
@@ -380,27 +387,54 @@ export function TaskComments({
       ) : (
         <div ref={scrollContainerRef} className="space-y-3 pr-1">
           {unifiedTimeline.map((item: any) => {
+            if (item.is_audit) {
+               return (
+                  <div key={item.id} className="flex items-center gap-2 py-1.5 px-3 bg-transparent border-[0.5px] border-dashed border-gray-200 dark:border-slate-800 rounded-lg">
+                     <UserAvatar name={item.details?.user_full_name || 'Système'} size="sm" />
+                     <span className="text-xs text-gray-500 dark:text-slate-400">
+                        <span className="font-medium text-gray-700 dark:text-slate-300 mr-1">{item.details?.user_full_name || 'Système'}</span>
+                        a modifié le diamant d'investigation
+                     </span>
+                     <span className="text-[10px] text-gray-400 ml-auto">{new Date(item.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                  </div>
+               );
+            }
             if (item.type === 'observed-data') {
                const d = item;
+               const creatorLog = (diamondAuditLogs || []).find((log: any) => log.entity_id === d.id && log.action === 'stix_object_created');
+               const creatorName = creatorLog?.details?.user_full_name;
                const phases = getKillChainPhases(caseKillChainType || 'lockheed-martin');
                const phase = phases.find(p => p.value === d.x_oris_kill_chain);
                const { complete, missing } = getDiamondCompleteness(d);
                return (
                   <div key={d.id} className="flex items-center justify-between py-2 px-3 bg-transparent border border-dashed border-cyan-200 dark:border-cyan-800/50 rounded-lg transition-colors group">
                     <div className="flex items-center gap-2 overflow-hidden">
-                      <Diamond className="w-4 h-4 text-cyan-500 dark:text-cyan-600 flex-shrink-0" />
-                      <span className="text-xs text-gray-500 dark:text-slate-400 truncate">
-                        Diamant d'investigation : <span className="font-semibold text-gray-700 dark:text-slate-300">{d.x_oris_description || d.name}</span>
-                      </span>
+                      {creatorName ? (
+                         <>
+                           <div className="transform scale-75 origin-left -my-1"><UserAvatar name={creatorName} size="sm" /></div>
+                           <span className="text-xs text-gray-500 dark:text-slate-400 truncate">
+                             <span className="font-medium text-gray-700 dark:text-slate-300 mr-1">{creatorName}</span>
+                             a créé le diamant : <span className="font-semibold text-gray-700 dark:text-slate-300 ml-1">{d.x_oris_description || d.name}</span>
+                           </span>
+                         </>
+                      ) : (
+                         <>
+                           <Diamond className="w-4 h-4 text-cyan-500 dark:text-cyan-600 flex-shrink-0" />
+                           <span className="text-xs text-gray-500 dark:text-slate-400 truncate">
+                             Diamant d'investigation : <span className="font-semibold text-gray-700 dark:text-slate-300">{d.x_oris_description || d.name}</span>
+                           </span>
+                         </>
+                      )}
+                      
                       {phase && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 border" style={{ backgroundColor: `${phase.hexColor}10`, color: phase.hexColor, borderColor: `${phase.hexColor}30` }}>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 border ml-1" style={{ backgroundColor: `${phase.hexColor}10`, color: phase.hexColor, borderColor: `${phase.hexColor}30` }}>
                           {phase.label}
                         </span>
                       )}
                       {complete ? (
-                        <span title="Complet" className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-green-500/80 flex-shrink-0" /></span>
+                        <span title="Complet" className="flex items-center ml-1"><CheckCircle2 className="w-3.5 h-3.5 text-green-500/80 flex-shrink-0" /></span>
                       ) : (
-                        <span title={`Incomplet (${missing.length})`} className="flex items-center"><AlertTriangle className="w-3.5 h-3.5 text-amber-500/80 flex-shrink-0" /></span>
+                        <span title={`Incomplet (${missing.length})`} className="flex items-center ml-1"><AlertTriangle className="w-3.5 h-3.5 text-amber-500/80 flex-shrink-0" /></span>
                       )}
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
