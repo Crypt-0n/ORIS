@@ -386,57 +386,38 @@ export function TaskComments({
                const phase = phases.find(p => p.value === d.x_oris_kill_chain);
                const { complete, missing } = getDiamondCompleteness(d);
                return (
-                  <div key={d.id} className="relative overflow-hidden p-4 rounded-xl bg-gradient-to-br from-cyan-50/80 to-white dark:from-cyan-900/40 dark:to-slate-800/80 border border-cyan-300 dark:border-cyan-700 border-l-[6px] border-l-cyan-500 transition group shadow-md shadow-cyan-500/10">
-                    {/* Decorative watermark */}
-                    <Diamond className="absolute -bottom-4 -right-4 w-32 h-32 text-cyan-500/15 dark:text-cyan-400/10 rotate-12 pointer-events-none" />
-
-                    <div className="flex items-start justify-between mb-2 relative z-10">
-                      <div className="flex items-center gap-2">
-                         <div className="w-8 h-8 flex flex-shrink-0 items-center justify-center bg-cyan-100 dark:bg-cyan-900/50 rounded-full text-cyan-600 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800">
-                           <Diamond className="w-4 h-4" />
-                         </div>
-                         <div className="flex flex-col">
-                           <span className="text-sm font-medium text-gray-800 dark:text-white flex items-center gap-2">
-                             Diamant d'investigation
-                             {complete ? (
-                               <span title="Diamant complet" className="flex items-center text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded-full font-semibold">
-                                 <CheckCircle2 className="w-3 h-3 mr-0.5" /> Complet
-                               </span>
-                             ) : (
-                               <span title={missing.join('\n')} className="flex items-center text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded-full font-semibold cursor-help">
-                                 <AlertTriangle className="w-3 h-3 mr-0.5" /> Incomplet ({missing.length})
-                               </span>
-                             )}
-                           </span>
-                           <span className="text-xs text-gray-500 dark:text-slate-400 font-medium">
-                             {d.x_oris_description || d.name}
-                           </span>
-                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 relative z-10">
-                        <span className="text-xs text-gray-500 dark:text-slate-400">
-                          {d.first_observed || d.created ? new Date(d.first_observed || d.created).toLocaleString('fr-FR') : ''}
+                  <div key={d.id} className="flex items-center justify-between py-2 px-3 bg-transparent border border-dashed border-cyan-200 dark:border-cyan-800/50 rounded-lg transition-colors group">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <Diamond className="w-4 h-4 text-cyan-500 dark:text-cyan-600 flex-shrink-0" />
+                      <span className="text-xs text-gray-500 dark:text-slate-400 truncate">
+                        Diamant d'investigation : <span className="font-semibold text-gray-700 dark:text-slate-300">{d.x_oris_description || d.name}</span>
+                      </span>
+                      {phase && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 border" style={{ backgroundColor: `${phase.hexColor}10`, color: phase.hexColor, borderColor: `${phase.hexColor}30` }}>
+                          {phase.label}
                         </span>
-                        {canEditDiamond && !isReadOnly && (
-                          <div className="flex gap-1">
-                            <button onClick={() => onEditDiamond?.(d)} className="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition" title={t('auto.modifier', 'Modifier')}>
-                              <Edit className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                            </button>
-                            <button onClick={() => onDeleteDiamond?.(d.id)} className="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition" title={t('auto.supprimer', 'Supprimer')}>
-                              <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      )}
+                      {complete ? (
+                        <span title="Complet" className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 text-green-500/80 flex-shrink-0" /></span>
+                      ) : (
+                        <span title={`Incomplet (${missing.length})`} className="flex items-center"><AlertTriangle className="w-3.5 h-3.5 text-amber-500/80 flex-shrink-0" /></span>
+                      )}
                     </div>
-                    {phase && (
-                      <div className="flex items-center gap-2 ml-10 relative z-10 mt-1">
-                        <span className="text-[10px] px-2 py-0.5 rounded border shadow-sm font-medium flex items-center gap-1.5" style={{ backgroundColor: `${phase.hexColor}15`, borderColor: phase.hexColor, color: phase.hexColor }}>
-                           <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: phase.hexColor }} />
-                           Phase: {phase.label}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-xs text-gray-400 dark:text-slate-500">
+                        {d.first_observed || d.created ? new Date(d.first_observed || d.created).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                      </span>
+                      {canEditDiamond && !isReadOnly && (
+                        <div className="flex gap-1.5 text-gray-400">
+                          <button onClick={() => onEditDiamond?.(d)} className="hover:text-blue-600 transition" title={t('auto.modifier', 'Modifier')}>
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => onDeleteDiamond?.(d.id)} className="hover:text-red-600 transition" title={t('auto.supprimer', 'Supprimer')}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                );
             }
