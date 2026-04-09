@@ -288,7 +288,8 @@ describe('Cases & Tasks API', () => {
             expect(res.body.success).toBe(true);
 
             const listRes = await auth(request(app).get(`/api/comments/by-task/${taskId}`));
-            expect(listRes.body.length).toBe(0);
+            expect(listRes.body.length).toBe(1);
+            expect(listRes.body[0].is_deleted).toBe(1);
         });
 
         it('POST /api/comments rejects missing content', async () => {

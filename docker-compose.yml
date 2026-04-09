@@ -7,6 +7,8 @@ services:
   arangodb:
     image: arangodb:3.12
     restart: unless-stopped
+    ports:
+      - "8529:8529"
     environment:
       ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD:?Variable ARANGO_ROOT_PASSWORD non définie dans .env}
     volumes:

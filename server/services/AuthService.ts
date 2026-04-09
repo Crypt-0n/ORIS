@@ -12,7 +12,7 @@ import OTPAuth from 'otpauth';
 // @ts-ignore
 import QRCode from 'qrcode';
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET as string;
 if (!JWT_SECRET) {
     console.error("\x1b[31m[Erreur Fatale] JWT_SECRET n'est pas défini dans gles variables d'environnement. Le serveur Auth ne peut pas démarrer.\x1b[0m");
     process.exit(1);
