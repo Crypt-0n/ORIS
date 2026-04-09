@@ -31,6 +31,23 @@ export class StixCoreService {
         if (!existing) throw new Error('Object not found');
         if (!await canAccessCase(userId, existing.case_id)) throw new Error('Access denied');
         
+        // Deep compare to prevent noisy audit logs for non-modifications
+        const prev = existing.data;
+        const keys = new Set([...Object.keys(prev), ...Object.keys(stixData)]);
+        let hasChanges = false;
+        
+        for (const k of keys) {
+            if (['modified', 'updated_at', 'created_at', 'created'].includes(k)) continue;
+            if (JSON.stringify(prev[k]) !== JSON.stringify(stixData[k])) {
+                hasChanges = true;
+                break;
+            }
+        }
+
+        if (!hasChanges) {
+            return prev; // Fast path: no changes
+        }
+
         const result = await repo.updateObject(id, existing.case_id, stixData, userId);
         logAudit(existing.case_id, userId, 'stix_object_updated', 'stix', id, { 
             type: stixData.type,
