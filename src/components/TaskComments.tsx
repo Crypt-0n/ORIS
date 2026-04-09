@@ -386,9 +386,9 @@ export function TaskComments({
                const phase = phases.find(p => p.value === d.x_oris_kill_chain);
                const { complete, missing } = getDiamondCompleteness(d);
                return (
-                  <div key={d.id} className="relative overflow-hidden p-3 rounded-lg bg-cyan-50/50 dark:bg-cyan-900/20 border-[0.5px] border-cyan-200/50 dark:border-cyan-800/50 border-l-[4px] border-l-cyan-500 transition group shadow-sm">
+                  <div key={d.id} className="relative overflow-hidden p-4 rounded-xl bg-gradient-to-br from-cyan-50/80 to-white dark:from-cyan-900/40 dark:to-slate-800/80 border border-cyan-300 dark:border-cyan-700 border-l-[6px] border-l-cyan-500 transition group shadow-md shadow-cyan-500/10">
                     {/* Decorative watermark */}
-                    <Diamond className="absolute -bottom-6 -right-2 w-28 h-28 text-cyan-500/10 dark:text-cyan-400/5 rotate-12 pointer-events-none" />
+                    <Diamond className="absolute -bottom-4 -right-4 w-32 h-32 text-cyan-500/15 dark:text-cyan-400/10 rotate-12 pointer-events-none" />
 
                     <div className="flex items-start justify-between mb-2 relative z-10">
                       <div className="flex items-center gap-2">
