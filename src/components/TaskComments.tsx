@@ -418,7 +418,7 @@ export function TaskComments({
                           {d.first_observed || d.created ? new Date(d.first_observed || d.created).toLocaleString('fr-FR') : ''}
                         </span>
                         {canEditDiamond && !isReadOnly && (
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-900 rounded p-0.5 shadow-sm border border-gray-200 dark:border-slate-700">
+                          <div className="flex gap-1 bg-white dark:bg-slate-900 rounded p-0.5 shadow-sm border border-gray-200 dark:border-slate-700">
                             <button onClick={() => onEditDiamond?.(d)} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-800 rounded transition" title={t('auto.modifier', 'Modifier')}>
                               <Edit className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                             </button>
