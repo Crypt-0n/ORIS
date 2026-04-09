@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import { ShieldCheck, ShieldOff, Loader2, Copy, Check } from 'lucide-react';
 import { api } from '../lib/api';

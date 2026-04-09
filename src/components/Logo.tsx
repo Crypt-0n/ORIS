@@ -1,3 +1,4 @@
+import React from 'react';
 import logoUrl from '../assets/Logo.png';
 
 interface LogoProps {

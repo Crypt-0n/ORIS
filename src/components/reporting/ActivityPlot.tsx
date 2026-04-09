@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect, useMemo } from 'react';
 import { api } from '../../lib/api';
 import { useTheme } from '../../contexts/ThemeContext';

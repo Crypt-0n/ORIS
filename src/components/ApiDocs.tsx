@@ -1,3 +1,4 @@
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Book, Lock, Globe, Code, ChevronRight, Tags, Database, Activity, Brain, Share2 } from 'lucide-react';
 

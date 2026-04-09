@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { Monitor, Clock, CheckCircle, XCircle, Globe, ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '../lib/api';

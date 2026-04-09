@@ -1,3 +1,4 @@
+import React from 'react';
 
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Edit, Lock, Share2, Trash2, Server, Pencil, ArrowRight, Bug, Radar } from 'lucide-react';

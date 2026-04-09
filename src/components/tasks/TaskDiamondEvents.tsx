@@ -1,3 +1,4 @@
+import React from 'react';
 
 import { useTranslation } from 'react-i18next';
 import { Diamond, Plus, Edit, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';

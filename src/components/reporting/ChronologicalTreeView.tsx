@@ -1,3 +1,4 @@
+import React from 'react';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { getIsolatedSystems } from '../../lib/diamondModelUtils';
 import {

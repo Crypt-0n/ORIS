@@ -1,3 +1,4 @@
+import React from 'react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client'; // hash buster
 import { HelmetProvider } from 'react-helmet-async';

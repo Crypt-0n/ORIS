@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { Bell, Loader2, AtSign, UserPlus, GitBranch, MessageSquare } from 'lucide-react';
 import { api } from '../lib/api';

@@ -1,3 +1,4 @@
+import React from 'react';
 import { sanitizeHtml } from '../../../../lib/sanitize';
 import { useTranslation } from 'react-i18next';
 import { Lock, CheckCircle, Activity, Minus, Clock, ArrowLeft, ArrowRight } from 'lucide-react';

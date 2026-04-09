@@ -1,3 +1,4 @@
+import React from 'react';
 import { X, Monitor, Bug, KeyRound, Globe, DatabaseZap, Shield, Skull } from 'lucide-react';
 
 export type LinkedObjectType = 'system' | 'malware' | 'account' | 'network' | 'exfiltration' | 'ttp' | 'attacker_infra';

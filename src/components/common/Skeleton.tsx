@@ -1,3 +1,4 @@
+import React from 'react';
 type SkeletonType = 'text' | 'title' | 'avatar' | 'card' | 'table-row';
 
 interface SkeletonProps {

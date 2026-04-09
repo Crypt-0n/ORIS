@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, FolderOpen, ClipboardList, X, Database, MessageSquare, AlertTriangle } from 'lucide-react';
@@ -36,7 +37,7 @@ export function GlobalSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const allItems = results ? [

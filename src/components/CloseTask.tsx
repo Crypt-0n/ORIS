@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { X, Lock, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';

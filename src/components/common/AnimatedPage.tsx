@@ -1,3 +1,4 @@
+import React from 'react';
 import { motion, Variants } from 'framer-motion';
 import { ReactNode, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';

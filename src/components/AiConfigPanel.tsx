@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { Bot, Check, AlertTriangle, Loader2, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';

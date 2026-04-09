@@ -1,3 +1,4 @@
+import React from 'react';
 import { CalendarDays, CalendarRange, FileStack } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ReportType } from '../types';

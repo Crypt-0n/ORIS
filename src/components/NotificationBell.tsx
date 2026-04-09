@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, Trash2, X, AtSign, MessageCircle, UserPlus, GitBranch, MessageSquare } from 'lucide-react';
 import { api } from '../lib/api';

@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { Trash2, Shield, Server, User, Bug, Globe, AlertTriangle, Plus, Pencil, Play } from 'lucide-react';

@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect, useMemo } from 'react';
 import { sanitizeHtml } from '../lib/sanitize';
 import { api } from '../lib/api';

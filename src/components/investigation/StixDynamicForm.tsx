@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { Server, User, Bug, Globe, Loader2, ChevronDown, ChevronUp } from 'lucide-react';

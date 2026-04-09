@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   AlertTriangle, Bug, Shield, User, Globe, File as FileIcon, Server
 } from 'lucide-react';

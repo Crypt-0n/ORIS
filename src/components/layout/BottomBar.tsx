@@ -1,3 +1,4 @@
+import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FolderOpen, ClipboardList, LayoutDashboard, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';

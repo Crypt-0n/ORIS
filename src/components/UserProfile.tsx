@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { User, Mail, Shield, Lock, Eye, EyeOff, Check, AlertCircle, Globe, Key, Trash2, Hash, Camera, X, Info } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';

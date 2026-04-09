@@ -1,3 +1,4 @@
+import React from 'react';
 import { useEffect, useState, forwardRef, useImperativeHandle, useRef } from 'react';
 import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';

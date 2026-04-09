@@ -1,3 +1,4 @@
+import React from 'react';
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Save, Trash2, GitBranch, Skull } from 'lucide-react';

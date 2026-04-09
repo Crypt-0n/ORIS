@@ -1,3 +1,4 @@
+import React from 'react';
 import { Users, Building, Settings, Bot, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 

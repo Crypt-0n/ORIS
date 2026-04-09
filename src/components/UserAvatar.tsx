@@ -1,3 +1,4 @@
+import React from 'react';
 import { getUserTrigram } from '../lib/userUtils';
 
 interface UserAvatarProps {

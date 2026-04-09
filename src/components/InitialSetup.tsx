@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { AlertCircle, Shield, Target, Crosshair, Upload, Loader2 } from 'lucide-react';

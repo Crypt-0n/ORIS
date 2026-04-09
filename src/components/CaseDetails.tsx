@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { sanitizeHtml } from '../lib/sanitize';
 import { useSearchParams } from 'react-router-dom';

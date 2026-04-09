@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { Lock, LogOut, Eye, EyeOff, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';

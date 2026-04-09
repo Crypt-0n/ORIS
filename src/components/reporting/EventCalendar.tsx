@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useMemo } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';

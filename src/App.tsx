@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect, useRef, useCallback, ReactNode, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';

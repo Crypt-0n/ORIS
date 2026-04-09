@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../lib/api';
 import { ChevronDown, ChevronRight, Shield, Search, ExternalLink, Database } from 'lucide-react';

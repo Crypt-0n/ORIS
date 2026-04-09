@@ -1,3 +1,4 @@
+import React from 'react';
 import { ReactNode, useState } from 'react';
 import { HelpCircle } from 'lucide-react';
 

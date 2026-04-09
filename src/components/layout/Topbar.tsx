@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FolderOpen, ClipboardList, Moon, Sun, LogOut, LayoutDashboard, User, ChevronDown, Shield, AlertTriangle } from 'lucide-react';

@@ -1,3 +1,4 @@
+import React from 'react';
 import { ArrowRight, Monitor, Server, AlertTriangle } from 'lucide-react';
 import type { DiamondNode } from '../../lib/diamondModelUtils';
 import type { LinkedObject } from './LinkedObjectTag';

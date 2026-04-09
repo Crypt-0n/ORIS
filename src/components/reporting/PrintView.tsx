@@ -1,3 +1,4 @@
+import React from 'react';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { useSearchParams, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';

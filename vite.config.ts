@@ -5,6 +5,26 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   plugins: [
+    {
+      name: 'react-jsx-runtime-workaround',
+      enforce: 'pre',
+      resolveId(id) {
+        if (id === 'react/jsx-runtime' || id === 'react/jsx-dev-runtime') {
+          return '\0' + id;
+        }
+      },
+      load(id) {
+        if (id === '\0react/jsx-runtime' || id === '\0react/jsx-dev-runtime') {
+          return `
+            import React from 'react';
+            export const jsx = React.createElement;
+            export const jsxs = React.createElement;
+            export const jsxDEV = React.createElement;
+            export const Fragment = React.Fragment;
+          `;
+        }
+      }
+    },
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -63,16 +83,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom', 'react-helmet-async'],
-          'ui-vendor': ['lucide-react', 'framer-motion', 'tippy.js'],
-          'editor-vendor': [
-            '@tiptap/react', 
-            '@tiptap/starter-kit', 
-            '@tiptap/extension-link', 
-            '@tiptap/extension-mention',
-            '@tiptap/extension-placeholder'
-          ]
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react/') || id.includes('react-dom/') || id.includes('react-router-dom/') || id.includes('react-helmet-async/')) return 'react-vendor';
+            if (id.includes('lucide-react/') || id.includes('framer-motion/') || id.includes('tippy.js/')) return 'ui-vendor';
+            if (id.includes('@tiptap/')) return 'editor-vendor';
+            return 'vendor';
+          }
         }
       }
     }

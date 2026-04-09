@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { Bot, Send, X, Loader2, Sparkles, Trash2, ChevronDown } from 'lucide-react';

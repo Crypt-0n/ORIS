@@ -1,3 +1,4 @@
+import React from 'react';
 import { useMemo, useRef, useEffect, useState } from 'react';
 import type { DiamondNode } from '../../lib/diamondModelUtils';
 import { deriveEventBehavior } from '../../lib/diamondModelUtils';

@@ -1,3 +1,4 @@
+import React from 'react';
 
 import { Server, Globe, User, Target, MapPin, Bug, Fingerprint, AlertTriangle, Pencil } from 'lucide-react';
 

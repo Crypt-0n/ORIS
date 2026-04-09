@@ -1,3 +1,4 @@
+import React from 'react';
 import { useMemo } from 'react';
 import { Monitor, EyeOff, Clock, AlertTriangle } from 'lucide-react';
 import type { DiamondNode } from '../../lib/diamondModelUtils';

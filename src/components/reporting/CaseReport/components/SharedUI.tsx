@@ -1,3 +1,4 @@
+import React from 'react';
 export function SectionHeader({ icon: Icon, title }: { icon: any; title: string }) {
   return (
     <div className="flex items-center gap-2.5">

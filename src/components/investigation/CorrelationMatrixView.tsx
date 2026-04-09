@@ -1,3 +1,4 @@
+import React from 'react';
 import { useMemo } from 'react';
 import { Monitor, User, Server, Bug, Shield, Globe, DatabaseZap, CheckCircle, XCircle, AlertTriangle, EyeOff, HelpCircle } from 'lucide-react';
 import type { DiamondNode } from '../../lib/diamondModelUtils';
