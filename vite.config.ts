@@ -17,21 +17,33 @@ export default defineConfig({
         if (id === '\0react/jsx-runtime' || id === '\0react/jsx-dev-runtime') {
           return `
             import React from 'react';
-            export const jsx = React.createElement;
-            export const jsxs = React.createElement;
-            export const jsxDEV = React.createElement;
+            export const jsx = function(type, props, key) {
+              const { children, ...rest } = props || {};
+              return React.createElement(type, key !== undefined ? { ...rest, key } : rest, children);
+            };
+            export const jsxs = function(type, props, key) {
+              const { children, ...rest } = props || {};
+              return React.createElement(type, key !== undefined ? { ...rest, key } : rest, ...(Array.isArray(children) ? children : [children]));
+            };
+            export const jsxDEV = jsx;
             export const Fragment = React.Fragment;
           `;
         }
       }
     },
     react(),
+    /*
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      swSrc: 'src/sw.ts',
+      manifestFilename: 'manifest.webmanifest',
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      injectRegister: 'inline',
       includeAssets: ['Logo.png', 'icon-192.png', 'icon-512.png', 'offline.html'],
-      workbox: {
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MiB
+      injectManifest: {
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
       manifest: {
         name: "ORIS - Open Response and Investigation System",
@@ -75,6 +87,7 @@ export default defineConfig({
         prefer_related_applications: false
       }
     })
+    */
   ],
   server: {
     port: 5173,

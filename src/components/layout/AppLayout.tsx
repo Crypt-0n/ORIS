@@ -1,7 +1,7 @@
 import React from 'react';
 import { ReactNode } from 'react';
 import { Topbar } from './Topbar';
-import { BottomBar } from './BottomBar';
+import { MobileNav } from './MobileNav';
 import { OfflineBanner } from '../OfflineBanner';
 
 interface AppLayoutProps {
@@ -16,7 +16,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <main className="pt-14 pb-20 lg:pb-0 min-h-screen overflow-x-clip">
         {children}
       </main>
-      <BottomBar />
+      <MobileNav />
     </div>
   );
 }

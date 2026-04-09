@@ -5,7 +5,7 @@ import { z } from 'zod';
 const { getDb } = require('../db-arango');
 const BaseRepository = require('../repositories/BaseRepository');
 const CaseRepository = require('../repositories/CaseRepository');
-const authenticateToken = require('../middleware/auth');
+import authenticateToken from '../middleware/auth';
 const { validateRequest } = require('../middleware/validateRequest');
 const { logAudit } = require('../utils/audit');
 const { isAdmin, userHasTypeAccess, userHasTypeAccessForBeneficiary, isTeamLeadForCase } = require('../utils/access');

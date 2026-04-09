@@ -3,8 +3,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { AuthService } from '../services/AuthService';
 import authenticateToken from '../middleware/auth';
-// @ts-ignore
-import rateLimit from '../middleware/rateLimit';
+import rateLimit from 'express-rate-limit';
 
 const isTest = process.env.NODE_ENV === 'test';
 const bypassLimiter = (req: AuthenticatedRequest, res: Response, next: NextFunction) => next();

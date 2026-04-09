@@ -10,7 +10,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { LockScreen } from './components/LockScreen';
 import { api } from './lib/api';
 import { useTranslation } from "react-i18next";
-import { AnimatePresence } from 'framer-motion';
+
 import { AnimatedPage } from './components/common/AnimatedPage';
 import { Server, Loader2 } from 'lucide-react'; // Added icons for waiting screen
 
@@ -197,7 +197,7 @@ function useInactivityLock() {
 
 function AppContent() {
   const { t } = useTranslation();
-  const location = useLocation();
+
 
   const { user, profile, loading, isLocked, hasRole } = useAuth();
   const [initComplete, setInitComplete] = useState<boolean | null>(null);
@@ -307,25 +307,32 @@ function AppContent() {
       {isLocked && <LockScreen />}
       <KillChainProvider>
         <AppLayout>
-            <RouteRestorer>
-              <AnimatePresence mode="wait">
-                <Routes location={location} key={location.pathname}>
-                  <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
-                  <Route path="/cases" element={<CasesListRoute />} />
-                  <Route path="/cases/:caseId" element={<AnimatedPage><CaseDetailsRoute /></AnimatedPage>} />
-                  <Route path="/alerts" element={<AlertsListRoute />} />
-                  <Route path="/alerts/:caseId" element={<AnimatedPage><AlertDetailsRoute /></AnimatedPage>} />
-                  <Route path="/tasks" element={<PageWrapper><MyTasks /></PageWrapper>} />
-                  <Route path="/profile" element={<PageWrapper><UserProfile /></PageWrapper>} />
-                  {isAdmin && (
-                    <Route path="/admin" element={<PageWrapper><AdminPanel /></PageWrapper>} />
-                  )}
-                  <Route path="/about" element={<PageWrapper><About /></PageWrapper>} />
-                  <Route path="/api-docs" element={<PageWrapper><ApiDocs /></PageWrapper>} />
-                  <Route path="*" element={<Navigate to="/" />} />
-                </Routes>
-              </AnimatePresence>
-            </RouteRestorer>
+          <RouteRestorer>
+            <Suspense fallback={
+              <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-gray-500 dark:text-slate-400 font-medium">Chargement...</p>
+                </div>
+              </div>
+            }>
+              <Routes>
+                <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
+                <Route path="/cases" element={<CasesListRoute />} />
+                <Route path="/cases/:caseId" element={<AnimatedPage><CaseDetailsRoute /></AnimatedPage>} />
+                <Route path="/alerts" element={<AlertsListRoute />} />
+                <Route path="/alerts/:caseId" element={<AnimatedPage><AlertDetailsRoute /></AnimatedPage>} />
+                <Route path="/tasks" element={<PageWrapper><MyTasks /></PageWrapper>} />
+                <Route path="/profile" element={<PageWrapper><UserProfile /></PageWrapper>} />
+                {isAdmin && (
+                  <Route path="/admin" element={<PageWrapper><AdminPanel /></PageWrapper>} />
+                )}
+                <Route path="/about" element={<PageWrapper><About /></PageWrapper>} />
+                <Route path="/api-docs" element={<PageWrapper><ApiDocs /></PageWrapper>} />
+                <Route path="*" element={<Navigate to="/" />} />
+              </Routes>
+            </Suspense>
+          </RouteRestorer>
         </AppLayout>
       </KillChainProvider>
     </>

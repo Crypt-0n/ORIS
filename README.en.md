@@ -4,10 +4,10 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.9_beta-blue)
+![Version](https://img.shields.io/badge/version-1.0.0_beta3-blue)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-green)
 ![Docker](https://img.shields.io/badge/docker-ready-blue?logo=docker)
-![Node](https://img.shields.io/badge/node-20%2B-brightgreen?logo=node.js)
+![Node](https://img.shields.io/badge/node-22%2B-brightgreen?logo=node.js)
 ![ArangoDB](https://img.shields.io/badge/ArangoDB-3.12-red?logo=arangodb)
 
 **Collaborative cybersecurity incident response platform**
@@ -145,7 +145,7 @@ docker compose down
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - npm
 - ArangoDB 3.12 (local or Docker)
 
@@ -180,8 +180,8 @@ npm run dev
 | `ARANGO_URL` | `http://localhost:8529` | ArangoDB URL |
 | `ARANGO_DB` | `oris` | Database name |
 | `ARANGO_USER` | `root` | ArangoDB user |
-| `ARANGO_PASSWORD` | `oris_secret` | ArangoDB password |
-| `JWT_SECRET` | `dev_secret_*` | JWT secret (required in production) |
+| `ARANGO_PASSWORD` | *(Required)* | ArangoDB password |
+| `JWT_SECRET` | *(Required)* | Strict JWT secret used to forge secure sessions |
 
 > **Important**: in production, set a strong `JWT_SECRET`:
 > ```bash
