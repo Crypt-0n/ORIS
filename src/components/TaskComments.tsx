@@ -51,6 +51,7 @@ interface TaskCommentsProps {
   taskDiamonds?: any[];
   diamondAuditLogs?: any[];
   caseKillChainType?: string | null;
+  caseStixObjects?: any[];
   canEditDiamond?: boolean;
   onAddDiamond?: () => void;
   onEditDiamond?: (d: any) => void;
@@ -59,7 +60,7 @@ interface TaskCommentsProps {
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-const StixAuditEntry = ({ item, diamondName }: { item: any, diamondName: string }) => {
+const StixAuditEntry = ({ item, diamondName, caseStixObjects }: { item: any, diamondName: string, caseStixObjects: any[] }) => {
   const [showDiff, setShowDiff] = useState(false);
   const prev = item.details?.previous_state;
   const next = item.details?.new_state;
@@ -90,10 +91,17 @@ const StixAuditEntry = ({ item, diamondName }: { item: any, diamondName: string 
       description: 'Description globale',
       x_oris_kill_chain: 'Étape de la Kill Chain',
       x_oris_diamond_axes: 'Axes du diamant',
+      x_oris_diamond_relations: 'Liens entre les éléments',
       labels: 'Étiquettes STIX',
       confidence: 'Niveau de confiance',
     };
     return dict[k] || k;
+  };
+
+  const resolveNodeName = (id: string) => {
+    const obj = caseStixObjects.find(o => o.id === id);
+    if (!obj) return id;
+    return obj.name || obj.x_oris_description || obj.type;
   };
 
   const formatValue = (v: any, k: string) => {
@@ -101,13 +109,44 @@ const StixAuditEntry = ({ item, diamondName }: { item: any, diamondName: string 
     if (k === 'x_oris_diamond_axes' && typeof v === 'object') {
       const axisDict: Record<string, string> = { adversary: 'Adversaire', capability: 'Capacité', infrastructure: 'Infrastructure', victim: 'Victime' };
       return (
-        <div className="space-y-1">
+        <div className="space-y-2">
           {Object.entries(v).map(([axis, ids]: any) => (
-            <div key={axis} className="flex justify-between border-b border-white/10 last:border-0 pb-1">
-              <span className="font-semibold">{axisDict[axis] || axis}</span>
-              <span className="bg-white/20 dark:bg-black/20 px-1.5 py-0.5 rounded text-[10px]">{Array.isArray(ids) ? ids.length : 0} élément(s)</span>
+            <div key={axis} className="flex flex-col border-b border-white/10 last:border-0 pb-1 gap-1">
+              <span className="font-semibold text-[10px] tracking-wide opacity-80 uppercase">{axisDict[axis] || axis}</span>
+              <div className="flex flex-wrap gap-1">
+                {Array.isArray(ids) && ids.length > 0 ? (
+                  ids.map((id: string) => (
+                    <span key={id} className="bg-white/40 dark:bg-black/40 px-1.5 py-0.5 rounded text-[10px] truncate max-w-[150px] shadow-sm font-medium" title={resolveNodeName(id)}>
+                      {resolveNodeName(id)}
+                    </span>
+                  ))
+                ) : (
+                  <span className="bg-white/20 dark:bg-black/20 px-1.5 py-0.5 rounded text-[10px] opacity-70 italic">Aucun</span>
+                )}
+              </div>
             </div>
           ))}
+        </div>
+      );
+    }
+    if (k === 'x_oris_diamond_relations' && Array.isArray(v)) {
+      return (
+        <div className="flex flex-wrap gap-1">
+          {v.length > 0 ? (
+            v.map((id: string) => {
+              const rel = caseStixObjects.find(o => o.id === id);
+              if (!rel) return <span key={id} className="bg-white/40 dark:bg-black/40 px-1.5 py-0.5 rounded text-[10px] shadow-sm">{id}</span>;
+              const sourceName = resolveNodeName(rel.source_ref);
+              const targetName = resolveNodeName(rel.target_ref);
+              return (
+                <span key={id} className="bg-white/40 dark:bg-black/40 px-1.5 py-0.5 rounded text-[10px] shadow-sm font-medium break-words max-w-full">
+                  {sourceName} &rarr; {targetName}
+                </span>
+              );
+            })
+          ) : (
+            <span className="bg-white/20 dark:bg-black/20 px-1.5 py-0.5 rounded text-[10px] opacity-70 italic">Aucun lien</span>
+          )}
         </div>
       );
     }
@@ -171,7 +210,7 @@ function formatFileSize(bytes: number): string {
 
 export function TaskComments({ 
   taskId, isClosed, caseAuthorId, onCountChange, isReadOnly,
-  taskDiamonds = [], diamondAuditLogs = [], caseKillChainType = null, canEditDiamond = false,
+  taskDiamonds = [], diamondAuditLogs = [], caseKillChainType = null, caseStixObjects = [], canEditDiamond = false,
   onAddDiamond, onEditDiamond, onDeleteDiamond
 }: TaskCommentsProps) {
   const { t } = useTranslation();
@@ -494,7 +533,7 @@ export function TaskComments({
             if (item.is_audit) {
                const targetDiamond = taskDiamonds.find(d => d.id === item.entity_id);
                const diamondName = item.details?.new_state?.x_oris_description || item.details?.new_state?.name || item.details?.previous_state?.x_oris_description || item.details?.previous_state?.name || targetDiamond?.x_oris_description || targetDiamond?.name || 'Inconnu';
-               return <StixAuditEntry key={item.id} item={item} diamondName={diamondName} />;
+               return <StixAuditEntry key={item.id} item={item} diamondName={diamondName} caseStixObjects={caseStixObjects} />;
             }
             if (item.type === 'observed-data') {
                const d = item;

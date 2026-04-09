@@ -596,6 +596,7 @@ export function TaskDetails({ taskId, caseId, isClosed, onBack, onDelete, onTask
                     isReadOnly={isReadOnly}
                     taskDiamonds={taskDiamonds}
                     diamondAuditLogs={diamondAuditLogs}
+                    caseStixObjects={caseStixObjects}
                     caseKillChainType={caseKillChainType}
                     canEditDiamond={canEditDiamond}
                     onAddDiamond={() => { setEditingDiamond(null); setShowDiamondForm(true); }}
