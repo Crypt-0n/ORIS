@@ -68,12 +68,29 @@ const StixAuditEntry = ({ item, diamondName, caseStixObjects }: { item: any, dia
 
   const computeDiff = () => {
     if (!prev || !next) return null;
+    
+    // Normalize arrays by sorting so reordering doesn't trigger a visual diff
+    const normalize = (val: any): any => {
+      if (Array.isArray(val)) {
+        if (val.every(x => typeof x === 'string')) return [...val].sort();
+        return val.map(normalize);
+      }
+      if (val !== null && typeof val === 'object') {
+        const obj: any = {};
+        Object.keys(val).sort().forEach(k => obj[k] = normalize(val[k]));
+        return obj;
+      }
+      return val;
+    };
+
     const changes: Record<string, { old: any, new: any }> = {};
     const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
     for (const k of keys) {
       if (['modified', 'updated_at', 'created_at', 'created'].includes(k)) continue;
-      const v1 = JSON.stringify(prev[k]);
-      const v2 = JSON.stringify(next[k]);
+      
+      const v1 = JSON.stringify(normalize(prev[k]));
+      const v2 = JSON.stringify(normalize(next[k]));
+      
       if (v1 !== v2) {
         changes[k] = { old: prev[k], new: next[k] };
       }
@@ -214,7 +231,7 @@ export function TaskComments({
   onAddDiamond, onEditDiamond, onDeleteDiamond
 }: TaskCommentsProps) {
   const { t } = useTranslation();
-  const { user, hasAnyRole } = useAuth();
+  const { user, profile, hasAnyRole } = useAuth();
   const isOnline = useOnlineStatus();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -384,10 +401,12 @@ export function TaskComments({
     created_at: log.created_at
   }));
 
+  const sortOrder = profile?.preferences?.commentSortOrder || 'asc';
+  
   const unifiedTimeline = [...rootComments, ...taskDiamonds, ...auditEvents].sort((a: any, b: any) => {
     const dateA = new Date(a.created_at || a.first_observed || a.created || 0).getTime();
     const dateB = new Date(b.created_at || b.first_observed || b.created || 0).getTime();
-    return dateA - dateB;
+    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
   });
 
   const renderComment = (comment: Comment, isReply = false) => {

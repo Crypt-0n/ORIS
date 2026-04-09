@@ -6,11 +6,6 @@ import {
   ReportTaskEvent,
   CaseEvent,
   TaskComment,
-  ReportSystem,
-  ReportCompromisedAccount,
-  ReportNetworkIndicator,
-  ReportMalware,
-  ReportExfiltration,
   AuditLog,
   ReportType,
 } from '../types';
@@ -36,11 +31,7 @@ export function useCaseReportData(
   const [allTaskComments] = useState<TaskComment[]>([]);
   const [firstEvent, setFirstEvent] = useState<string | null>(null);
   const [lastEvent, setLastEvent] = useState<string | null>(null);
-  const [systems, setSystems] = useState<ReportSystem[]>([]);
-  const [compromisedAccounts, setCompromisedAccounts] = useState<ReportCompromisedAccount[]>([]);
-  const [networkIndicators, setNetworkIndicators] = useState<ReportNetworkIndicator[]>([]);
-  const [malwareTools, setMalwareTools] = useState<ReportMalware[]>([]);
-  const [exfiltrations, setExfiltrations] = useState<ReportExfiltration[]>([]);
+  const [allStixObjects, setAllStixObjects] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [attackerInfraData, setAttackerInfraData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,11 +82,11 @@ export function useCaseReportData(
         }
         setTaskEventsMap(grouped);
       }
-      if (data.systems) setSystems(data.systems as ReportSystem[]);
-      if (data.accounts) setCompromisedAccounts(data.accounts as ReportCompromisedAccount[]);
-      if (data.indicators) setNetworkIndicators(data.indicators as ReportNetworkIndicator[]);
-      if (data.malware) setMalwareTools(data.malware as ReportMalware[]);
-      if (data.exfiltrations) setExfiltrations(data.exfiltrations as ReportExfiltration[]);
+      // Fetch all objects from bundle
+      const bundle: any = await api.get(`/stix/bundle/${caseId}`);
+      if (bundle && bundle.objects) {
+        setAllStixObjects(bundle.objects);
+      }
 
       setAttackerInfraData([]);
 
@@ -178,46 +169,37 @@ export function useCaseReportData(
     };
   }, [reportType, dateRange, tasks, taskEventsMap, allEvents, allTaskComments, firstEvent, lastEvent]);
 
-  const computedSystems = useMemo(() => {
-    const STATUS_PRIORITY = ['infected', 'compromised', 'clean'];
-    const getStatus = (sys: ReportSystem, periodEnd?: string): string => {
-      const closedTasks = periodEnd
-        ? sys.investigation_tasks.filter(t => t.status === 'closed' && !!t.closed_at && t.closed_at <= periodEnd && t.investigation_status)
-        : sys.investigation_tasks.filter(t => t.status === 'closed' && t.investigation_status);
-      for (const s of STATUS_PRIORITY) {
-        if (closedTasks.some(t => t.investigation_status === s)) return s;
-      }
-      const openTasks = periodEnd
-        ? sys.investigation_tasks.filter(t => t.status !== 'closed' && t.initial_investigation_status)
-        : sys.investigation_tasks.filter(t => t.initial_investigation_status);
-      for (const s of STATUS_PRIORITY) {
-        if (openTasks.some(t => t.initial_investigation_status === s)) return s;
-      }
-      return 'unknown';
-    };
-    const periodEnd = dateRange?.end;
-    return systems.map(sys => ({ ...sys, computedStatus: getStatus(sys, periodEnd) }));
-  }, [systems, dateRange]);
+  const filteredStixObjects = useMemo(() => {
+    if (!allStixObjects || allStixObjects.length === 0) return {};
+    
+    const DISPLAY_TYPES = ['infrastructure', 'malware', 'user-account', 'indicator', 'ipv4-addr', 'domain-name', 'url', 'file'];
+    
+    let objectsToKeep = allStixObjects.filter(obj => DISPLAY_TYPES.includes(obj.type));
+    
+    if (dateRange) {
+      objectsToKeep = objectsToKeep.filter(obj => {
+        const dateStr = obj.created || obj.created_at || (obj.data && (obj.data.first_observed || obj.data.created));
+        if (!dateStr) return true;
+        return dateStr <= dateRange.end;
+      });
+    }
+    
+    const grouped: Record<string, any[]> = {};
+    for (const obj of objectsToKeep) {
+      if (!grouped[obj.type]) grouped[obj.type] = [];
+      grouped[obj.type].push(obj);
+    }
+    
+    for (const t in grouped) {
+      grouped[t].sort((a, b) => {
+        const labelA = (a.name || a.value || a.display_name || a.user_id || a.id || '').toLowerCase();
+        const labelB = (b.name || b.value || b.display_name || b.user_id || b.id || '').toLowerCase();
+        return labelA.localeCompare(labelB);
+      });
+    }
 
-  const filteredAccounts = useMemo(() => {
-    if (!dateRange) return compromisedAccounts;
-    return compromisedAccounts.filter(a => (a.first_malicious_activity || a.created_at) <= dateRange.end);
-  }, [compromisedAccounts, dateRange]);
-
-  const filteredIndicators = useMemo(() => {
-    if (!dateRange) return networkIndicators;
-    return networkIndicators.filter(i => (i.first_activity || i.created_at) <= dateRange.end);
-  }, [networkIndicators, dateRange]);
-
-  const filteredMalware = useMemo(() => {
-    if (!dateRange) return malwareTools;
-    return malwareTools.filter(m => m.created_at <= dateRange.end);
-  }, [malwareTools, dateRange]);
-
-  const filteredExfiltrations = useMemo(() => {
-    if (!dateRange) return exfiltrations;
-    return exfiltrations.filter(e => e.created_at <= dateRange.end);
-  }, [exfiltrations, dateRange]);
+    return grouped;
+  }, [allStixObjects, dateRange]);
 
   const filteredAttackerInfra = useMemo(() => {
     if (!dateRange) return attackerInfraData;
@@ -236,11 +218,7 @@ export function useCaseReportData(
     firstEvent,
     lastEvent,
     computedTasks,
-    computedSystems,
-    filteredAccounts,
-    filteredIndicators,
-    filteredMalware,
-    filteredExfiltrations,
+    filteredStixObjects,
     filteredAttackerInfra,
     filteredAuditLogs,
   };

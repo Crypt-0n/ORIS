@@ -25,6 +25,7 @@ export function UserProfile() {
         <ProfileInfoCard user={user} profile={profile} />
         <div className="space-y-6 min-w-0 overflow-hidden">
           <LanguageCard />
+          <PreferencesCard />
           <TwoFactorCard />
           <NotificationPreferencesCard />
           <PinCodeCard />
@@ -384,6 +385,75 @@ function LanguageCard() {
   );
 }
 
+function PreferencesCard() {
+  const { profile, refreshProfile } = useAuth();
+  const [saving, setSaving] = useState(false);
+
+  const sortOrder = profile?.preferences?.commentSortOrder || 'asc';
+
+  const handleChange = async (newOrder: string) => {
+    if (newOrder === sortOrder) return;
+    setSaving(true);
+    try {
+      await api.put('/auth/preferences', {
+        preferences: { ...profile?.preferences, commentSortOrder: newOrder }
+      });
+      await refreshProfile();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 overflow-hidden">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-gray-100 dark:bg-slate-800">
+            <Globe className="w-4 h-4 text-gray-500 dark:text-slate-400" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white">Préférences d'affichage</h2>
+            <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">Tri chronologique des investigations</p>
+          </div>
+        </div>
+      </div>
+      <div className="space-y-3">
+        <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition">
+          <input
+            type="radio"
+            name="sortOrder"
+            value="asc"
+            checked={sortOrder === 'asc'}
+            onChange={() => handleChange('asc')}
+            disabled={saving}
+            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+          />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">Ordre chronologique <span className="text-xs font-normal text-gray-500">(Défaut)</span></p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Le plus ancien en premier, lecture de haut en bas.</p>
+          </div>
+        </label>
+        <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 transition">
+          <input
+            type="radio"
+            name="sortOrder"
+            value="desc"
+            checked={sortOrder === 'desc'}
+            onChange={() => handleChange('desc')}
+            disabled={saving}
+            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+          />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">Ordre anti-chronologique</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Le plus récent en premier au sommet de la page.</p>
+          </div>
+        </label>
+      </div>
+    </div>
+  );
+}
 
 function PinCodeCard() {
   const { t } = useTranslation();

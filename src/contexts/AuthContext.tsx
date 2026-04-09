@@ -17,6 +17,7 @@ interface UserProfile {
   totp_enabled?: boolean;
   canSeeCases?: boolean;
   canSeeAlerts?: boolean;
+  preferences?: Record<string, any>;
 }
 
 interface AuthContextType {
@@ -71,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           avatar_url: data.user.avatar_url || null,
           canSeeCases: !!data.user.canSeeCases,
           canSeeAlerts: !!data.user.canSeeAlerts,
+          preferences: data.user.preferences || {},
         };
       }
     } catch (err) {

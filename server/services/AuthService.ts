@@ -166,6 +166,19 @@ export class AuthService {
     await userRepo.update(userId, { password_hash: new_password_hash });
   }
 
+  static async updatePreferences(userId: string, preferences: any) {
+    const userRepo = new BaseRepository(getDb(), 'user_profiles');
+    const user = await userRepo.findById(userId);
+    if (!user) throw new Error('User not found');
+    
+    // Merge existing preferences with new ones
+    const existingPrefs = user.preferences || {};
+    const newPrefs = { ...existingPrefs, ...preferences };
+    
+    await userRepo.update(userId, { preferences: newPrefs });
+    return newPrefs;
+  }
+
   static async getUsers() {
     const db = getDb();
     const query = `

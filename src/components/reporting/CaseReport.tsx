@@ -17,12 +17,7 @@ import { ReportOptionsBar } from './CaseReport/components/ReportOptionsBar';
 import { TaskReportCard } from './CaseReport/components/TaskReportCard';
 import { SectionHeader, InfoRow, TlpPapBadge, formatDateTime, formatDate, computeDuration } from './CaseReport/components/SharedUI';
 import {
-  SystemsSection,
-  AttackerInfraSection,
-  CompromisedAccountsSection,
-  MalwareSection,
-  NetworkIndicatorsSection,
-  ExfiltrationsSection
+  StixElementsGroupedSection
 } from './CaseReport/components/Sections';
 
 // Types
@@ -49,12 +44,7 @@ export function CaseReport({ caseId }: CaseReportProps) {
     firstEvent,
     lastEvent,
     computedTasks,
-    computedSystems,
-    filteredAccounts,
-    filteredIndicators,
-    filteredMalware,
-    filteredExfiltrations,
-    filteredAttackerInfra,
+    filteredStixObjects
   } = useCaseReportData(caseId, reportType, selectedDate, weekCount, reportLanguage, formatDate);
 
   // Custom Export Hook
@@ -259,12 +249,7 @@ export function CaseReport({ caseId }: CaseReportProps) {
           )}
         </div>
 
-        <AttackerInfraSection items={filteredAttackerInfra} />
-        <SystemsSection systems={computedSystems} title={t('auto.systemes_compromis')} />
-        <CompromisedAccountsSection accounts={filteredAccounts} />
-        <MalwareSection items={filteredMalware} />
-        <NetworkIndicatorsSection indicators={filteredIndicators} />
-        <ExfiltrationsSection exfiltrations={filteredExfiltrations} />
+        <StixElementsGroupedSection elementsMap={filteredStixObjects} title={t('auto.elements_techniques', 'Éléments techniques')} />
 
 
         <div className="px-8 py-6 border-t border-gray-100">

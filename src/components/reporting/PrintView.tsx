@@ -10,12 +10,7 @@ import { useCaseReportData } from './CaseReport/hooks/useCaseReportData';
 import { TaskReportCard } from './CaseReport/components/TaskReportCard';
 import { SectionHeader, InfoRow, TlpPapBadge, formatDateTime, formatDate, computeDuration } from './CaseReport/components/SharedUI';
 import {
-  SystemsSection,
-  AttackerInfraSection,
-  CompromisedAccountsSection,
-  MalwareSection,
-  NetworkIndicatorsSection,
-  ExfiltrationsSection
+  StixElementsGroupedSection
 } from './CaseReport/components/Sections';
 import { ReportType } from './CaseReport/types';
 import logoUrl from '../../assets/Logo.png';
@@ -37,12 +32,7 @@ export function PrintView() {
     firstEvent,
     lastEvent,
     computedTasks,
-    computedSystems,
-    filteredAccounts,
-    filteredIndicators,
-    filteredMalware,
-    filteredExfiltrations,
-    filteredAttackerInfra,
+    filteredStixObjects
   } = useCaseReportData(caseId!, reportType, selectedDate, weekCount, lng, formatDate);
 
   if (!caseId) return <div>Missing case ID</div>;
@@ -174,12 +164,7 @@ export function PrintView() {
           )}
         </div>
 
-        <AttackerInfraSection items={filteredAttackerInfra} />
-        <SystemsSection systems={computedSystems} title={t('auto.systemes_compromis')} />
-        <CompromisedAccountsSection accounts={filteredAccounts} />
-        <MalwareSection items={filteredMalware} />
-        <NetworkIndicatorsSection indicators={filteredIndicators} />
-        <ExfiltrationsSection exfiltrations={filteredExfiltrations} />
+        <StixElementsGroupedSection elementsMap={filteredStixObjects} title={t('auto.elements_techniques', 'Éléments techniques')} />
         
 
 

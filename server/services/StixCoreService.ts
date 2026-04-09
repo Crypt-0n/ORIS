@@ -33,18 +33,36 @@ export class StixCoreService {
         
         // Deep compare to prevent noisy audit logs for non-modifications
         const prev = existing.data;
-        const keys = new Set([...Object.keys(prev), ...Object.keys(stixData)]);
-        let hasChanges = false;
         
-        for (const k of keys) {
-            if (['modified', 'updated_at', 'created_at', 'created'].includes(k)) continue;
-            if (JSON.stringify(prev[k]) !== JSON.stringify(stixData[k])) {
-                hasChanges = true;
-                break;
+        const isObjectDeepEqual = (obj1: any, obj2: any): boolean => {
+            if (obj1 === obj2) return true;
+            if (obj1 == null || obj2 == null) return obj1 === obj2;
+            if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return false;
+            if (Array.isArray(obj1) && Array.isArray(obj2)) {
+                if (obj1.length !== obj2.length) return false;
+                // Arrays in STIX are often un-ordered ID lists, but we'll assume ordered for simplicity,
+                // or just sort strings if they are pure string arrays
+                const isStringArr = obj1.every(x => typeof x === 'string') && obj2.every(x => typeof x === 'string');
+                if (isStringArr) {
+                    const sorted1 = [...obj1].sort();
+                    const sorted2 = [...obj2].sort();
+                    return sorted1.every((val, i) => val === sorted2[i]);
+                }
+                return obj1.every((val, i) => isObjectDeepEqual(val, obj2[i]));
             }
-        }
+            const keys1 = Object.keys(obj1).filter(k => obj1[k] !== undefined && obj1[k] !== null && obj1[k] !== '');
+            const keys2 = Object.keys(obj2).filter(k => obj2[k] !== undefined && obj2[k] !== null && obj2[k] !== '');
+            
+            const kSet = new Set([...keys1, ...keys2]);
+            for (const k of kSet) {
+                if (['modified', 'updated_at', 'created_at', 'created', '_axes', '_relations'].includes(k)) continue;
+                if (!isObjectDeepEqual(obj1[k], obj2[k])) return false;
+            }
+            return true;
+        };
 
-        if (!hasChanges) {
+        if (isObjectDeepEqual(prev, stixData)) {
+            console.log(`[ORIS STIX diff] FAST PATH HIT for ${id} (no real modifications found)`);
             return prev; // Fast path: no changes
         }
 

@@ -222,6 +222,29 @@ router.put('/password', async (req: AuthenticatedRequest, res: Response): Promis
   }
 });
 
+const updatePreferencesSchema = z.object({
+  preferences: z.record(z.any()),
+});
+
+router.put('/preferences', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const validation = updatePreferencesSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: 'Invalid preferences object' });
+      return;
+    }
+    const newPrefs = await AuthService.updatePreferences(req.user.id, validation.data.preferences);
+    res.json({ success: true, preferences: newPrefs });
+  } catch (err: any) {
+    if (err.message === 'User not found') {
+      res.status(404).json({ error: err.message });
+      return;
+    }
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/users', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const users = await AuthService.getUsers();
