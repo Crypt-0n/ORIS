@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { sanitizeHtml } from '../lib/sanitize';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Send, Edit, Trash2, X, Paperclip, Download, FileText, Image as ImageIcon, Reply, Plus, Clock, Diamond, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Send, Edit, Trash2, X, Paperclip, Download, FileText, Image as ImageIcon, Reply, Plus, Clock, Diamond, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { RichTextEditor } from './RichTextEditor';
 import { OffCanvas } from './common/OffCanvas';
 import { useTranslation } from "react-i18next";
@@ -58,6 +58,61 @@ interface TaskCommentsProps {
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+const StixAuditEntry = ({ item }: { item: any }) => {
+  const [showDiff, setShowDiff] = useState(false);
+  const prev = item.details?.previous_state;
+  const next = item.details?.new_state;
+  const hasDiff = prev && next;
+
+  const computeDiff = () => {
+    if (!prev || !next) return null;
+    const changes: Record<string, { old: any, new: any }> = {};
+    const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+    for (const k of keys) {
+      if (['modified', 'updated_at', 'created_at', 'created'].includes(k)) continue;
+      const v1 = JSON.stringify(prev[k]);
+      const v2 = JSON.stringify(next[k]);
+      if (v1 !== v2) {
+        changes[k] = { old: prev[k], new: next[k] };
+      }
+    }
+    return changes;
+  };
+
+  const diffs = hasDiff ? computeDiff() : null;
+  const hasActualDiffs = diffs && Object.keys(diffs).length > 0;
+
+  return (
+    <div key={item.id} className="mb-2">
+      <div className="flex items-center gap-2 py-1.5 px-3 bg-transparent border-[0.5px] border-dashed border-gray-200 dark:border-slate-800 rounded-lg">
+         <UserAvatar name={item.details?.user_full_name || 'Système'} size="sm" />
+         <span className="text-xs text-gray-500 dark:text-slate-400 flex flex-wrap items-center flex-1">
+            <span className="font-medium text-gray-700 dark:text-slate-300 mr-1">{item.details?.user_full_name || 'Système'}</span>
+            a modifié le diamant d'investigation
+            {hasActualDiffs && (
+              <button onClick={() => setShowDiff(!showDiff)} className="ml-2 inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-700 transition">
+                {showDiff ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                {showDiff ? 'Masquer les différences' : 'Comparer'}
+              </button>
+            )}
+         </span>
+         <span className="text-[10px] text-gray-400 flex-shrink-0">{new Date(item.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+      </div>
+      {showDiff && hasActualDiffs && (
+        <div className="ml-10 mt-1 p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-mono overflow-auto max-h-64 shadow-inner">
+           {Object.entries(diffs).map(([key, val]) => (
+             <div key={key} className="mb-3 last:mb-0">
+               <div className="font-semibold text-purple-600 dark:text-purple-400 mb-1">{key}:</div>
+               <div className="text-red-500/80 dark:text-red-400/80 pl-2 break-all line-through decoration-red-500/30">- {JSON.stringify(val.old) ?? 'null'}</div>
+               <div className="text-green-600/90 dark:text-green-400/90 pl-2 break-all font-medium">+ {JSON.stringify(val.new) ?? 'null'}</div>
+             </div>
+           ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' o';
@@ -388,16 +443,7 @@ export function TaskComments({
         <div ref={scrollContainerRef} className="space-y-3 pr-1">
           {unifiedTimeline.map((item: any) => {
             if (item.is_audit) {
-               return (
-                  <div key={item.id} className="flex items-center gap-2 py-1.5 px-3 bg-transparent border-[0.5px] border-dashed border-gray-200 dark:border-slate-800 rounded-lg">
-                     <UserAvatar name={item.details?.user_full_name || 'Système'} size="sm" />
-                     <span className="text-xs text-gray-500 dark:text-slate-400">
-                        <span className="font-medium text-gray-700 dark:text-slate-300 mr-1">{item.details?.user_full_name || 'Système'}</span>
-                        a modifié le diamant d'investigation
-                     </span>
-                     <span className="text-[10px] text-gray-400 ml-auto">{new Date(item.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
-                  </div>
-               );
+               return <StixAuditEntry key={item.id} item={item} />;
             }
             if (item.type === 'observed-data') {
                const d = item;

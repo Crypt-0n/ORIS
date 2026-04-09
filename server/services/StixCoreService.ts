@@ -31,8 +31,12 @@ export class StixCoreService {
         if (!existing) throw new Error('Object not found');
         if (!await canAccessCase(userId, existing.case_id)) throw new Error('Access denied');
         
-        const result = await repo.createObject(existing.case_id, { ...stixData, id }, userId);
-        logAudit(existing.case_id, userId, 'stix_object_updated', 'stix', id, { type: stixData.type });
+        const result = await repo.updateObject(id, existing.case_id, stixData, userId);
+        logAudit(existing.case_id, userId, 'stix_object_updated', 'stix', id, { 
+            type: stixData.type,
+            previous_state: existing.data,
+            new_state: result
+        });
         return result;
     }
 
