@@ -59,7 +59,7 @@ interface TaskCommentsProps {
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-const StixAuditEntry = ({ item }: { item: any }) => {
+const StixAuditEntry = ({ item, diamondName }: { item: any, diamondName: string }) => {
   const [showDiff, setShowDiff] = useState(false);
   const prev = item.details?.previous_state;
   const next = item.details?.new_state;
@@ -89,11 +89,11 @@ const StixAuditEntry = ({ item }: { item: any }) => {
          <UserAvatar name={item.details?.user_full_name || 'Système'} avatarUrl={item.details?.user_avatar_url} size="sm" />
          <span className="text-xs text-gray-500 dark:text-slate-400 flex flex-wrap items-center flex-1">
             <span className="font-medium text-gray-700 dark:text-slate-300 mr-1">{item.details?.user_full_name || 'Système'}</span>
-            a modifié le diamant d'investigation
+            a modifié le diamant d'investigation <span className="font-semibold text-gray-800 dark:text-gray-200 mx-1">{diamondName}</span>
             {hasActualDiffs && (
               <button onClick={() => setShowDiff(!showDiff)} className="ml-2 inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-700 transition">
                 {showDiff ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                {showDiff ? 'Masquer les différences' : 'Comparer'}
+                {showDiff ? 'Masquer' : 'Comparer'}
               </button>
             )}
          </span>
@@ -443,7 +443,9 @@ export function TaskComments({
         <div ref={scrollContainerRef} className="space-y-3 pr-1">
           {unifiedTimeline.map((item: any) => {
             if (item.is_audit) {
-               return <StixAuditEntry key={item.id} item={item} />;
+               const targetDiamond = taskDiamonds.find(d => d.id === item.entity_id);
+               const diamondName = item.details?.new_state?.x_oris_description || item.details?.new_state?.name || item.details?.previous_state?.x_oris_description || item.details?.previous_state?.name || targetDiamond?.x_oris_description || targetDiamond?.name || 'Inconnu';
+               return <StixAuditEntry key={item.id} item={item} diamondName={diamondName} />;
             }
             if (item.type === 'observed-data') {
                const d = item;
