@@ -86,7 +86,7 @@ const StixAuditEntry = ({ item }: { item: any }) => {
   return (
     <div key={item.id} className="mb-2">
       <div className="flex items-center gap-2 py-1.5 px-3 bg-transparent border-[0.5px] border-dashed border-gray-200 dark:border-slate-800 rounded-lg">
-         <UserAvatar name={item.details?.user_full_name || 'Système'} size="sm" />
+         <UserAvatar name={item.details?.user_full_name || 'Système'} avatarUrl={item.details?.user_avatar_url} size="sm" />
          <span className="text-xs text-gray-500 dark:text-slate-400 flex flex-wrap items-center flex-1">
             <span className="font-medium text-gray-700 dark:text-slate-300 mr-1">{item.details?.user_full_name || 'Système'}</span>
             a modifié le diamant d'investigation
@@ -449,6 +449,7 @@ export function TaskComments({
                const d = item;
                const creatorLog = (diamondAuditLogs || []).find((log: any) => log.entity_id === d.id && log.action === 'stix_object_created');
                const creatorName = creatorLog?.details?.user_full_name;
+               const creatorAvatarUrl = creatorLog?.details?.user_avatar_url;
                const phases = getKillChainPhases(caseKillChainType || 'lockheed-martin');
                const phase = phases.find(p => p.value === d.x_oris_kill_chain);
                const { complete, missing } = getDiamondCompleteness(d);
@@ -457,7 +458,7 @@ export function TaskComments({
                     <div className="flex items-center gap-2 overflow-hidden">
                       {creatorName ? (
                          <>
-                           <div className="transform scale-75 origin-left -my-1"><UserAvatar name={creatorName} size="sm" /></div>
+                           <div className="transform scale-75 origin-left -my-1"><UserAvatar name={creatorName} avatarUrl={creatorAvatarUrl} size="sm" /></div>
                            <span className="text-xs text-gray-500 dark:text-slate-400 truncate">
                              <span className="font-medium text-gray-700 dark:text-slate-300 mr-1">{creatorName}</span>
                              a créé le diamant : <span className="font-semibold text-gray-700 dark:text-slate-300 ml-1">{d.x_oris_description || d.name}</span>

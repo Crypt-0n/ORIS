@@ -13,6 +13,7 @@ async function logAudit(caseId, userId, action, entityType, entityId, details = 
         const userRepo = new BaseRepository(getDb(), 'user_profiles');
         const user = await userRepo.findById(userId);
         const user_full_name = user ? user.full_name : 'System';
+        const user_avatar_url = user ? user.avatar_url : null;
 
         const auditRepo = new BaseRepository(getDb(), 'case_audit_log');
         await auditRepo.create({
@@ -22,7 +23,7 @@ async function logAudit(caseId, userId, action, entityType, entityId, details = 
             action,
             entity_type: entityType,
             entity_id: entityId,
-            details: JSON.stringify({ ...details, user_full_name }),
+            details: JSON.stringify({ ...details, user_full_name, user_avatar_url }),
         });
 
         // Dispatch webhooks asynchronously (fire-and-forget)
