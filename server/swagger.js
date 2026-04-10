@@ -20,7 +20,7 @@ const options = {
         cookieAuth: {
           type: 'apiKey',
           in: 'cookie',
-          name: 'token'
+          name: 'oris_jwt'
         }
       }
     },

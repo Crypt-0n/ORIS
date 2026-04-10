@@ -163,7 +163,8 @@ class CaseRepository extends BaseRepository {
                     
                     LET isAssigned = c.author_id == @userId || (LENGTH(FOR ca IN assignments FILTER ca.user_id == @userId RETURN 1) > 0)
                     LET isBeneficiaryMember = c.beneficiary_id IN userBeneficiaryIds
-                    LET fullAccess = isAssigned || isBeneficiaryMember
+                    LET isRestrictedTlp = (c.tlp == 'RED' || c.tlp == 'AMBER+STRICT')
+                    LET fullAccess = isRestrictedTlp ? (@hasAdminAccessGlobal || isAssigned) : (isAssigned || isBeneficiaryMember)
                     LET totalPages = @limit > 0 ? CEIL(total / @limit) : 1
                     
                     RETURN fullAccess ? {
@@ -337,11 +338,12 @@ class CaseRepository extends BaseRepository {
             
             LET isAssigned = c.author_id == @userId || (LENGTH(FOR ca IN assignments FILTER ca.user_id == @userId RETURN 1) > 0)
             
-            LET isBeneficiaryAlert = (c.type == 'alert' && c.beneficiary_id != null && LENGTH(
+            LET isBeneficiaryMember = (c.beneficiary_id != null && LENGTH(
                 FOR m IN beneficiary_members FILTER m.beneficiary_id == c.beneficiary_id AND m.user_id == @userId RETURN 1
             ) > 0)
             
-            LET hasFullAccess = isAssigned || isBeneficiaryAlert
+            LET isRestrictedTlp = (c.tlp == 'RED' || c.tlp == 'AMBER+STRICT')
+            LET hasFullAccess = isRestrictedTlp ? isAssigned : (isAssigned || isBeneficiaryMember)
             
             RETURN hasFullAccess ? {
                 id: c._key,

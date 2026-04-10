@@ -251,16 +251,16 @@ function AppContent() {
       console.error('Initialisation erreur:', err);
       const msg = (err.message || '').toLowerCase();
       if (msg.includes('failed to fetch')) {
-        setSystemError({ message: "Système Injoignable (Docker API)", detail: "Le reverse proxy (Nginx) est injoignable ou l'application front-end a perdu sa connexion." });
+        setSystemError({ message: t('errors.unreachableSystem'), detail: t('errors.unreachableSystemDetail') });
         setTimeout(checkInitialization, 5000);
       } else if (err.status === 502 || err.status === 503 || err.status === 504 || msg.includes('bad gateway') || msg.includes('502') || msg.includes('503') || msg.includes('504')) {
-        setSystemError({ message: "Serveur Backend en démarrage", detail: "Le serveur de l'application (oris-backend) est en cours de lancement. Veuillez patienter..." });
+        setSystemError({ message: t('errors.backendStarting'), detail: t('errors.backendStartingDetail') });
         setTimeout(checkInitialization, 5000);
       } else if (err.status === 500 || msg.includes('internal server error') || msg.includes('500') || msg.includes('db') || msg.includes('arangodb') || msg.includes('connect')) {
-        setSystemError({ message: "Base de données non prête", detail: "La base de données (oris-arangodb) est en cours d'initialisation ou refuse la connexion. Veuillez patienter..." });
+        setSystemError({ message: t('errors.dbNotReady'), detail: t('errors.dbNotReadyDetail') });
         setTimeout(checkInitialization, 5000);
       } else {
-        setSystemError({ message: "Système en démarrage", detail: `Le système technique s'initialise ou rencontre une erreur (Code: ${err.status || msg}). Veuillez patienter...` });
+        setSystemError({ message: t('errors.systemStarting'), detail: t('errors.systemStartingDetail', { code: err.status || msg }) });
         setTimeout(checkInitialization, 5000);
       }
     }
@@ -341,7 +341,7 @@ function AppContent() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ThemeProvider>
         <AuthProvider>
           <Routes>

@@ -31,7 +31,7 @@ if (!corsOrigin && process.env.NODE_ENV === 'production') {
     logger.warn('[Security] CORS_ORIGIN is not set. Cross-origin requests will be rejected in production. Set CORS_ORIGIN to your frontend domain.');
 }
 app.use(cors({
-    origin: corsOrigin || (process.env.NODE_ENV === 'production' ? false : true),
+    origin: corsOrigin || (process.env.NODE_ENV === 'production' ? false : [/^http:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?$/]),
     credentials: true
 }));
 

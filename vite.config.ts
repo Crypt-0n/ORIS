@@ -5,32 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   plugins: [
-    {
-      name: 'react-jsx-runtime-workaround',
-      enforce: 'pre',
-      resolveId(id) {
-        if (id === 'react/jsx-runtime' || id === 'react/jsx-dev-runtime') {
-          return '\0' + id;
-        }
-      },
-      load(id) {
-        if (id === '\0react/jsx-runtime' || id === '\0react/jsx-dev-runtime') {
-          return `
-            import React from 'react';
-            export const jsx = function(type, props, key) {
-              const { children, ...rest } = props || {};
-              return React.createElement(type, key !== undefined ? { ...rest, key } : rest, children);
-            };
-            export const jsxs = function(type, props, key) {
-              const { children, ...rest } = props || {};
-              return React.createElement(type, key !== undefined ? { ...rest, key } : rest, ...(Array.isArray(children) ? children : [children]));
-            };
-            export const jsxDEV = jsx;
-            export const Fragment = React.Fragment;
-          `;
-        }
-      }
-    },
+
     react(),
     /*
     VitePWA({

@@ -35,16 +35,21 @@ export function Tooltip({ content, children, iconSize = 16, position = 'top', cl
       onMouseLeave={() => setIsVisible(false)}
       onFocus={() => setIsVisible(true)}
       onBlur={() => setIsVisible(false)}
+      role="button"
+      tabIndex={children ? 0 : -1}
+      aria-label={content}
+      aria-expanded={isVisible}
     >
-      {children || <HelpCircle size={iconSize} className="text-gray-500 hover:text-purple-500 dark:hover:text-purple-400 transition-colors cursor-help outline-none" tabIndex={0} />}
+      {children || <HelpCircle size={iconSize} className="text-gray-500 hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors cursor-help outline-none" tabIndex={0} aria-hidden="true" />}
       
       {isVisible && (
         <div 
+          role="tooltip"
           className={`absolute z-50 w-max max-w-xs px-3 py-2 text-xs font-normal text-white bg-slate-800 dark:bg-slate-700 rounded-lg shadow-lg pointer-events-none animate-in fade-in zoom-in-95 duration-200 ${posClasses[position]}`}
           style={{ textShadow: 'none', lineHeight: '1.4' }}
         >
           {content}
-          <div className={`absolute border-4 border-transparent ${arrowClasses[position]}`} />
+          <div className={`absolute border-4 border-transparent ${arrowClasses[position]}`} aria-hidden="true" />
         </div>
       )}
     </div>

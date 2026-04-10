@@ -12,6 +12,18 @@ async function dispatchWebhooks(eventType, payload) {
                 const events = JSON.parse(wh.events || '[]');
                 if (!events.includes('*') && !events.includes(eventType)) continue;
 
+                // SSRF Guard: skip webhooks targeting internal/private addresses
+                try {
+                    const parsed = new URL(wh.url);
+                    const hostname = parsed.hostname.toLowerCase();
+                    if (!['http:', 'https:'].includes(parsed.protocol)) continue;
+                    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1' || hostname === '169.254.169.254') continue;
+                    const ipParts = hostname.split('.').map(Number);
+                    if (ipParts.length === 4 && ipParts.every(n => !isNaN(n))) {
+                        if (ipParts[0] === 10 || (ipParts[0] === 172 && ipParts[1] >= 16 && ipParts[1] <= 31) || (ipParts[0] === 192 && ipParts[1] === 168) || ipParts[0] === 0) continue;
+                    }
+                } catch { continue; }
+
                 const body = JSON.stringify({
                     event: eventType,
                     timestamp: new Date().toISOString(),

@@ -196,7 +196,7 @@ export function GlobalSearch() {
               </ResultSection>
             )}
             {(results.stixObjects || []).length > 0 && (
-              <ResultSection icon={Database} label="Objets STIX" color="text-purple-500">
+              <ResultSection icon={Database} label={t('search.stixObjects')} color="text-purple-500">
                 {results.stixObjects.map((obj) => (
                   <ResultItem key={obj.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'stix' && a.id === obj.id)} onClick={() => navigateTo({ ...obj, type: 'stix' })}>
                     <div className="min-w-0">
@@ -213,7 +213,7 @@ export function GlobalSearch() {
               </ResultSection>
             )}
             {(results.comments || []).length > 0 && (
-              <ResultSection icon={MessageSquare} label="Commentaires" color="text-cyan-500">
+              <ResultSection icon={MessageSquare} label={t('search.comments')} color="text-cyan-500">
                 {results.comments.map((cm) => (
                   <ResultItem key={cm.id} selected={selectedIndex === allItems.findIndex(a => a.type === 'comment' && a.id === cm.id)} onClick={() => navigateTo({ ...cm, type: 'comment' })}>
                     <div className="min-w-0">
@@ -312,10 +312,11 @@ function ResultItem({ selected, onClick, children }: { selected: boolean; onClic
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation();
   const isClosed = status === 'closed';
   return (
     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${
       isClosed ? 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400' : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-    }`}>{isClosed ? 'Fermé' : 'Ouvert'}</span>
+    }`}>{isClosed ? t('search.statusClosed') : t('search.statusOpen')}</span>
   );
 }

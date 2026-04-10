@@ -1138,3 +1138,78 @@ describe('PDF Export', () => {
         expect(res.statusCode).toBe(403);
     });
 });
+
+// ====== Phase 3 — Security Non-Regression Tests ======
+
+describe('File Download — Path Traversal Protection', () => {
+    it('SEC-PT-01: rejects ../../../etc/passwd path traversal in storagePath', async () => {
+        if (!authToken) await registerAndLogin(TEST_USER);
+        const res = await auth(request(app).get('/api/files/download?storagePath=../../../etc/passwd'));
+        expect(res.statusCode).toBe(404);
+    });
+
+    it('SEC-PT-02: rejects URL-encoded traversal (%2e%2e%2f)', async () => {
+        const res = await auth(request(app).get('/api/files/download?storagePath=%2e%2e%2f%2e%2e%2fetc%2fpasswd'));
+        expect(res.statusCode).toBe(404);
+    });
+});
+
+describe('Webhook SSRF Protection', () => {
+    let webhookAdminToken;
+
+    beforeAll(async () => {
+        // Ensure we have an admin user
+        if (!adminToken) await registerAndLogin(TEST_USER);
+        webhookAdminToken = adminToken;
+    });
+
+    it('SSRF-01: rejects webhook creation with localhost URL', async () => {
+        const res = await request(app)
+            .post('/api/webhooks')
+            .set('Authorization', `Bearer ${webhookAdminToken}`)
+            .send({ name: 'Evil Hook', url: 'http://localhost:8080/steal' });
+        expect(res.statusCode).toBe(400);
+        expect(res.body.error).toContain('not allowed');
+    });
+
+    it('SSRF-02: rejects webhook creation with 127.0.0.1', async () => {
+        const res = await request(app)
+            .post('/api/webhooks')
+            .set('Authorization', `Bearer ${webhookAdminToken}`)
+            .send({ name: 'Evil Hook 2', url: 'http://127.0.0.1/admin' });
+        expect(res.statusCode).toBe(400);
+    });
+
+    it('SSRF-03: rejects webhook creation with cloud metadata IP (169.254.169.254)', async () => {
+        const res = await request(app)
+            .post('/api/webhooks')
+            .set('Authorization', `Bearer ${webhookAdminToken}`)
+            .send({ name: 'Metadata', url: 'http://169.254.169.254/latest/meta-data/' });
+        expect(res.statusCode).toBe(400);
+    });
+
+    it('SSRF-04: rejects webhook creation with private RFC 1918 range (10.x)', async () => {
+        const res = await request(app)
+            .post('/api/webhooks')
+            .set('Authorization', `Bearer ${webhookAdminToken}`)
+            .send({ name: 'Internal', url: 'http://10.0.0.5:3000/api' });
+        expect(res.statusCode).toBe(400);
+    });
+
+    it('SSRF-05: rejects webhook creation with private RFC 1918 range (192.168.x)', async () => {
+        const res = await request(app)
+            .post('/api/webhooks')
+            .set('Authorization', `Bearer ${webhookAdminToken}`)
+            .send({ name: 'LAN', url: 'http://192.168.1.1/' });
+        expect(res.statusCode).toBe(400);
+    });
+
+    it('SSRF-06: accepts webhook creation with valid external URL', async () => {
+        const res = await request(app)
+            .post('/api/webhooks')
+            .set('Authorization', `Bearer ${webhookAdminToken}`)
+            .send({ name: 'Valid Hook', url: 'https://hooks.slack.com/services/T00/B00/xxx' });
+        expect(res.statusCode).toBe(201);
+        expect(res.body.name).toBe('Valid Hook');
+    });
+});

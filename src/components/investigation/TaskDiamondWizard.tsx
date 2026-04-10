@@ -289,16 +289,16 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
 
 
 
-    const handleRemoveNode = (stepKey: string, id: string) => {
+    const handleRemoveNode = React.useCallback((stepKey: string, id: string) => {
         setAxesNodes(prev => ({
             ...prev,
             [stepKey]: prev[stepKey].filter(n => n.id !== id)
         }));
         // Remove relationships involving this id
         setRelations(prev => prev.filter(r => r.sourceId !== id && r.targetId !== id));
-    };
+    }, []);
 
-    const handleAddRelation = (sourceId?: string, targetId?: string, relType?: string): boolean => {
+    const handleAddRelation = React.useCallback((sourceId?: string, targetId?: string, relType?: string): boolean => {
         setError(null);
         const src = sourceId || draftRelSource;
         const tgt = targetId || draftRelTarget;
@@ -312,24 +312,39 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
             return false;
         }
         // Avoid duplicate
-        if (relations.some(r => r.sourceId === src && r.targetId === tgt && r.type === rt)) {
+        // Use a functional state update to ensure the latest relations are seen safely
+        let isDuplicate = false;
+        setRelations(prev => {
+            if (prev.some(r => r.sourceId === src && r.targetId === tgt && r.type === rt)) {
+                isDuplicate = true;
+                return prev;
+            }
+            return [...prev, { id: generateStixId('relationship'), sourceId: src, targetId: tgt, type: rt }];
+        });
+        if (isDuplicate) {
             setError('Cette relation existe déjà.');
             return false;
         }
-        setRelations(prev => [...prev, { id: generateStixId('relationship'), sourceId: src, targetId: tgt, type: rt }]);
         setDraftRelSource('');
         setDraftRelTarget('');
         setDraftRelType('uses');
         return true;
-    };
+    }, [draftRelSource, draftRelTarget, draftRelType]);
 
-    const handleRemoveRelation = (id: string) => {
+    const handleRemoveRelation = React.useCallback((id: string) => {
         setRelations(prev => prev.filter(r => r.id !== id));
-    };
+    }, []);
 
-    const handleUpdateRelationType = (id: string, newType: string) => {
+    const handleUpdateRelationType = React.useCallback((id: string, newType: string) => {
         setRelations(prev => prev.map(r => r.id === id ? { ...r, type: newType } : r));
-    };
+    }, []);
+
+    const handleAddNodeAxis = React.useCallback((axisKey: string, node: SelectedNode) => {
+        setAxesNodes(prev => ({
+            ...prev,
+            [axisKey]: [...prev[axisKey], node]
+        }));
+    }, []);
 
     const validateStep = (): boolean => {
         if (!currentStep) return true;
@@ -659,15 +674,8 @@ export const TaskDiamondWizard: React.FC<TaskDiamondWizardProps> = ({
                                         onRemoveRelation={handleRemoveRelation}
                                         onUpdateRelationType={handleUpdateRelationType}
                                         existingObjects={existingObjects}
-                                        onAddNode={(axisKey, node) => {
-                                            setAxesNodes(prev => ({
-                                                ...prev,
-                                                [axisKey]: [...prev[axisKey], node]
-                                            }));
-                                        }}
-                                        onRemoveNode={(axisKey, id) => {
-                                            handleRemoveNode(axisKey, id);
-                                        }}
+                                        onAddNode={handleAddNodeAxis}
+                                        onRemoveNode={handleRemoveNode}
                                         axisTypes={{
                                             adversary: { types: ['threat-actor', 'intrusion-set', 'campaign'], defaultType: 'threat-actor' },
                                             capability: { types: ['malware', 'tool', 'attack-pattern'], defaultType: 'malware' },

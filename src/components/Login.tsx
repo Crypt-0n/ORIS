@@ -71,10 +71,10 @@ export function Login() {
           </div>
 
           <h1 className="text-xl font-bold text-center text-gray-800 dark:text-white mb-2">
-            Vérification en deux étapes
+            {t('login.twoFactor.title')}
           </h1>
           <p className="text-center text-gray-600 dark:text-slate-400 mb-6 text-sm">
-            Entrez le code à 6 chiffres de votre application d'authentification
+            {t('login.twoFactor.subtitle')}
           </p>
 
           <form onSubmit={handleVerify2FA} className="space-y-4">
@@ -108,7 +108,7 @@ export function Login() {
               className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <ShieldCheck className="w-4 h-4" />
-              {loading ? 'Vérification...' : 'Vérifier'}
+              {loading ? t('login.twoFactor.verifying') : t('login.twoFactor.verify')}
             </button>
 
             <button
@@ -116,7 +116,7 @@ export function Login() {
               onClick={() => { setNeeds2FA(false); setTotpCode(''); setTempToken(''); setError(''); }}
               className="w-full text-sm text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 transition"
             >
-              ← Retour à la connexion
+              {t('login.twoFactor.backToLogin')}
             </button>
           </form>
         </div>

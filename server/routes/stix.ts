@@ -5,8 +5,32 @@ import authenticateToken from '../middleware/auth';
 import { StixCoreService } from '../services/StixCoreService';
 
 const router = express.Router();
+/**
+ * @swagger
+ * tags:
+ *   name: STIX
+ *   description: Renseignement et Cyber Menace (Objets STIX 2.1)
+ */
 router.use(authenticateToken);
 
+/**
+ * @swagger
+ * /stix/objects/by-case/{caseId}:
+ *   get:
+ *     summary: Liste des objets STIX pour un dossier
+ *     tags: [STIX]
+ *     parameters:
+ *       - in: path
+ *         name: caseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Liste des objets SDO
+ *       403:
+ *         description: Accès refusé
+ */
 router.get('/objects/by-case/:caseId', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         const objects = await StixCoreService.getObjectsByCaseId((req.params.caseId as string), req.user.id);
@@ -21,6 +45,24 @@ router.get('/objects/by-case/:caseId', async (req: AuthenticatedRequest, res: Re
     }
 });
 
+/**
+ * @swagger
+ * /stix/objects/{id}:
+ *   get:
+ *     summary: Récupérer un objet STIX par ID
+ *     tags: [STIX]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: L'objet STIX
+ *       404:
+ *         description: Objet introuvable
+ */
 router.get('/objects/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         const obj = await StixCoreService.getObjectById((req.params.id as string));
@@ -39,6 +81,29 @@ const createStixSchema = z.object({
     case_id: z.string().min(1),
 }).passthrough();
 
+/**
+ * @swagger
+ * /stix/objects:
+ *   post:
+ *     summary: Créer un objet STIX 2.1 (SDO)
+ *     tags: [STIX]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               case_id:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: L'objet STIX créé
+ *       403:
+ *         description: Accès refusé
+ */
 router.post('/objects', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         const validation = createStixSchema.safeParse(req.body);
@@ -62,6 +127,30 @@ router.post('/objects', async (req: AuthenticatedRequest, res: Response): Promis
 
 const updateStixSchema = z.record(z.string(), z.any());
 
+/**
+ * @swagger
+ * /stix/objects/{id}:
+ *   put:
+ *     summary: Mettre à jour un objet STIX
+ *     tags: [STIX]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Objet mis à jour
+ *       403:
+ *         description: Accès refusé
+ *       404:
+ *         description: Objet introuvable
+ */
 router.put('/objects/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         const validation = updateStixSchema.safeParse(req.body);
@@ -108,6 +197,22 @@ router.patch('/objects/:id/visual', async (req: AuthenticatedRequest, res: Respo
     }
 });
 
+/**
+ * @swagger
+ * /stix/objects/{id}:
+ *   delete:
+ *     summary: Supprimer un objet STIX
+ *     tags: [STIX]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *     responses:
+ *       200:
+ *         description: Objet supprimé
+ *       403:
+ *         description: Accès refusé
+ */
 router.delete('/objects/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         await StixCoreService.deleteObject((req.params.id as string), req.user.id);
@@ -140,6 +245,33 @@ router.get('/relationships/by-case/:caseId', async (req: AuthenticatedRequest, r
     }
 });
 
+/**
+ * @swagger
+ * /stix/relationships:
+ *   post:
+ *     summary: Créer une relation STIX (SRO)
+ *     tags: [STIX]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               case_id:
+ *                 type: string
+ *               relationship_type:
+ *                 type: string
+ *               source_ref:
+ *                 type: string
+ *               target_ref:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: La relation créée
+ *       403:
+ *         description: Accès refusé
+ */
 router.post('/relationships', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         const validation = createStixSchema.safeParse(req.body);
@@ -170,6 +302,22 @@ router.delete('/relationships/:id', async (req: AuthenticatedRequest, res: Respo
     }
 });
 
+/**
+ * @swagger
+ * /stix/bundle/{caseId}:
+ *   get:
+ *     summary: Obtenir un Bundle STIX 2.1 complet pour un dossier
+ *     tags: [STIX]
+ *     parameters:
+ *       - in: path
+ *         name: caseId
+ *         required: true
+ *     responses:
+ *       200:
+ *         description: Bundle STIX généré
+ *       403:
+ *         description: Accès refusé
+ */
 router.get('/bundle/:caseId', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
         const bundle = await StixCoreService.getBundleForCase((req.params.caseId as string), req.user.id);

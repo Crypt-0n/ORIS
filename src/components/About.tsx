@@ -16,7 +16,7 @@ export function About() {
           <p className="mt-1 text-blue-200 text-sm">{t('about.subtitle')}</p>
           <div className="mt-4 inline-flex items-center gap-2 bg-white/15 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
             <GitBranch className="w-3.5 h-3.5" />
-            <span>{t('about.version')} {t('auto.1_0_0_beta3')}</span>
+            <span>{t('about.version')} 1.0.0-beta3</span>
           </div>
         </div>
 
@@ -42,7 +42,7 @@ export function About() {
               <div className="mt-2 space-y-1.5 text-sm text-gray-500 dark:text-slate-400">
                 <div className="flex justify-between items-center">
                   <span>{t('about.version')}</span>
-                  <span className="font-medium text-gray-700 dark:text-slate-300 ml-2">{t('auto.1_0_0_beta3')}</span>
+                  <span className="font-medium text-gray-700 dark:text-slate-300 ml-2">1.0.0-beta3</span>
                 </div>
                 <div className="flex justify-between">
                   <span>{t('about.status')}</span>

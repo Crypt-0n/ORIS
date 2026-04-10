@@ -283,4 +283,32 @@ describe('STIX 2.1 API', () => {
             expect(res.body.objects.length).toBeGreaterThanOrEqual(6); 
         });
     });
+
+    describe('Security & RBAC Enforcement', () => {
+        let maliciousToken;
+        beforeAll(async () => {
+            const maliciousUser = await registerAndLogin({
+                email: 'hacker@oris.local',
+                password: 'HackerPass123!',
+                full_name: 'Malicious Actor',
+            }, adminToken);
+            maliciousToken = maliciousUser.token;
+        });
+
+        it('denies access to GET bundle for non-member user', async () => {
+            const res = await request(app)
+                .get(`/api/stix/bundle/${caseId}`)
+                .set('Authorization', `Bearer ${maliciousToken}`);
+            expect(res.statusCode).toBe(403);
+            expect(res.body.error).toBe('Access denied');
+        });
+
+        it('denies access to DELETE objects for non-member user', async () => {
+            const res = await request(app)
+                .delete(`/api/stix/objects/${threatActorId}`)
+                .set('Authorization', `Bearer ${maliciousToken}`);
+            expect(res.statusCode).toBe(403);
+            expect(res.body.error).toBe('Access denied');
+        });
+    });
 });

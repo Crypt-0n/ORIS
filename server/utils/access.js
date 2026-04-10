@@ -127,26 +127,32 @@ async function isTeamLeadForCase(userId, caseId) {
 
 async function canAccessCase(userId, caseId) {
     if (!userId || !caseId) return false;
-    const userRepo = new BaseRepository(getDb(), 'user_profiles');
-    const user = await userRepo.findById(userId);
-    if (!user) return false;
-    if (isAdmin(user.role)) return true;
-
-    const caseRepo = new BaseRepository(getDb(), 'cases');
-    const caseRow = await caseRepo.findById(caseId);
-    if (!caseRow) return false;
-    if (caseRow.author_id === userId) return true;
-
-    const assignRepo = new BaseRepository(getDb(), 'case_assignments');
-    const isAssigned = await assignRepo.findFirst({ case_id: caseId, user_id: userId });
-    if (isAssigned) return true;
-
-    if (caseRow.beneficiary_id) {
-        const memRepo = new BaseRepository(getDb(), 'beneficiary_members');
-        const isMember = await memRepo.findFirst({ beneficiary_id: caseRow.beneficiary_id, user_id: userId });
-        if (isMember) return true;
-    }
-    return false;
+    const db = getDb();
+    // Single AQL round-trip instead of 4 sequential queries
+    // TLP:RED and TLP:AMBER+STRICT restrict access to admins, author, and assigned users only
+    const cursor = await db.query(`
+        LET user = DOCUMENT('user_profiles', @userId)
+        LET isActive = user != null
+        LET isAdminUser = isActive AND (
+            user.role == '["admin"]' OR user.role == 'admin'
+            OR (IS_ARRAY(user.role) AND 'admin' IN user.role)
+            OR CONTAINS(TO_STRING(user.role), '"admin"')
+        )
+        LET caseDoc = DOCUMENT('cases', @caseId)
+        LET isAuthor = caseDoc != null AND caseDoc.author_id == @userId
+        LET isAssigned = LENGTH(
+            FOR a IN case_assignments FILTER a.case_id == @caseId AND a.user_id == @userId LIMIT 1 RETURN 1
+        ) > 0
+        LET isBeneficiaryMember = caseDoc != null AND caseDoc.beneficiary_id != null AND LENGTH(
+            FOR m IN beneficiary_members FILTER m.beneficiary_id == caseDoc.beneficiary_id AND m.user_id == @userId LIMIT 1 RETURN 1
+        ) > 0
+        LET isRestrictedTlp = caseDoc != null AND (caseDoc.tlp == 'RED' OR caseDoc.tlp == 'AMBER+STRICT')
+        LET hasInvestigatorAccess = isAdminUser OR isAuthor OR isAssigned
+        LET hasStandardAccess = hasInvestigatorAccess OR isBeneficiaryMember
+        RETURN isActive AND (isRestrictedTlp ? hasInvestigatorAccess : hasStandardAccess)
+    `, { userId, caseId });
+    const result = await cursor.all();
+    return result[0] === true;
 }
 
 async function getUserRole(userId) {

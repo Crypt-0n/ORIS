@@ -10,6 +10,34 @@ const router = express.Router();
 router.use(authenticateToken);
 router.use(requireAdmin);
 
+/**
+ * SSRF Guard — reject URLs pointing to private / internal networks.
+ * Prevents an admin from using webhooks to probe the internal Docker network,
+ * cloud metadata endpoints (169.254.169.254), or loopback interfaces.
+ */
+function isUrlSafe(rawUrl: string): boolean {
+    try {
+        const parsed = new URL(rawUrl);
+        if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+        const hostname = parsed.hostname.toLowerCase();
+        // Reject loopback
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1') return false;
+        // Reject link-local / cloud metadata
+        if (hostname === '169.254.169.254') return false;
+        // Reject RFC 1918 private ranges
+        const ipParts = hostname.split('.').map(Number);
+        if (ipParts.length === 4 && ipParts.every(n => !isNaN(n))) {
+            if (ipParts[0] === 10) return false;
+            if (ipParts[0] === 172 && ipParts[1] >= 16 && ipParts[1] <= 31) return false;
+            if (ipParts[0] === 192 && ipParts[1] === 168) return false;
+            if (ipParts[0] === 0) return false;
+        }
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 const AVAILABLE_EVENTS = [
     'case_created', 'case_closed', 'case_reopened', 'case_updated',
     'task_created', 'task_closed', 'task_reopened', 'task_updated',
@@ -32,6 +60,10 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
         const { name, url, events, secret } = req.body;
         if (!name || !url) {
             res.status(400).json({ error: 'Name and URL required' });
+            return;
+        }
+        if (!isUrlSafe(url)) {
+            res.status(400).json({ error: 'URL not allowed: private, internal, or non-HTTP(S) addresses are rejected for security reasons.' });
             return;
         }
         const id = crypto.randomUUID();
@@ -97,6 +129,11 @@ router.post('/:id/test', async (req: AuthenticatedRequest, res: Response): Promi
         const wh = await repo.findById((req.params.id as string));
         if (!wh) {
             res.status(404).json({ error: 'Not found' });
+            return;
+        }
+
+        if (!isUrlSafe(wh.url)) {
+            res.status(400).json({ error: 'Webhook URL targets a private/internal address. Update the URL before testing.' });
             return;
         }
 

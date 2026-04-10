@@ -14,6 +14,16 @@
             "title": "Langue de l'interface"
         }
     },
+    "errors": {
+        "unreachableSystem": "Système Injoignable (Docker API)",
+        "unreachableSystemDetail": "Le reverse proxy (Nginx) est injoignable ou l'application front-end a perdu sa connexion.",
+        "backendStarting": "Serveur Backend en démarrage",
+        "backendStartingDetail": "Le serveur de l'application (oris-backend) est en cours de lancement. Veuillez patienter...",
+        "dbNotReady": "Base de données non prête",
+        "dbNotReadyDetail": "La base de données (oris-arangodb) est en cours d'initialisation ou refuse la connexion. Veuillez patienter...",
+        "systemStarting": "Système en démarrage",
+        "systemStartingDetail": "Le système technique s'initialise ou rencontre une erreur (Code: {{code}}). Veuillez patienter..."
+    },
     "login": {
         "subtitle": "Plateforme d'Investigation et de Reporting",
         "email": "Email",
@@ -21,7 +31,20 @@
         "password": "Mot de passe",
         "signIn": "Se connecter",
         "signingIn": "Connexion...",
-        "invalidCredentials": "Email ou mot de passe incorrect"
+        "invalidCredentials": "Email ou mot de passe incorrect",
+        "twoFactor": {
+            "title": "Vérification en deux étapes",
+            "subtitle": "Entrez le code à 6 chiffres de votre application d'authentification",
+            "verifying": "Vérification...",
+            "verify": "Vérifier",
+            "backToLogin": "← Retour à la connexion"
+        }
+    },
+    "search": {
+        "stixObjects": "Objets STIX",
+        "comments": "Commentaires",
+        "statusClosed": "Fermé",
+        "statusOpen": "Ouvert"
     },
     "about": {
         "subtitle": "Operational Response & Incident System",
