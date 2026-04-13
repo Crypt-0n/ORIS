@@ -7,7 +7,6 @@ export default defineConfig({
   plugins: [
 
     react(),
-    /*
     VitePWA({
       strategies: 'injectManifest',
       srcDir: 'src',
@@ -62,7 +61,6 @@ export default defineConfig({
         prefer_related_applications: false
       }
     })
-    */
   ],
   server: {
     port: 5173,
