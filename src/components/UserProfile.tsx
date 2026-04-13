@@ -1,6 +1,6 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
-import { User, Mail, Shield, Lock, Eye, EyeOff, Check, AlertCircle, Globe, Key, Trash2, Hash, Camera, X, Info } from 'lucide-react';
+import { User, Mail, Shield, Lock, Eye, EyeOff, Check, AlertCircle, Globe, Key, Trash2, Hash, Camera, X, Info, Clock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
 import { UserAvatar } from './UserAvatar';
@@ -29,6 +29,7 @@ export function UserProfile() {
           <PreferencesCard />
           <TwoFactorCard />
           <NotificationPreferencesCard />
+          <SessionLockCard />
           <PinCodeCard />
           <ApiTokensCard />
           <ChangePasswordCard />
@@ -805,6 +806,108 @@ function PasswordField({
           {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
         </button>
       </div>
+    </div>
+  );
+}
+
+function SessionLockCard() {
+  const { t } = useTranslation();
+  const { profile, refreshProfile, user } = useAuth();
+  const [globalEnabled, setGlobalEnabled] = useState(false);
+  const [globalForce, setGlobalForce] = useState(false);
+  const [globalTimeout, setGlobalTimeout] = useState(5);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    api.get('/config').then((data: Record<string, string>) => {
+      setGlobalEnabled(data?.session_lock_enabled === 'true');
+      setGlobalForce(data?.force_session_lock === 'true');
+      setGlobalTimeout(parseInt(data?.session_lock_timeout || '5', 10));
+    });
+  }, [user]);
+
+  if (!globalEnabled) return null; // Admin disabled completely
+
+  const userPrefEnabled = profile?.preferences?.sessionLockEnabled === true;
+  const userPrefTimeout = parseInt(profile?.preferences?.sessionLockTimeout || '5', 10);
+
+  const isEnabled = globalForce ? true : userPrefEnabled;
+  const currentTimeout = globalForce ? globalTimeout : (userPrefTimeout > 0 ? userPrefTimeout : 5);
+
+  const toggleLock = async () => {
+    if (globalForce) return;
+    setSaving(true);
+    try {
+      await api.put('/auth/preferences', {
+        preferences: { ...profile?.preferences, sessionLockEnabled: !userPrefEnabled }
+      });
+      await refreshProfile();
+    } catch (err) { console.error(err); }
+    setSaving(false);
+  };
+
+  const saveTimeout = async (minutes: number) => {
+    if (globalForce) return;
+    setSaving(true);
+    try {
+      await api.put('/auth/preferences', {
+        preferences: { ...profile?.preferences, sessionLockTimeout: minutes }
+      });
+      await refreshProfile();
+    } catch (err) { console.error(err); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 overflow-hidden">
+      <div className="flex items-center justify-between mb-4 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+            <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white">{t('admin.sessionLockTitle', 'Verrouillage de session')}</h2>
+            <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5 max-w-sm">
+              {t('admin.sessionLockDesc', "Verrouiller automatiquement la session après une période d'inactivité.")}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          {globalForce && (
+             <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 whitespace-nowrap">
+               Forcé par l'administrateur
+             </span>
+          )}
+          <button
+            type="button"
+            disabled={saving || globalForce}
+            onClick={toggleLock}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${isEnabled ? 'bg-amber-500' : 'bg-gray-300 dark:bg-slate-600'}`}
+            role="switch"
+            aria-checked={isEnabled}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </div>
+      </div>
+
+      {isEnabled && (
+        <div className="flex items-center gap-2 pt-3 border-t border-gray-100 dark:border-slate-800">
+          <Clock className="w-4 h-4 text-gray-400 dark:text-slate-500 flex-shrink-0" />
+          <label className="text-sm font-medium text-gray-700 dark:text-slate-300 whitespace-nowrap">{t('admin.sessionLockTimeout', "Délai d'inactivité :")}</label>
+          <select
+            value={currentTimeout}
+            onChange={(e) => saveTimeout(Number(e.target.value))}
+            disabled={saving || globalForce}
+            className="px-3 py-1.5 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ml-2"
+          >
+            {[1, 2, 5, 10, 15, 30, 60].map(m => (
+              <option key={m} value={m}>{m} {t('admin.minutes', 'minutes')}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }

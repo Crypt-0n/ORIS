@@ -12,6 +12,7 @@ export function SystemOperationsPanel() {
 
   const [savingConfig, setSavingConfig] = useState(false);
   const [sessionLockEnabled, setSessionLockEnabled] = useState(false);
+  const [forceSessionLock, setForceSessionLock] = useState(false);
   const [sessionLockTimeout, setSessionLockTimeout] = useState(5);
   const [allowApiTokens, setAllowApiTokens] = useState(true);
   const [allowDiamondDeletion, setAllowDiamondDeletion] = useState(false);
@@ -34,6 +35,7 @@ export function SystemOperationsPanel() {
           if (row.key === 'allow_comment_editing') setAllowCommentEditing(row.value !== 'false'); // true by default
           if (row.key === 'allow_comment_deletion') setAllowCommentDeletion(row.value !== 'false'); // true by default
           if (row.key === 'session_lock_enabled') setSessionLockEnabled(row.value === 'true');
+          if (row.key === 'force_session_lock') setForceSessionLock(row.value === 'true');
           if (row.key === 'session_lock_timeout') setSessionLockTimeout(parseInt(row.value, 10) || 5);
         }
       }
@@ -95,6 +97,16 @@ export function SystemOperationsPanel() {
     try {
       await api.put('/admin/config', { key: 'session_lock_enabled', value: String(newValue) });
       setSessionLockEnabled(newValue);
+    } catch (err) { console.error(err); }
+    setSavingConfig(false);
+  };
+
+  const toggleForceSessionLock = async () => {
+    const newValue = !forceSessionLock;
+    setSavingConfig(true);
+    try {
+      await api.put('/admin/config', { key: 'force_session_lock', value: String(newValue) });
+      setForceSessionLock(newValue);
     } catch (err) { console.error(err); }
     setSavingConfig(false);
   };
@@ -224,19 +236,40 @@ export function SystemOperationsPanel() {
                   <p className="text-sm text-gray-500 dark:text-slate-400 mt-1 max-w-xl">{t('admin.sessionLockDesc', 'Verrouille l\'écran après inactivité. Necessitera le mot de passe pour revenir.')}</p>
                   
                   {sessionLockEnabled && (
-                    <div className="mt-4 flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg border border-gray-100 dark:border-slate-700/50 w-fit">
-                      <Clock className="w-4 h-4 text-gray-500 dark:text-slate-400 flex-shrink-0" />
-                      <label className="text-sm font-medium text-gray-700 dark:text-slate-300 whitespace-nowrap">{t('admin.sessionLockTimeout', 'Délai d\'inactivité max')}</label>
-                      <select
-                        value={sessionLockTimeout}
-                        onChange={(e) => saveSessionLockTimeout(Number(e.target.value))}
-                        disabled={savingConfig}
-                        className="px-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-slate-200 disabled:opacity-50 cursor-pointer shadow-sm ml-2"
-                      >
-                        {[1, 2, 5, 10, 15, 30, 60].map(m => (
-                          <option key={m} value={m}>{m} {t('admin.minutes', 'minutes')}</option>
-                        ))}
-                      </select>
+                    <div className="mt-4 flex flex-col gap-3 bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg border border-gray-100 dark:border-slate-700/50 w-full sm:w-fit">
+                      <div className="flex items-center justify-between gap-6">
+                        <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
+                          Forcer pour tous les utilisateurs
+                          <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5 font-normal max-w-sm">Si désactivé, les utilisateurs configureront cette option (Délai, Actif/Inactif) eux-mêmes depuis leur profil.</p>
+                        </label>
+                        <button
+                          type="button"
+                          disabled={savingConfig}
+                          onClick={toggleForceSessionLock}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${forceSessionLock ? 'bg-amber-500' : 'bg-gray-300 dark:bg-slate-600'}`}
+                          role="switch"
+                          aria-checked={forceSessionLock}
+                        >
+                          <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${forceSessionLock ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+
+                      {forceSessionLock && (
+                        <div className="flex items-center gap-2 pt-3 border-t border-gray-200 dark:border-slate-700">
+                          <Clock className="w-4 h-4 text-gray-500 dark:text-slate-400 flex-shrink-0" />
+                          <label className="text-sm font-medium text-gray-700 dark:text-slate-300 whitespace-nowrap">{t('admin.sessionLockTimeout', 'Délai d\'inactivité forcé')}</label>
+                          <select
+                            value={sessionLockTimeout}
+                            onChange={(e) => saveSessionLockTimeout(Number(e.target.value))}
+                            disabled={savingConfig}
+                            className="px-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-slate-200 disabled:opacity-50 cursor-pointer shadow-sm ml-2"
+                          >
+                            {[1, 2, 5, 10, 15, 30, 60].map(m => (
+                              <option key={m} value={m}>{m} {t('admin.minutes', 'minutes')}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

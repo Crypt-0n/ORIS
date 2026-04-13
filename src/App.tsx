@@ -145,7 +145,7 @@ function CasesListRoute() {
 }
 
 function useInactivityLock() {
-  const { user, isLocked, setLocked } = useAuth();
+  const { user, profile, isLocked, setLocked } = useAuth();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lockEnabled, setLockEnabled] = useState(false);
   const timeoutRef = useRef(5);
@@ -154,16 +154,34 @@ function useInactivityLock() {
   const fetchLockConfig = useCallback(() => {
     if (!user) return;
     api.get('/config').then((data: Record<string, string>) => {
-      const enabled = data?.session_lock_enabled === 'true';
-      const timeout = parseInt(data?.session_lock_timeout || '5', 10);
-      timeoutRef.current = timeout > 0 ? timeout : 5;
-      setLockEnabled(enabled);
-      // If admin disabled session lock, unlock immediately
-      if (!enabled && isLocked) {
+      const globalFeatureEnabled = data?.session_lock_enabled === 'true';
+      const globalForce = data?.force_session_lock === 'true';
+      const globalTimeout = parseInt(data?.session_lock_timeout || '5', 10);
+
+      let finalEnabled = false;
+      let finalTimeout = 5;
+
+      if (!globalFeatureEnabled) {
+        finalEnabled = false;
+      } else if (globalForce) {
+        finalEnabled = true;
+        finalTimeout = globalTimeout > 0 ? globalTimeout : 5;
+      } else {
+        const userPrefEnabled = profile?.preferences?.sessionLockEnabled === true;
+        const userPrefTimeout = parseInt(profile?.preferences?.sessionLockTimeout || '5', 10);
+        finalEnabled = userPrefEnabled;
+        finalTimeout = userPrefTimeout > 0 ? userPrefTimeout : 5;
+      }
+
+      timeoutRef.current = finalTimeout;
+      setLockEnabled(finalEnabled);
+
+      // If session lock is disabled but session is locked, unlock immediately
+      if (!finalEnabled && isLocked) {
         setLocked(false);
       }
     }).catch(() => {});
-  }, [user, isLocked, setLocked]);
+  }, [user, profile, isLocked, setLocked]);
 
   useEffect(() => {
     fetchLockConfig();
